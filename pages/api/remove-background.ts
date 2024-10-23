@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { IncomingForm } from 'formidable'
+import { IncomingForm, Files } from 'formidable'
 import fs from 'fs/promises'
 import path from 'path'
 import axios from 'axios'
@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const form = new IncomingForm()
-    const [fields, files] = await new Promise<[any, any]>((resolve, reject) => {
+    const [, files] = await new Promise<[unknown, Files]>((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err)
         resolve([fields, files])
@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
 
     const imageFile = files.image
-    if (!imageFile) {
+    if (!imageFile || !Array.isArray(imageFile) || imageFile.length === 0) {
       return res.status(400).json({ error: '이미지 파일이 필요합니다.' })
     }
 

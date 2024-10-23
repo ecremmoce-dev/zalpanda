@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Download, ZoomIn, ZoomOut } from 'lucide-react'
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
+import Image from 'next/image'
 
 interface ImageItem {
   file: File;
@@ -13,7 +14,7 @@ interface ImageItem {
   checked: boolean;
   name: string;
   size: string;
-  result: string | null;
+  result: string;  // 'null' 대신 'string'으로 변경
   resultSize: string | null;
 }
 
@@ -28,16 +29,27 @@ export default function RemoveBackground() {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    const newImages = files.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-      checked: true,
-      name: file.name,
-      size: `${file.width || 0}x${file.height || 0}`,
-      result: null,
-      resultSize: null
-    }))
-    setImages(prev => [...prev, ...newImages])
+    const newImages = files.map(file => {
+      return new Promise<ImageItem>((resolve) => {
+        const img = document.createElement('img') as HTMLImageElement
+        img.onload = () => {
+          resolve({
+            file,
+            preview: URL.createObjectURL(file),
+            checked: true,
+            name: file.name,
+            size: `${img.width}x${img.height}`,
+            result: '',  // 빈 문자열로 초기화
+            resultSize: null
+          })
+        }
+        img.src = URL.createObjectURL(file)
+      })
+    })
+
+    Promise.all(newImages).then(loadedImages => {
+      setImages(prev => [...prev, ...loadedImages])
+    })
   }
 
   const toggleCheck = (index: number) => {
@@ -78,18 +90,18 @@ export default function RemoveBackground() {
         }
 
         if (!responseBody.resultImageUrl) {
-          throw new Error('응답에 이미지 URL이 없습니다.')
+          throw new Error('응답 이미지 URL이 없습니다.')
         }
 
         // Get the size of the result image
-        const img = new Image()
+        const img = document.createElement('img')
         img.onload = () => {
-          setImages(prev => prev.map(img => 
-            img === image ? {
-              ...img, 
-              result: responseBody.resultImageUrl,
+          setImages(prev => prev.map(prevImg => 
+            prevImg === image ? {
+              ...prevImg, 
+              result: responseBody.resultImageUrl || '',  // 빈 문자열을 기본값으로 사용
               resultSize: `${img.width}x${img.height}`
-            } : img
+            } : prevImg
           ))
         }
         img.src = responseBody.resultImageUrl
@@ -125,7 +137,14 @@ export default function RemoveBackground() {
             />
             <div className="flex-1">
               <div className="flex items-center space-x-4">
-                <img src={image.preview} alt={`Preview ${index + 1}`} className="w-32 h-32 object-cover" />
+                <div className="relative w-32 h-32">
+                  <Image 
+                    src={image.preview} 
+                    alt={`Preview ${index + 1}`} 
+                    layout="fill" 
+                    objectFit="cover" 
+                  />
+                </div>
                 {image.result && (
                   <div className="relative">
                     <TransformWrapper
@@ -133,10 +152,17 @@ export default function RemoveBackground() {
                       initialPositionX={0}
                       initialPositionY={0}
                     >
-                      {({ zoomIn, zoomOut, resetTransform, ...rest }) => (
+                      {({ zoomIn, zoomOut }) => (
                         <>
                           <TransformComponent>
-                            <img src={image.result} alt={`Result ${index + 1}`} className="w-32 h-32 object-cover" />
+                            <div className="relative w-32 h-32">
+                              <Image 
+                                src={image.result} 
+                                alt={`Result ${index + 1}`} 
+                                layout="fill" 
+                                objectFit="cover" 
+                              />
+                            </div>
                           </TransformComponent>
                           <div className="absolute top-0 right-0 flex space-x-1">
                             <Button size="sm" variant="outline" onClick={() => zoomIn()}>
@@ -145,7 +171,7 @@ export default function RemoveBackground() {
                             <Button size="sm" variant="outline" onClick={() => zoomOut()}>
                               <ZoomOut className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDownload(image.result!, `result_${image.name}`)}>
+                            <Button size="sm" variant="outline" onClick={() => handleDownload(image.result, `result_${image.name}`)}>
                               <Download className="h-4 w-4" />
                             </Button>
                           </div>
