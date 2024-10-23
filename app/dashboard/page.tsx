@@ -42,9 +42,9 @@ export default function Dashboard() {
           <ul className="space-y-2">
             <li>
               <h2 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mt-6 mb-2">이미지처리</h2>
-              <Link href="#" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+              <Link href="/remove-background" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
                 <Image className="mr-3 h-4 w-4" />
-                <span>배경 지우기</span>
+                <span>배경 제거</span>
               </Link>
               <Link href="#" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
                 <Image className="mr-3 h-4 w-4" />
