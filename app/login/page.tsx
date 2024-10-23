@@ -29,7 +29,7 @@ export default function LoginPage() {
           </div>
           <div className="space-y-2">
             <p className="text-lg font-medium">
-              "이 서비스는 이미지 처리 작업을 훨씬 더 쉽고 빠르게 만들어 주었습니다."
+              &ldquo;이 서비스는 이미지 처리 작업을 훨씬 더 쉽고 빠르게 만들어 주었습니다.&rdquo;
             </p>
             <p className="font-medium">홍길동</p>
           </div>

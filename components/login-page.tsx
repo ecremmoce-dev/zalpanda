@@ -6,7 +6,7 @@ import { Github } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
-export function LoginPageComponent() {
+export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left column */}
@@ -18,9 +18,9 @@ export function LoginPageComponent() {
           </div>
           <div className="space-y-2">
             <p className="text-lg font-medium">
-              "This library has saved me countless hours of work and helped me deliver stunning designs to my clients faster than ever before."
+              &ldquo;이 서비스는 이미지 처리 작업을 훨씬 더 쉽고 빠르게 만들어 주었습니다.&rdquo;
             </p>
-            <p className="font-medium">Sofia Davis</p>
+            <p className="font-medium">홍길동</p>
           </div>
         </div>
       </div>
