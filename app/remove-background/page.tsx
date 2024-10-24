@@ -1,208 +1,239 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, Download, ZoomIn, ZoomOut } from 'lucide-react'
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
 import Image from 'next/image'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
 
-interface ImageItem {
+const VMAKE_API_KEY = '66850ffde4b00b4593836252'
+
+interface ImageInfo {
   file: File;
-  preview: string;
-  checked: boolean;
+  original: string;
+  processed?: string;
   name: string;
   size: string;
-  result: string;  // 'null' 대신 'string'으로 변경
-  resultSize: string | null;
+  dimensions: string;
+  selected: boolean;
 }
 
 export default function RemoveBackground() {
-  const [images, setImages] = useState<ImageItem[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [images, setImages] = useState<ImageInfo[]>([])
+  const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    return () => images.forEach(image => URL.revokeObjectURL(image.preview))
+    return () => images.forEach(image => URL.revokeObjectURL(image.original))
   }, [images])
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const newImages = files.map(file => {
-      return new Promise<ImageItem>((resolve) => {
-        const img = document.createElement('img') as HTMLImageElement
-        img.onload = () => {
-          resolve({
-            file,
-            preview: URL.createObjectURL(file),
-            checked: true,
-            name: file.name,
-            size: `${img.width}x${img.height}`,
-            result: '',  // 빈 문자열로 초기화
-            resultSize: null
-          })
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          const img = new window.Image()
+          img.onload = () => {
+            const newImage = {
+              file,
+              original: e.target?.result as string,
+              name: file.name,
+              size: formatFileSize(file.size),
+              dimensions: `${img.width} x ${img.height}`,
+              selected: true
+            }
+            setImages(prev => [...prev, newImage])
+          }
+          img.src = e.target?.result as string
         }
-        img.src = URL.createObjectURL(file)
+        reader.readAsDataURL(file)
       })
+    }
+  }
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const removeBackground = async (index: number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const imageInfo = images[index]
+      const processedImage = await processImage(imageInfo.original)
+      setImages(prev => prev.map((img, i) => 
+        i === index ? { ...img, processed: processedImage } : img
+      ))
+    } catch (error) {
+      console.error('이미지 처리 중 오류 발생:', error)
+      setError('이미지 처리 중 오류가 발생했습니다. 다시 시도해 주세요.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const processImage = async (imageUrl: string): Promise<string> => {
+    const response = await fetch(imageUrl)
+    const blob = await response.blob()
+    const base64data = await blobToBase64(blob)
+    const base64Image = base64data.split(',')[1]
+
+    const requestUrl = "https://open.vmake.ai/api/v1/image/remove-background"
+    const requestBody = { image: base64Image }
+
+    const apiResponse = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': VMAKE_API_KEY
+      },
+      body: JSON.stringify(requestBody)
     })
 
-    Promise.all(newImages).then(loadedImages => {
-      setImages(prev => [...prev, ...loadedImages])
+    const responseBody = await apiResponse.json()
+    const code = responseBody.code
+    const message = responseBody.message
+
+    if (code !== 0) {
+      throw new Error(message)
+    } else {
+      return `data:image/png;base64,${responseBody.data.image}`
+    }
+  }
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
     })
   }
 
-  const toggleCheck = (index: number) => {
+  const removeBackgroundForSelected = async () => {
+    for (let i = 0; i < images.length; i++) {
+      if (images[i].selected && !images[i].processed) {
+        await removeBackground(i)
+      }
+    }
+  }
+
+  const toggleImageSelection = (index: number) => {
     setImages(prev => prev.map((img, i) => 
-      i === index ? {...img, checked: !img.checked} : img
+      i === index ? { ...img, selected: !img.selected } : img
     ))
   }
 
-  const removeBackground = async (index?: number) => {
-    const imagesToProcess = index !== undefined 
-      ? [images[index]].filter(img => img.checked)
-      : images.filter(img => img.checked)
-
-    if (imagesToProcess.length === 0) return
-
-    setIsLoading(true)
-    setError(null)
-
-    for (const image of imagesToProcess) {
-      const formData = new FormData()
-      formData.append('image', image.file)
-
-      try {
-        const response = await fetch('/api/remove-background', {
-          method: 'POST',
-          body: formData,
-        })
-
-        const responseBody = await response.json()
-        console.log('API Response:', responseBody)
-
-        if (!response.ok) {
-          throw new Error(`서버 오류: ${response.status} ${response.statusText}`)
-        }
-
-        if (responseBody.error) {
-          throw new Error(responseBody.error)
-        }
-
-        if (!responseBody.resultImageUrl) {
-          throw new Error('응답 이미지 URL이 없습니다.')
-        }
-
-        // Get the size of the result image
-        const img = document.createElement('img')
-        img.onload = () => {
-          setImages(prev => prev.map(prevImg => 
-            prevImg === image ? {
-              ...prevImg, 
-              result: responseBody.resultImageUrl || '',  // 빈 문자열을 기본값으로 사용
-              resultSize: `${img.width}x${img.height}`
-            } : prevImg
-          ))
-        }
-        img.src = responseBody.resultImageUrl
-
-      } catch (error) {
-        console.error('Error removing background:', error)
-        setError(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.')
-      }
-    }
-
-    setIsLoading(false)
+  const toggleAllSelection = (select: boolean) => {
+    setImages(prev => prev.map(img => ({ ...img, selected: select })))
   }
 
-  const handleDownload = (url: string, fileName: string) => {
+  const downloadAllProcessed = async () => {
+    const zip = new JSZip()
+    images.forEach((image, index) => {
+      if (image.processed) {
+        zip.file(`processed_image_${index + 1}.png`, image.processed.split(',')[1], {base64: true})
+      }
+    })
+    const content = await zip.generateAsync({type: "blob"})
+    saveAs(content, 'processed_images.zip')
+  }
+
+  const handleDownload = (imageUrl: string, fileName: string) => {
     const link = document.createElement('a')
-    link.href = url
+    link.href = imageUrl
     link.download = fileName
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes'
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+    else return (bytes / 1048576).toFixed(1) + ' MB'
+  }
+
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 max-w-full">
       <h1 className="text-2xl font-bold mb-4">배경 제거</h1>
-      <Input type="file" onChange={handleImageUpload} accept="image/*" multiple className="mb-4" />
-      <div className="space-y-4">
+      <div className="mb-6 flex space-x-4">
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageUpload}
+          className="hidden"
+          ref={fileInputRef}
+        />
+        <Button onClick={handleUploadClick}>이미지 업로드</Button>
+        <Button onClick={removeBackgroundForSelected} disabled={loading || !images.some(img => img.selected && !img.processed)}>
+          선택한 이미지 배경 제거
+        </Button>
+        <Button onClick={() => toggleAllSelection(true)}>전체 선택</Button>
+        <Button onClick={() => toggleAllSelection(false)}>전체 해제</Button>
+        <Button onClick={downloadAllProcessed} disabled={!images.some(img => img.processed)}>
+          전체 다운로드
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
         {images.map((image, index) => (
-          <div key={index} className="flex items-start space-x-4">
-            <Checkbox
-              checked={image.checked}
-              onCheckedChange={() => toggleCheck(index)}
-            />
-            <div className="flex-1">
-              <div className="flex items-center space-x-4">
-                <div className="relative w-32 h-32">
-                  <Image 
-                    src={image.preview} 
-                    alt={`Preview ${index + 1}`} 
-                    layout="fill" 
-                    objectFit="cover" 
+          <Card key={index} className="flex flex-col">
+            <CardContent className="p-4 flex-grow flex flex-col">
+              <div className="flex space-x-2 mb-2">
+                <div className="relative w-1/2 pt-[50%]">
+                  <Image
+                    src={image.original}
+                    alt={`Original image ${index + 1}`}
+                    layout="fill"
+                    objectFit="contain"
                   />
                 </div>
-                {image.result && (
-                  <div className="relative">
-                    <TransformWrapper
-                      initialScale={1}
-                      initialPositionX={0}
-                      initialPositionY={0}
-                    >
-                      {({ zoomIn, zoomOut }) => (
-                        <>
-                          <TransformComponent>
-                            <div className="relative w-32 h-32">
-                              <Image 
-                                src={image.result} 
-                                alt={`Result ${index + 1}`} 
-                                layout="fill" 
-                                objectFit="cover" 
-                              />
-                            </div>
-                          </TransformComponent>
-                          <div className="absolute top-0 right-0 flex space-x-1">
-                            <Button size="sm" variant="outline" onClick={() => zoomIn()}>
-                              <ZoomIn className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => zoomOut()}>
-                              <ZoomOut className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDownload(image.result, `result_${image.name}`)}>
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </TransformWrapper>
-                  </div>
-                )}
+                <div className="relative w-1/2 pt-[50%]">
+                  {image.processed ? (
+                    <Image
+                      src={image.processed || ''}
+                      alt={`처리된 이미지 ${index + 1}`}
+                      fill
+                      style={{ objectFit: 'contain' }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gray-100" />
+                  )}
+                </div>
               </div>
-              <div className="mt-2">
-                <p>{image.name}</p>
-                <p>원본 크기: {image.size}</p>
-                {image.resultSize && <p>결과 크기: {image.resultSize}</p>}
+              <div className="mt-2 text-sm">
+                <p className="truncate">{image.name}</p>
+                <p>크기: {image.size}</p>
+                <p>해상도: {image.dimensions}</p>
               </div>
-            </div>
-            <Button onClick={() => removeBackground(index)} disabled={isLoading || !image.checked}>
-              배경 제거
-            </Button>
-          </div>
+              <div className="mt-2 flex items-center">
+                <Checkbox
+                  id={`select-${index}`}
+                  checked={image.selected}
+                  onCheckedChange={(checked: boolean) => toggleImageSelection(index)}
+                />
+                <label htmlFor={`select-${index}`} className="ml-2 text-sm">선택</label>
+              </div>
+              <Button 
+                onClick={() => removeBackground(index)} 
+                disabled={loading || !image.selected || Boolean(image.processed)}
+                className="mt-2"
+              >
+                {loading ? '처리 중...' : '배경 제거'}
+              </Button>
+            </CardContent>
+          </Card>
         ))}
       </div>
-      <Button onClick={() => removeBackground()} disabled={isLoading || images.filter(img => img.checked).length === 0} className="mt-4">
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            처리 중...
-          </>
-        ) : (
-          '선택된 이미지 배경 제거'
-        )}
-      </Button>
       {error && (
         <p className="text-red-500 mt-4">{error}</p>
       )}

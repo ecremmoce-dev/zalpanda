@@ -29,27 +29,33 @@ export default function Home() {
             <p className="text-gray-600 mb-4">
               클릭 한 번으로 이미지 배경을 깔끔하게 제거하세요.
             </p>
-            <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
-              시작하기
-            </Button>
+            <Link href="/remove-background">
+              <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
+                시작하기
+              </Button>
+            </Link>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-2">AI 이미지 생성</h3>
+            <h3 className="text-xl font-semibold mb-2">이미지 번역</h3>
             <p className="text-gray-600 mb-4">
-              텍스트 설명만으로 독특한 이미지를 생성해보세요.
+              이미지 내 텍스트를 다른 언어로 번역하세요.
             </p>
-            <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
-              시작하기
-            </Button>
+            <Link href="/image-translation">
+              <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
+                시작하기
+              </Button>
+            </Link>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-2">화질 개선</h3>
+            <h3 className="text-xl font-semibold mb-2">대시보드</h3>
             <p className="text-gray-600 mb-4">
-              저해상도 이미지를 선명하고 깨끗한 고화질로 변환하세요.
+              서비스 사용 현황과 통계를 확인하세요.
             </p>
-            <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
-              시작하기
-            </Button>
+            <Link href="/dashboard">
+              <Button className="bg-[#f43f5e] hover:bg-[#e11d48]">
+                시작하기
+              </Button>
+            </Link>
           </div>
         </div>
       </main>
