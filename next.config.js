@@ -11,7 +11,7 @@ const nextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      config.externals.push('puppeteer-core')
+      config.externals.push('chrome-aws-lambda')
     }
     return config
   },

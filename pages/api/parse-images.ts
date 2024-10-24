@@ -3,14 +3,8 @@ import chromium from 'chrome-aws-lambda'
 import puppeteer from 'puppeteer-core'
 
 const getOptions = async () => {
-  if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
-    return {
-      args: chromium.args,
-      executablePath: await chromium.executablePath,
-      headless: chromium.headless,
-    }
-  } else {
-    // 로컬 환경에서 Chrome 경로 설정
+  const isDev = process.env.NODE_ENV === 'development'
+  if (isDev) {
     return {
       args: [],
       executablePath: process.platform === 'win32'
@@ -19,6 +13,12 @@ const getOptions = async () => {
           ? '/usr/bin/google-chrome'
           : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       headless: true,
+    }
+  } else {
+    return {
+      args: chromium.args,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
     }
   }
 }
@@ -40,10 +40,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const options = await getOptions()
     browser = await puppeteer.launch(options)
 
-    if (!browser) {
-      throw new Error('브라우저를 시작할 수 없습니다.')
-    }
-
     const page = await browser.newPage()
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 })
 
@@ -58,9 +54,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .filter(src => src && !src.startsWith('data:')) // data URL 제외
         .slice(0, 30) // 최대 30개로 제한
     })
-
-    await browser.close()
-    browser = null
 
     res.status(200).json({
       parsedImages,
