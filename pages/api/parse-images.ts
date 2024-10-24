@@ -1,13 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import chromium from 'chrome-aws-lambda'
+import type { Browser, Page } from 'puppeteer-core'
 
-// 타입 선언 추가
-declare module 'puppeteer-core' {
-  import * as puppeteer from 'puppeteer';
-  export = puppeteer;
-}
-
-import puppeteer from 'puppeteer-core'
+// puppeteer-core를 동적으로 import
+const puppeteer = require('puppeteer-core')
 
 const getOptions = async () => {
   if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
@@ -41,11 +37,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'URL is required' })
   }
 
+  let browser: Browser | null = null
+
   try {
     const options = await getOptions()
-    const browser = await puppeteer.launch(options)
+    browser = await puppeteer.launch(options)
 
-    const page = await browser.newPage()
+    const page: Page = await browser.newPage()
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 })
 
     // div.editor_wrap 엘리먼트 안의 이미지 URL 추출
@@ -60,8 +58,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .slice(0, 30) // 최대 30개로 제한
     })
 
-    await browser.close()
-
     res.status(200).json({
       parsedImages,
     })
@@ -71,5 +67,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       error: 'Failed to parse images', 
       details: error instanceof Error ? error.message : 'Unknown error'
     })
+  } finally {
+    if (browser) {
+      await browser.close()
+    }
   }
 }
