@@ -39,14 +39,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const data = await response.json();
 
-      if (data.error) {
-        if (data.error.message === "Image No Text error") {
+      if (typeof data === 'object' && data !== null && 'error' in data) {
+        const errorData = data as { error: { message: string } }; // 타입 좁히기
+        if (errorData.error.message === "Image No Text error") {
           res.status(200).json({ originalImage: image });
         } else {
-          res.status(400).json({ error: data.error.message });
+          res.status(400).json({ error: errorData.error.message });
         }
+      } else if (typeof data === 'object' && data !== null && 'data' in data) {
+        const successData = data as { data: { renderedImage: string } }; // 타입 좁히기
+        res.status(200).json({ translatedImage: successData.data.renderedImage });
       } else {
-        res.status(200).json({ translatedImage: data.data.renderedImage });
+        res.status(400).json({ error: 'Unexpected response format' });
       }
     } catch (error) {
       console.error('Error:', error);

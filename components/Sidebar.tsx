@@ -1,14 +1,11 @@
 'use client'
 
 import React from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { HomeIcon, UsersIcon, ImageIcon, BarChart2, EraserIcon, LinkIcon, WandIcon, ImagePlusIcon, TrendingUpIcon } from 'lucide-react'
 import SidebarItem from './SidebarItem'
 
 export default function Sidebar() {
-  const router = useRouter()
-
   return (
     <aside className="w-64 bg-[#f8fafc] border-r border-gray-200">
       <div className="p-6">

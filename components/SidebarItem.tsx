@@ -7,11 +7,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 interface SidebarItemProps {
   icon: React.ElementType;
   label: string;
-  onClick?: () => void;
   children?: React.ReactNode;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, onClick, children }) => {
+const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, children }) => {
   const [isOpen, setIsOpen] = React.useState(false)
 
   return (

@@ -22,7 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         res.status(apiResponse.status).json({ error: '배경 제거 실패' })
       }
-    } catch (error) {
+    } catch (e) {
+      console.log(e)
       res.status(500).json({ error: '서버 오류' })
     }
   } else {

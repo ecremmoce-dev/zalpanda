@@ -3,10 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Download, ZoomIn, ZoomOut } from 'lucide-react'
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
 import Image from 'next/image'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -146,14 +143,6 @@ export default function RemoveBackground() {
     saveAs(content, 'processed_images.zip')
   }
 
-  const handleDownload = (imageUrl: string, fileName: string) => {
-    const link = document.createElement('a')
-    link.href = imageUrl
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' bytes'
@@ -219,7 +208,7 @@ export default function RemoveBackground() {
                 <Checkbox
                   id={`select-${index}`}
                   checked={image.selected}
-                  onCheckedChange={(checked: boolean) => toggleImageSelection(index)}
+                  onCheckedChange={() => toggleImageSelection(index)}
                 />
                 <label htmlFor={`select-${index}`} className="ml-2 text-sm">선택</label>
               </div>
