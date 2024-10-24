@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import chromium from 'chrome-aws-lambda'
+import chromium from '@sparticuz/chromium'
 import puppeteer from 'puppeteer-core'
 
 const getOptions = async () => {
@@ -17,7 +17,7 @@ const getOptions = async () => {
   } else {
     return {
       args: chromium.args,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
     }
   }
