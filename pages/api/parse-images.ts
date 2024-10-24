@@ -39,6 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
   } catch (error) {
     console.error('Error parsing images:', error)
-    res.status(500).json({ error: 'Failed to parse images', details: error.message })
+    res.status(500).json({ 
+      error: 'Failed to parse images', 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 }
