@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import chromium from 'chrome-aws-lambda'
 import puppeteer from 'puppeteer-core'
-import { Browser } from 'puppeteer-core/lib/cjs/puppeteer/common/Browser'
 
 const getOptions = async () => {
   if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
@@ -35,13 +34,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'URL is required' })
   }
 
-  let browser: Browser | null = null
+  let browser: puppeteer.Browser | null = null
 
   try {
     const options = await getOptions()
     browser = await puppeteer.launch(options)
 
-    if (browser === null) {
+    if (!browser) {
       throw new Error('브라우저를 시작할 수 없습니다.')
     }
 
@@ -73,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       details: error instanceof Error ? error.message : 'Unknown error'
     })
   } finally {
-    if (browser !== null) {
+    if (browser) {
       await browser.close()
     }
   }
