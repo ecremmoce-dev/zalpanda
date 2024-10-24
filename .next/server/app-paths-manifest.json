@@ -1,4 +1,3 @@
 {
-  "/parse-images/page": "app/parse-images/page.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js"
+  "/parse-images/page": "app/parse-images/page.js"
 }

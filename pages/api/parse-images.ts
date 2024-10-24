@@ -1,25 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import chromium from 'chrome-aws-lambda'
 import puppeteer from 'puppeteer-core'
-import chrome from 'chrome-aws-lambda'
 
 const getOptions = async () => {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
     return {
-      args: chrome.args,
-      executablePath: await chrome.executablePath,
-      headless: chrome.headless,
+      args: chromium.args,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
     }
   } else {
     // 로컬 환경에서 Chrome 경로 설정
-    const chromeExecutablePath = process.platform === 'win32'
-      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-      : process.platform === 'linux'
-        ? '/usr/bin/google-chrome'
-        : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    
     return {
       args: [],
-      executablePath: chromeExecutablePath,
+      executablePath: process.platform === 'win32'
+        ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+        : process.platform === 'linux'
+          ? '/usr/bin/google-chrome'
+          : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       headless: true,
     }
   }
