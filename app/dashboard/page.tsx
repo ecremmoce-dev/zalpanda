@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, ChevronDown, Search, Settings, BarChart2, ChevronRight, Image } from 'lucide-react'
+import { Bell, ChevronDown, Search, Settings, BarChart2, ChevronRight, Image, Link as LinkIcon } from 'lucide-react'
 import Link from 'next/link'
 
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,10 @@ export default function Dashboard() {
               <Link href="/remove-background" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
                 <Image className="mr-3 h-4 w-4" />
                 <span>배경 제거</span>
+              </Link>
+              <Link href="/parse-images" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                <LinkIcon className="mr-3 h-4 w-4" />
+                <span>URL 이미지 파싱</span>
               </Link>
               <Link href="#" className="flex items-center px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
                 <Image className="mr-3 h-4 w-4" />
