@@ -9,6 +9,12 @@ const nextConfig = {
       },
     ],
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('puppeteer-core')
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig

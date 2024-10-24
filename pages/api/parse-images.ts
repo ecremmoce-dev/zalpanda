@@ -1,5 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import chromium from 'chrome-aws-lambda'
+
+// 타입 선언 추가
+declare module 'puppeteer-core' {
+  import * as puppeteer from 'puppeteer';
+  export = puppeteer;
+}
+
 import puppeteer from 'puppeteer-core'
 
 const getOptions = async () => {
