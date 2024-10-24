@@ -1,9 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import chromium from 'chrome-aws-lambda'
-import type { Browser, Page } from 'puppeteer-core'
 
-// puppeteer-core를 동적으로 import
-const puppeteer = require('puppeteer-core')
+// 타입 선언 추가
+declare module 'puppeteer-core' {
+  export * from 'puppeteer';
+}
+
+import type { Browser, Page } from 'puppeteer-core'
 
 const getOptions = async () => {
   if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
@@ -40,6 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let browser: Browser | null = null
 
   try {
+    const puppeteer = await import('puppeteer-core')
     const options = await getOptions()
     browser = await puppeteer.launch(options)
 
