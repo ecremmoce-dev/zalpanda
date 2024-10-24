@@ -1,5 +1,29 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
+import chrome from 'chrome-aws-lambda'
+
+const getOptions = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      args: chrome.args,
+      executablePath: await chrome.executablePath,
+      headless: chrome.headless,
+    }
+  } else {
+    // 로컬 환경에서 Chrome 경로 설정
+    const chromeExecutablePath = process.platform === 'win32'
+      ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+      : process.platform === 'linux'
+        ? '/usr/bin/google-chrome'
+        : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    
+    return {
+      args: [],
+      executablePath: chromeExecutablePath,
+      headless: true,
+    }
+  }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -13,10 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
-    })
+    const options = await getOptions()
+    const browser = await puppeteer.launch(options)
+
     const page = await browser.newPage()
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 })
 
