@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import Image from 'next/image'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+import { Save } from "lucide-react"
+import { prisma } from '@/lib/db'
 
 interface ImageData {
   name: string
@@ -16,6 +18,7 @@ interface ImageData {
 export function ImageResizeConverter() {
   const [data, setData] = useState<ImageData[]>([])
   const [loading, setLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -108,6 +111,32 @@ export function ImageResizeConverter() {
     })
   }
 
+  const handleSaveToDatabase = async () => {
+    setIsSaving(true)
+    try {
+      const processedItems = data.filter(item => item.processed)
+      
+      for (const item of processedItems) {
+        await fetch('/api/images/save-product', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ProductName: item.name
+          })
+        })
+      }
+      
+      alert('이미지 정보가 성공적으로 저장되었습니다.')
+    } catch (error) {
+      console.error('저장 중 오류 발생:', error)
+      alert('이미지 정보 저장 중 오류가 발생했습니다.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">이미지 사이즈 조절기</h1>
@@ -136,6 +165,15 @@ export function ImageResizeConverter() {
           className="min-w-[120px]"
         >
           다운로드
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={handleSaveToDatabase}
+          disabled={!data.some(item => item.processed) || isSaving}
+          className="min-w-[140px]"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {isSaving ? '저장중...' : '이미지정보저장'}
         </Button>
       </div>
 

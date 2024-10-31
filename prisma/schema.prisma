@@ -1,1 +1,2438 @@
- 
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("TOMS_DATABASE_URL")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model EFMigrationsHistory {
+  MigrationId    String? @db.NVarChar(150)
+  ProductVersion String? @db.NVarChar(32)
+
+  @@map("__EFMigrationsHistory")
+  @@ignore
+}
+
+model AliOrders {
+  Id                    Int       @id(map: "PK__AliOrder__3214EC07F8380ACF") @default(autoincrement())
+  OrderId               String    @db.NVarChar(50)
+  SubOrderId            String?   @db.NVarChar(50)
+  CompanyId             String    @db.UniqueIdentifier
+  OrderApprovalYN       String?   @db.Char(1)
+  OrderStatus           String?   @db.NVarChar(50)
+  OrderStatusKo         String?   @db.NVarChar(50)
+  OrderStatusEc         String?   @db.NVarChar(50)
+  Owner                 String?   @db.NVarChar(100)
+  BuyerName             String?   @db.NVarChar(100)
+  OrderTime             DateTime?
+  PaymentTime           DateTime?
+  SupplyPrice           Decimal?  @db.Decimal(18, 2)
+  ProductCost           Decimal?  @db.Decimal(18, 2)
+  TotalProductCost      Decimal?  @db.Decimal(18, 2)
+  ShippingFee           Decimal?  @db.Decimal(18, 2)
+  EstimatedVAT          Decimal?  @db.Decimal(18, 2)
+  PlatformFee           Decimal?  @db.Decimal(18, 2)
+  SelfCollected         Boolean?
+  OrderAmount           Decimal?  @db.Decimal(18, 2)
+  DdpTariff             Decimal?  @db.Decimal(18, 2)
+  StorePromotion        Decimal?  @db.Decimal(18, 2)
+  ProductInfo           String?   @db.NVarChar(200)
+  ProductCode           String?   @db.NVarChar(50)
+  ManagementCode        String?   @db.NVarChar(50)
+  ShopProductCode       String?   @db.NVarChar(50)
+  OrderQty              Int?
+  OrderMemo             String?   @db.NVarChar(200)
+  RecipientAddress      String?   @db.NVarChar(255)
+  RecipientName         String?   @db.NVarChar(100)
+  BuyerCountry          String?   @db.NVarChar(50)
+  State                 String?   @db.NVarChar(50)
+  City                  String?   @db.NVarChar(50)
+  Address               String?   @db.NVarChar(255)
+  PostalCode            String?   @db.NVarChar(20)
+  Contact               String?   @db.NVarChar(50)
+  Mobile                String?   @db.NVarChar(20)
+  ShippingMethod        String?   @db.NVarChar(50)
+  ShippingDeadline      DateTime?
+  TrackingNumber        String?   @db.NVarChar(50)
+  ShippingTime          DateTime?
+  BuyerConfirmationTime DateTime?
+  OrderType             String?   @db.NVarChar(50)
+  CreatedAt             DateTime?
+  UpdatedAt             DateTime?
+  ShippingUpdatedAt     DateTime?
+  CompanyOrderStatus    String?   @db.NVarChar(10)
+  ecMemo                String?   @db.NVarChar(Max)
+}
+
+model AliOrdersHistory {
+  Id                 Int       @id(map: "PK__AliOrder__3214EC07469B7A3F") @default(autoincrement())
+  ActionName         String    @db.NVarChar(50)
+  OrderId            String    @db.NVarChar(50)
+  SubOrderId         String?   @db.NVarChar(50)
+  CompanyId          String    @db.UniqueIdentifier
+  OrderStatus        String?   @db.NVarChar(50)
+  OrderStatusKo      String?   @db.NVarChar(50)
+  OrderStatusEc      String?   @db.NVarChar(50)
+  CompanyOrderStatus String?   @db.NVarChar(10)
+  ShippingMethod     String?   @db.NVarChar(50)
+  ShippingDeadline   DateTime?
+  TrackingNumber     String?   @db.NVarChar(50)
+  ShippingTime       DateTime?
+  ShippingUpdatedAt  DateTime?
+  LoginIp            String?   @db.NVarChar(100)
+  CreatedAt          DateTime?
+}
+
+model AliSubOrders {
+  OrderId               String    @db.NVarChar(50)
+  SubOrderId            String    @db.NVarChar(50)
+  CompanyId             String    @db.UniqueIdentifier
+  OrderStatus           String?   @db.NVarChar(50)
+  OrderStatusKo         String?   @db.NVarChar(50)
+  Owner                 String?   @db.NVarChar(100)
+  BuyerName             String?   @db.NVarChar(100)
+  OrderTime             DateTime?
+  PaymentTime           DateTime?
+  ManagementCode        String?   @db.NVarChar(10)
+  ShopProductCode       String?   @db.NVarChar(50)
+  SkuId                 String?   @db.NVarChar(50)
+  ProductName           String?   @db.NVarChar(2000)
+  ProductInfo           String?
+  OrderQty              Int?
+  ProductCost           Decimal?  @db.Decimal(18, 2)
+  ShippingFee           Decimal?  @db.Decimal(18, 2)
+  EstimatedVAT          Decimal?  @db.Decimal(18, 2)
+  PlatformFee           Decimal?  @db.Decimal(18, 2)
+  SelfCollected         Boolean?
+  SubOrderAmount        Decimal?  @db.Decimal(18, 2)
+  DdpTariff             Decimal?  @db.Decimal(18, 2)
+  StorePromotion        Decimal?  @db.Decimal(18, 2)
+  OrderMemo             String?   @db.NVarChar(2000)
+  RecipientAddress      String?
+  RecipientName         String?   @db.NVarChar(200)
+  BuyerCountry          String?   @db.NVarChar(200)
+  State                 String?   @db.NVarChar(200)
+  City                  String?   @db.NVarChar(200)
+  Address               String?
+  PostalCode            String?   @db.NVarChar(100)
+  Contact               String?   @db.NVarChar(50)
+  Mobile                String?   @db.NVarChar(100)
+  ShippingMethod        String?   @db.NVarChar(100)
+  ShippingDeadline      DateTime?
+  TrackingNumber        String?   @db.NVarChar(100)
+  ShippingTime          DateTime?
+  BuyerConfirmationTime DateTime?
+  OrderType             String?   @db.NVarChar(50)
+  CreatedAt             DateTime?
+  UpdatedAt             DateTime?
+  ecMemo                String?   @db.NVarChar(Max)
+
+  @@id([OrderId, SubOrderId], map: "PK_AliSubOrders")
+}
+
+model ApiAccount {
+  Id          String      @id(map: "PK_ApiAccount") @db.UniqueIdentifier
+  CompanyId   String      @db.UniqueIdentifier
+  PlatForm    String?     @db.NVarChar(50)
+  Value       String?
+  Key         String?     @db.NVarChar(100)
+  Description String?     @db.NVarChar(500)
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+  CompanyInfo CompanyInfo @relation(fields: [CompanyId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_ApiAccount_CompanyInfo_CompanyId")
+}
+
+model BoardComments {
+  Id                  String          @id(map: "PK_BoardComments") @db.UniqueIdentifier
+  Content             String?         @db.NVarChar(500)
+  Writer              String?         @db.NVarChar(255)
+  WriterId            String          @db.UniqueIdentifier
+  CreatedAt           DateTime
+  UpdatedAt           DateTime?
+  BoardId             String          @db.UniqueIdentifier
+  CommentId           String?         @db.UniqueIdentifier
+  BoardComments       BoardComments?  @relation("BoardCommentsToBoardComments", fields: [CommentId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_BoardComments_BoardComments_CommentId")
+  other_BoardComments BoardComments[] @relation("BoardCommentsToBoardComments")
+  Boards              Boards          @relation(fields: [BoardId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_BoardComments_Boards_BoardId")
+}
+
+model Boards {
+  Id            String          @id(map: "PK_Boards") @db.UniqueIdentifier
+  Title         String?         @db.NVarChar(255)
+  Content       String?         @db.NVarChar(Max)
+  Writer        String?         @db.NVarChar(255)
+  WriterId      String          @db.UniqueIdentifier
+  CreatedAt     DateTime
+  UpdatedAt     DateTime?
+  BoardId       String?         @db.UniqueIdentifier
+  NotiStartedAt DateTime?
+  NotiEndedAt   DateTime?
+  ShowGroup     String?         @db.VarChar(10)
+  BoardComments BoardComments[]
+  Boards        Boards?         @relation("BoardsToBoards", fields: [BoardId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Boards_Boards_BoardId")
+  other_Boards  Boards[]        @relation("BoardsToBoards")
+}
+
+model CategoryMappingBases {
+  Id               String    @id(map: "PK_CategoryMappingBases") @db.UniqueIdentifier
+  FromCategoryId   String?   @db.NVarChar(200)
+  FromPlatform     String?   @db.NVarChar(50)
+  FromCountry      String?   @db.NVarChar(5)
+  TargetCategoryId String?   @db.NVarChar(200)
+  TargetPlatform   String?   @db.NVarChar(50)
+  TargetCountry    String?   @db.NVarChar(5)
+  CreatedAt        DateTime
+  UpdatedAt        DateTime
+  DeletedAt        DateTime?
+}
+
+model CategoryUpick {
+  Id                 Int     @id(map: "PK__Category__3214EC07CE27FD1C") @default(autoincrement())
+  MainCategoryCode   Int?
+  MainCategoryName   String? @db.NVarChar(255)
+  MiddleCategoryCode Int?
+  MiddleCategoryName String? @db.NVarChar(255)
+  SubCategoryCode    Int?
+  SubCategoryName    String? @db.NVarChar(255)
+}
+
+model CompanyInfo {
+  Id                        String         @id(map: "PK_CompanyInfo") @db.UniqueIdentifier
+  Name                      String?        @db.NVarChar(100)
+  NameEn                    String?        @db.NVarChar(100)
+  BizNum                    String?        @unique(map: "UK_BizNum") @db.NVarChar(100)
+  BizType                   String?        @db.NVarChar(50)
+  BizClass                  String?        @db.NVarChar(50)
+  OwnerName                 String?        @db.NVarChar(50)
+  Post                      String?        @db.NVarChar(10)
+  Addr                      String?        @db.NVarChar(500)
+  AddrEn                    String?        @db.NVarChar(500)
+  Addr2                     String?        @db.NVarChar(500)
+  Addr2En                   String?        @db.NVarChar(500)
+  Tel                       String?        @db.NVarChar(50)
+  Email                     String?        @db.NVarChar(100)
+  Fax                       String?        @db.NVarChar(20)
+  WebSite                   String?        @db.NVarChar(500)
+  ManagerName               String?        @db.NVarChar(30)
+  ManagerTel                String?        @db.NVarChar(50)
+  ManagerPosition           String?        @db.NVarChar(30)
+  ManagerEmail              String?        @db.NVarChar(200)
+  Memo                      String?
+  PCCC                      String?        @db.NVarChar(100)
+  ReporterCode              String?        @db.NVarChar(100)
+  UseApp                    Int
+  AdminApprove              Boolean
+  BizPaper                  String?        @db.NVarChar(500)
+  ElecTaxInvoiceMail        String?        @db.NVarChar(200)
+  Role                      String?        @db.NVarChar(100)
+  Auth0UserId               String?        @db.NVarChar(100)
+  TomsUsed                  Boolean
+  ParentCompanyId           String?        @db.UniqueIdentifier
+  FasstoUserId              String?        @db.NVarChar(20)
+  IsFasstoUser              Boolean
+  CreatedAt                 DateTime
+  UpdatedAt                 DateTime
+  DeletedAt                 DateTime?
+  ShopeeReportUrl           String?        @db.NVarChar(500)
+  LazadaReportUrl           String?        @db.NVarChar(500)
+  AUth0Pw                   String?        @db.NVarChar(200)
+  Auth0Id                   String?        @db.NVarChar(200)
+  BizRegistNum              String?        @db.NVarChar(50)
+  DRAApiKey                 String?        @db.NVarChar(200)
+  DRAId                     String?        @db.NVarChar(200)
+  DRAPw                     String?        @db.NVarChar(200)
+  District                  String?        @db.NVarChar(500)
+  DistrictEn                String?        @db.NVarChar(500)
+  OpenDate                  DateTime?
+  RegistPath                String?        @db.NVarChar(200)
+  FulfillmentId             String?        @db.UniqueIdentifier
+  FulfillmentCstCd          String?        @db.NVarChar(100)
+  FulfillmentName           String?        @db.NVarChar(100)
+  VendorProductCd           String?        @db.NVarChar(4)
+  SettlementManagerName     String?        @db.VarChar(300)
+  SettlementManagerEmail    String?        @db.VarChar(300)
+  SettlementManagerTell     String?        @db.VarChar(300)
+  SettlementManagerPosition String?        @db.VarChar(300)
+  AccountApprovalStatus     String?        @db.VarChar(100)
+  SellerType                String?        @db.VarChar(100)
+  ReceivingAccount          String?        @db.VarChar(100)
+  ReceivingBank             String?        @db.VarChar(100)
+  ApiAccount                ApiAccount[]
+  CompanyInfo               CompanyInfo?   @relation("CompanyInfoToCompanyInfo", fields: [ParentCompanyId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_CompanyInfo_CompanyInfo_ParentCompanyId")
+  other_CompanyInfo         CompanyInfo[]  @relation("CompanyInfoToCompanyInfo")
+  locationInfo              locationInfo[]
+  Note                      Note[]
+  TomsItem                  TomsItem[]
+  UserInfo                  UserInfo[]
+}
+
+model ContackUs {
+  Id        String   @id(map: "PK_ContackUs") @db.UniqueIdentifier
+  Name      String   @db.NVarChar(100)
+  Email     String?  @db.NVarChar(100)
+  Tel       String?  @db.NVarChar(50)
+  CreatedAt DateTime
+}
+
+model CustomOrderItems {
+  Id            String       @id(map: "PK_CustomOrderItems") @db.UniqueIdentifier
+  VariationSku  String?      @db.NVarChar(20)
+  ItemId        String?      @db.UniqueIdentifier
+  UnitPrice     Float
+  Qty           Int
+  HsCode        String?      @db.NVarChar(20)
+  TrackingNo    String?      @db.NVarChar(20)
+  CustomOrderId String       @db.UniqueIdentifier
+  CompanyId     String       @db.UniqueIdentifier
+  CreatedAt     DateTime
+  UpdatedAt     DateTime
+  DeletedAt     DateTime?
+  Name          String?      @db.NVarChar(200)
+  Barcode       String?      @db.NVarChar(200)
+  SupplyPrice   Float        @default(0.0000000000000000, map: "DF__CustomOrd__Suppl__22751F6C")
+  SupplyQty     Int          @default(0, map: "DF__CustomOrd__Suppl__236943A5")
+  CustomOrders  CustomOrders @relation(fields: [CustomOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_CustomOrderItems_CustomOrders_CustomOrderId")
+}
+
+model CustomOrders {
+  Id               String             @id(map: "PK_CustomOrders") @db.UniqueIdentifier
+  OrderNum         String?            @db.NVarChar(20)
+  Status           String?            @db.NVarChar(20)
+  Country          String?            @db.NVarChar(5)
+  OrderDate        DateTime
+  Price            Float
+  Memo             String?            @db.NVarChar(500)
+  PrintAt          DateTime?
+  CreatedAt        DateTime
+  UpdatedAt        DateTime
+  DeletedAt        DateTime?
+  CompanyId        String             @db.UniqueIdentifier
+  ItemCustomerId   String?            @db.UniqueIdentifier
+  CustomOrderItems CustomOrderItems[]
+}
+
+model DeletedTableList {
+  seq       Int       @id(map: "PK__DeletedT__DDDFBCBE822B2DCC") @default(autoincrement())
+  TableName String?   @db.NVarChar(Max)
+  DeletedAt DateTime?
+}
+
+model EcProductHashes {
+  ProductId     String    @id(map: "PK_EcProductHashes") @db.NVarChar(450)
+  Platform      String?   @db.NVarChar(20)
+  Hash          String?   @db.NVarChar(Max)
+  Message       String?   @db.NVarChar(500)
+  HashUpdatedAt DateTime
+  LastCheckedAt DateTime?
+}
+
+model EcWhiteLists {
+  PlatformId       String  @db.NVarChar(20)
+  Platform         String  @db.NVarChar(20)
+  ShopId           String? @db.NVarChar(20)
+  ShopName         String? @db.NVarChar(20)
+  ForbiddenMethods String? @db.NVarChar(100)
+
+  @@id([Platform, PlatformId], map: "PK_EcWhiteLists")
+}
+
+model FulfillmentInfo {
+  FulfillmentId   String    @id(clustered: false, map: "FulfillmentInfo_pk") @db.UniqueIdentifier
+  FulfillmentName String    @db.VarChar(50)
+  CreateDate      DateTime  @db.DateTime
+  UpdateDate      DateTime? @db.DateTime
+  CreateAdminId   String    @db.VarChar(50)
+  UpdateAdminId   String?   @db.VarChar(50)
+}
+
+model GsellerBrand {
+  BrandCode String    @id(map: "PK__GsellerB__44292CC6B9D9C17E") @db.NVarChar(50)
+  NameKo    String    @db.NVarChar(255)
+  NameEn    String    @db.NVarChar(255)
+  NameZh    String    @db.NVarChar(255)
+  NameJa    String    @db.NVarChar(255)
+  IsActive  Boolean
+  CreatedAt DateTime? @db.DateTime
+  UpdatedAt DateTime? @db.DateTime
+}
+
+model GsellerCategories {
+  Id             Int     @id(map: "PK__GsellerC__3214EC072D36ED14")
+  CategoryNumber String? @db.NVarChar(255)
+  CategoryName   String? @db.NVarChar(255)
+  MajorCategory  String? @db.NVarChar(255)
+  MidCategory    String? @db.NVarChar(255)
+  SubCategory    String? @db.NVarChar(255)
+  DetailCategory String? @db.NVarChar(255)
+  ProvisionName  String? @db.NVarChar(255)
+  ProvisionCode  String? @db.NVarChar(10)
+}
+
+model GsellerInternationalOrdersHistory {
+  Id                         String    @id(map: "PK_GsellerInternationalOrdersHistory") @db.UniqueIdentifier
+  TomsOrderId                String    @db.UniqueIdentifier
+  Platform                   String    @db.NVarChar(50)
+  OrderNum                   String    @db.NVarChar(50)
+  VendorProductCd            String    @db.Char(4)
+  CompanyOrderStatus         String?   @db.NVarChar(50)
+  CompanyOrderStatusUpdateAt DateTime?
+  CancelRequestAt            DateTime?
+  EcMemo                     String?   @db.NVarChar(Max)
+  UpdatedAt                  DateTime?
+  CreatedAt                  DateTime
+  ShippingMethod             String?   @db.NVarChar(50)
+  ShippingNumber             String?   @db.NVarChar(50)
+  PrintAt                    DateTime?
+  ArrangeShipmentAt          DateTime?
+}
+
+model GsellerInternationalSettlementData {
+  Id                       String    @id(map: "PK_GsellerInternationalSettlementData") @default(dbgenerated("newid()"), map: "DF_GsellerInternationalSettlementData_Id") @db.UniqueIdentifier
+  VenderProductCd          String?   @db.NVarChar(4)
+  SettlementPeriod         String    @db.NVarChar(50)
+  OrderId                  String    @db.NVarChar(100)
+  TransactionId            String    @db.NVarChar(100)
+  ManagementCode           String?   @db.NVarChar(10)
+  ProductCode              String?   @db.NVarChar(100)
+  BrandCode                String?   @db.NVarChar(50)
+  ProductName              String?   @db.NVarChar(255)
+  Amount                   Decimal   @db.Decimal(18, 2)
+  SupplyPrice              Decimal   @db.Decimal(18, 2)
+  OrderStatus              String    @db.VarChar(50)
+  PaymentTime              DateTime?
+  OrderTime                DateTime?
+  ShippingUpdatedAt        DateTime?
+  CreatedAt                DateTime? @db.DateTime
+  UpdatedAt                DateTime? @db.DateTime
+  SettlementStatus         Boolean
+  Qty                      Int?
+  OrderPrice               Decimal?  @db.Decimal(18, 0)
+  SettlementStatusUpdateAt DateTime?
+}
+
+model GsellerPlatForm {
+  Id          Int       @id(map: "PK_PlatForm1") @default(autoincrement())
+  Name        String?   @db.NVarChar(50)
+  Description String?   @db.NVarChar(350)
+  IsDel       Boolean
+  Sort        Int
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+}
+
+model GsellerProductProvision {
+  Id                             Int                              @id(map: "PK__GsellerP__3214EC07ABD15FE2") @default(autoincrement())
+  ManagementCode                 String                           @db.NVarChar(10)
+  AttributeName                  String                           @db.NVarChar(255)
+  AttributeValue                 String                           @db.NVarChar(255)
+  CreateDate                     DateTime?                        @default(now(), map: "DF__GsellerPr__Creat__2B5F6B28") @db.DateTime
+  UpdateDate                     DateTime?                        @default(now(), map: "DF__GsellerPr__Updat__2C538F61") @db.DateTime
+  AttributeCode                  String?                          @db.NVarChar(10)
+  ProvisionCode                  String?                          @db.NVarChar(2)
+  CategoryId                     String?                          @db.NVarChar(50)
+  GsellerProductProvisionHistory GsellerProductProvisionHistory[]
+}
+
+model GsellerProductProvisionHistory {
+  HistoryId               Int                     @id(map: "PK__GsellerP__4D7B4ABD8A694271") @default(autoincrement())
+  Id                      Int
+  ManagementCode          String                  @db.NVarChar(10)
+  AttributeName           String                  @db.NVarChar(255)
+  AttributeValue          String                  @db.NVarChar(255)
+  OperationType           String?                 @db.NVarChar(10)
+  OperationDate           DateTime?               @default(now(), map: "DF__GsellerPr__Opera__2D47B39A") @db.DateTime
+  CreateDate              DateTime?               @default(now(), map: "DF__GsellerPr__Creat__2E3BD7D3") @db.DateTime
+  UpdateDate              DateTime?               @default(now(), map: "DF__GsellerPr__Updat__2F2FFC0C") @db.DateTime
+  AttributeCode           String?                 @db.NVarChar(10)
+  ProvisionCode           String?                 @db.NVarChar(2)
+  CategoryId              String?                 @db.NVarChar(50)
+  GsellerProductProvision GsellerProductProvision @relation(fields: [Id], references: [Id], onUpdate: NoAction, map: "FK__GsellerProdu__Id__33008CF0")
+}
+
+model GsellerProducts {
+  VenderProductCd     String    @db.NVarChar(4)
+  IndexID             Int
+  ManagementCode      String?   @db.NVarChar(10)
+  ShopProductCode     String?   @db.NVarChar(50)
+  ProductCode         String?   @db.NVarChar(100)
+  Category            String?   @db.NVarChar(50)
+  Name                String?   @db.NVarChar(Max)
+  DetailDescription   String?   @db.NVarChar(Max)
+  OriginSupplyPrice   Decimal?  @db.Decimal(18, 2)
+  SupplyPrice         Decimal?  @db.Decimal(18, 2)
+  Price               Decimal?  @db.Decimal(18, 2)
+  Stock               Int?
+  Width               Decimal?  @db.Decimal(18, 2)
+  Height              Decimal?  @db.Decimal(18, 2)
+  Depth               Decimal?  @db.Decimal(18, 2)
+  Weight              Decimal?  @db.Decimal(18, 2)
+  Barcode             String?   @db.NVarChar(100)
+  ExchangeCost        Decimal?  @db.Decimal(18, 2)
+  RefundCost          Decimal?  @db.Decimal(18, 2)
+  HardToShipAreasCost Decimal?  @db.Decimal(18, 2)
+  Status              String?   @db.NVarChar(20)
+  CreateDate          DateTime?
+  UpdateDate          DateTime?
+  Thumbnail           String?   @db.NVarChar(Max)
+  BrandCode           String?   @db.NVarChar(50)
+  DetailImage         String?   @db.NVarChar(Max)
+  DutyFlag            Boolean?
+  LocationType        Boolean
+
+  @@id([VenderProductCd, IndexID, LocationType], map: "GsellerProducts_pk")
+}
+
+model GsellerProductsHistory {
+  ID                  String    @id(map: "PK__GsellerP__3214EC27838FC82C") @default(dbgenerated("newid()"), map: "DF__GsellerProdu__ID__30242045") @db.UniqueIdentifier
+  VenderProductCd     String?   @db.NVarChar(4)
+  IndexID             Int?
+  ManagementCode      String?   @db.NVarChar(10)
+  ProductCode         String?   @db.NVarChar(100)
+  Category            String?   @db.NVarChar(50)
+  Name                String?   @db.NVarChar(Max)
+  DetailDescription   String?   @db.NVarChar(Max)
+  SupplyPrice         Decimal?  @db.Decimal(18, 2)
+  Stock               Int?
+  ExchangeCost        Decimal?  @db.Decimal(18, 2)
+  RefundCost          Decimal?  @db.Decimal(18, 2)
+  HardToShipAreasCost Decimal?  @db.Decimal(18, 2)
+  UpdateDate          DateTime? @default(now(), map: "DF__GsellerPr__Updat__3118447E")
+  Thumbnail           String?   @db.NVarChar(Max)
+  BrandCode           String?   @db.NVarChar(50)
+  Price               Decimal?  @db.Decimal(18, 0)
+  DetailImage         String?   @db.NVarChar(Max)
+}
+
+model GsellerProvisionCodes {
+  Code String @id(map: "PK__GsellerP__A25C5AA6B4573F70") @db.NVarChar(2)
+  Name String @db.NVarChar(50)
+}
+
+model GsellerProvisionItemAttributes {
+  Id            Int       @id(map: "PK__GsellerP__3214EC07F0B71957") @default(autoincrement())
+  ProvisionCode String    @db.NVarChar(2)
+  AttributeCode String?   @db.VarChar(10)
+  AttributeName String    @db.VarChar(255)
+  Platform      Int?
+  UseYn         Boolean?
+  CreatedAt     DateTime?
+  UpdateAt      DateTime?
+}
+
+model GsellerQoo10JPSettlementData {
+  PaymentDate              DateTime  @db.Date
+  OrderNo                  BigInt    @id(map: "PK__GsellerQ__C3907C74CE033465")
+  SettlementAmount         Decimal   @db.Decimal(18, 2)
+  SettlementCompletionDate DateTime  @db.Date
+  ItemCode                 String    @db.NVarChar(100)
+  ItemTitle                String    @db.NVarChar(255)
+  OrderQty                 Int
+  Option                   String?   @db.NVarChar(255)
+  ShippingDate             DateTime  @db.Date
+  DeliveryCompletionDate   DateTime  @db.Date
+  SettlementStatus         Boolean?
+  PaymentAmount            Decimal   @db.Decimal(18, 2)
+  ContractPrice            Decimal   @db.Decimal(18, 2)
+  OptionAmount             Decimal   @db.Decimal(18, 2)
+  SellerDiscountAmount     Decimal   @db.Decimal(18, 2)
+  Qoo10DiscountAmount      Decimal   @db.Decimal(18, 2)
+  Qoo10ServiceFee          Decimal   @db.Decimal(18, 2)
+  PackNo                   String    @db.NVarChar(100)
+  SellerItemCode           String?   @db.NVarChar(100)
+  OptionCode               String?   @db.NVarChar(100)
+  MegaDiscount             Decimal   @db.Decimal(18, 2)
+  Qoo10FeeDiscount         Decimal   @db.Decimal(18, 2)
+  CreatedAt                DateTime  @default(now(), map: "DF__GsellerQo__Creat__697C9932") @db.DateTime
+  SettlementStatusUpdateAt DateTime? @db.DateTime
+  VendorProductCd          String    @db.Char(4)
+}
+
+model GsellerSettlementData {
+  Id                       String    @id(map: "PK__GsellerS__3214EC07CAE2818B") @default(dbgenerated("newid()"), map: "DF__GsellerSettl__Id__320C68B7") @db.UniqueIdentifier
+  VenderProductCd          String?   @db.NVarChar(4)
+  SettlementPeriod         String    @db.NVarChar(50)
+  OrderId                  String    @db.NVarChar(100)
+  TransactionId            String    @db.NVarChar(100)
+  ManagementCode           String?   @db.NVarChar(10)
+  ProductCode              String?   @db.NVarChar(100)
+  BrandCode                String?   @db.NVarChar(50)
+  ProductName              String?   @db.NVarChar(255)
+  Amount                   Decimal   @db.Decimal(18, 2)
+  SupplyPrice              Decimal   @db.Decimal(18, 2)
+  OrderStatus              String    @db.VarChar(50)
+  PaymentTime              DateTime?
+  OrderTime                DateTime?
+  ShippingUpdatedAt        DateTime?
+  CreatedAt                DateTime? @db.DateTime
+  UpdatedAt                DateTime? @db.DateTime
+  SettlementStatus         Boolean
+  Qty                      Int?
+  OrderPrice               Decimal?  @db.Decimal(18, 0)
+  SettlementStatusUpdateAt DateTime?
+}
+
+model ICSLocation {
+  Seq          Int       @id(map: "PK__ICSLocat__CA1E3C88EC3A9BA0") @default(autoincrement())
+  CountryNm    String    @db.NVarChar(50)
+  CountryCd    String    @db.NVarChar(50)
+  DeliveryType String    @db.NVarChar(10)
+  Carrier      String    @db.NVarChar(50)
+  CreatedAt    DateTime  @default(dbgenerated("sysdatetime()"), map: "DF__ICSLocati__Creat__245D67DE")
+  UpdatedAt    DateTime  @default(dbgenerated("sysdatetime()"), map: "DF__ICSLocati__Updat__25518C17")
+  DeletedAt    DateTime?
+}
+
+model ItemCustomerMaps {
+  Id             String    @id(map: "PK_ItemCustomerMaps") @db.UniqueIdentifier
+  ItemId         String    @db.UniqueIdentifier
+  ItemCustomerId String    @db.UniqueIdentifier
+  CompanyId      String    @db.UniqueIdentifier
+  CreatedAt      DateTime
+  UpdatedAt      DateTime
+  DeletedAt      DateTime?
+}
+
+model ItemCustomers {
+  Id           String    @id(map: "PK_ItemCustomers") @db.UniqueIdentifier
+  Name         String?   @db.NVarChar(50)
+  BizNum       String?   @db.NVarChar(50)
+  OwnerName    String?   @db.NVarChar(50)
+  Email        String?   @db.NVarChar(200)
+  Tel          String?   @db.NVarChar(50)
+  ManagerName  String?   @db.NVarChar(50)
+  ManagerTel   String?   @db.NVarChar(50)
+  ManagerEmail String?   @db.NVarChar(200)
+  Memo         String?
+  CompanyId    String    @db.UniqueIdentifier
+  CreatedAt    DateTime
+  UpdatedAt    DateTime
+  DeletedAt    DateTime?
+  Addr1        String?   @db.NVarChar(200)
+  Addr2        String?   @db.NVarChar(200)
+  ZipCode      String?   @db.NVarChar(10)
+}
+
+model ItempYoupick {
+  Id               Int       @id(map: "PK__ItempYou__3214EC07BA6DF43F") @default(autoincrement())
+  Barcode          String?   @db.NVarChar(50)
+  ItemName         String?
+  ProductCode      String?   @db.NVarChar(20)
+  ExpiryDate       DateTime? @db.DateTime
+  ShippingQuantity Int?
+  PackageQuantity  Int?
+  OperationStatus  String?   @db.NVarChar(10)
+  ExpiryMonths     Int?
+  ManufactureDate  DateTime? @db.DateTime
+}
+
+model locationInfo {
+  Seq         Int         @id(map: "PK__location__CA1E3C886DBC8EC6") @default(autoincrement())
+  CompanyId   String      @db.UniqueIdentifier
+  Location    String      @db.NVarChar(50)
+  Rank        Int?
+  CreatedAt   DateTime    @default(now(), map: "DF__locationI__Creat__2645B050")
+  UpdatedAt   DateTime    @default(now(), map: "DF__locationI__Updat__2739D489")
+  CompanyInfo CompanyInfo @relation(fields: [CompanyId], references: [Id], onUpdate: NoAction, map: "fk_locationInfo_company")
+  TomsItem    TomsItem[]
+
+  @@unique([CompanyId, Location], map: "uq_locationInfo_company_location")
+}
+
+model Login {
+  Seq       Int       @id(map: "PK__Login__CA1E3C88E999F33C") @default(autoincrement())
+  Id        String?   @db.NVarChar(50)
+  LoginDate DateTime? @db.DateTime
+  LoginIP   String?   @db.NVarChar(50)
+  FailYn    String?   @db.VarChar(1)
+  etc1      String?   @db.NVarChar(Max)
+  etc2      String?   @db.NVarChar(Max)
+  etc3      String?   @db.NVarChar(Max)
+}
+
+model Members {
+  Seq        Int       @id(map: "PK__Members__CA1E3C8832B5D866") @default(autoincrement())
+  Id         String?   @unique(map: "UQ__Members__3214EC06D7238F5B") @db.NVarChar(50)
+  Password   String?   @db.NVarChar(50)
+  Name       String?   @db.NVarChar(100)
+  Email      String?   @db.NVarChar(100)
+  CreateDate DateTime? @db.DateTime
+  UseYn      String?   @db.NVarChar(1)
+  DelYn      String?   @db.NVarChar(1)
+  Level      String?   @db.NVarChar(50)
+  etc2       String?   @db.NVarChar(Max)
+  etc3       String?   @db.NVarChar(Max)
+}
+
+model Note {
+  Id          Int           @id(map: "PK_Note") @default(autoincrement())
+  CompanyId   String        @db.UniqueIdentifier
+  Title       String?       @db.NVarChar(100)
+  Content     String?       @db.NVarChar(Max)
+  Priority    Int
+  State       String?       @db.NVarChar(20)
+  Category    String?       @db.NVarChar(100)
+  OrderSn     String?       @db.NVarChar(50)
+  Writer      String?       @db.NVarChar(100)
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+  CompanyInfo CompanyInfo   @relation(fields: [CompanyId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_Note_CompanyInfo_CompanyId")
+  NoteComment NoteComment[]
+}
+
+model NoteComment {
+  Id                Int           @id(map: "PK_NoteComment") @default(autoincrement())
+  Writer            String?       @db.NVarChar(100)
+  Content           String?       @db.NVarChar(Max)
+  NoteId            Int
+  ParentId          Int?
+  CreatedAt         DateTime
+  UpdatedAt         DateTime
+  DeletedAt         DateTime?
+  Note              Note          @relation(fields: [NoteId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_NoteComment_Note_NoteId")
+  NoteComment       NoteComment?  @relation("NoteCommentToNoteComment", fields: [ParentId], references: [Id], onDelete: NoAction, onUpdate: NoAction, map: "FK_NoteComment_NoteComment_ParentId")
+  other_NoteComment NoteComment[] @relation("NoteCommentToNoteComment")
+}
+
+model OrdersSummary {
+  Seq             Int       @id(map: "PK__OrdersSu__CA1E3C88DFAC2DAE") @default(autoincrement())
+  SummaryDate     DateTime  @db.DateTime
+  CompanyId       String    @db.UniqueIdentifier
+  CountryCode     String    @db.NVarChar(5)
+  VariationSku    String    @db.NVarChar(255)
+  Currency        String    @db.NVarChar(10)
+  Status          String    @db.NVarChar(255)
+  FulfillmentName String    @db.NVarChar(20)
+  Platform        String    @db.NVarChar(100)
+  TotalPrice      Decimal   @db.Decimal(20, 2)
+  OrderCount      Int
+  CreatedDate     DateTime  @default(now(), map: "DF__OrdersSum__Creat__282DF8C2") @db.DateTime
+  UpdatedDate     DateTime? @db.DateTime
+  Name            String?   @db.NVarChar(Max)
+  OrderNumber     String?   @db.NVarChar(Max)
+}
+
+model PartnerAppKey {
+  Id           String      @id(map: "PK_PartnerAppKey") @db.UniqueIdentifier
+  Name         String?     @db.NVarChar(200)
+  Value        String?     @db.NVarChar(500)
+  Description  String?     @db.NVarChar(500)
+  PartnerAppId String      @db.UniqueIdentifier
+  CreatedAt    DateTime
+  UpdatedAt    DateTime
+  DeletedAt    DateTime?
+  PartnerApps  PartnerApps @relation(fields: [PartnerAppId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_PartnerAppKey_PartnerApps_PartnerAppId")
+}
+
+model PartnerApps {
+  Id            String          @id(map: "PK_PartnerApps") @db.UniqueIdentifier
+  AppName       String?         @db.NVarChar(200)
+  Type          String?         @db.NVarChar(20)
+  EcToken       String?         @db.NVarChar(Max)
+  IssueDate     DateTime?
+  ExpireDate    DateTime?
+  PartnerId     String          @db.UniqueIdentifier
+  CreatedAt     DateTime
+  UpdatedAt     DateTime
+  DeletedAt     DateTime?
+  PartnerAppKey PartnerAppKey[]
+  Partners      Partners        @relation(fields: [PartnerId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_PartnerApps_Partners_PartnerId")
+}
+
+model Partners {
+  Id          String        @id(map: "PK_Partners") @db.UniqueIdentifier
+  Name        String?       @db.NVarChar(200)
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+  PartnerApps PartnerApps[]
+}
+
+model PlatForm {
+  Id          Int       @id(map: "PK_PlatForm") @default(autoincrement())
+  Name        String?   @db.NVarChar(50)
+  Description String?   @db.NVarChar(350)
+  IsDel       Boolean
+  Sort        Int
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+}
+
+model ProductsUpick {
+  Id                     Int       @id(map: "PK__Products__3214EC07DBF583FD") @default(autoincrement())
+  Category               String?   @db.NVarChar(100)
+  SecondSubCat           String?   @db.NVarChar(9)
+  FoodType               String?   @db.NVarChar(100)
+  Continent              String?   @db.NVarChar(100)
+  ContinentJp            String?   @db.NVarChar(100)
+  Origin                 String?   @db.NVarChar(100)
+  OriginEng              String?   @db.NVarChar(100)
+  OriginJp               String?   @db.NVarChar(100)
+  BrandEng               String?   @db.NVarChar(100)
+  BrandJp                String?   @db.NVarChar(100)
+  BrandKor               String?   @db.NVarChar(100)
+  ProductNameKor         String?   @db.NVarChar(100)
+  ProductNameJp          String?   @db.NVarChar(100)
+  Capacity               String?   @db.NVarChar(50)
+  DozonCode              String?   @db.NVarChar(50)
+  Barcode                String?   @db.NVarChar(50)
+  YouPickLink            String?   @db.NVarChar(255)
+  OperationStatus        String?   @db.NVarChar(50)
+  LaunchDate             DateTime? @db.Date
+  DiscontinuationDate    DateTime? @db.Date
+  TaxStatus              String?   @db.NVarChar(50)
+  ShelfLifeMonths        Int?
+  RecommendedStorageTemp String?   @db.NVarChar(3000)
+  CartonUnits            Int?
+  UnitPerCase            Int?
+  CasePerPallet          Int?
+  UnitPerPallet          Int?
+  ProductWidthMM         Int?
+  ProductHeightMM        Int?
+  ProductDepthMM         Int?
+  CartonWidthMM          Int?
+  CartonHeightMM         Int?
+  CartonDepthMM          Int?
+  DOP                    String?   @db.NVarChar(100)
+  IGP                    String?   @db.NVarChar(100)
+  Vegan                  String?   @db.NVarChar(100)
+  GlutenFree             String?   @db.NVarChar(100)
+  Organic                String?   @db.NVarChar(100)
+  Halal                  String?   @db.NVarChar(100)
+  Kosher                 String?   @db.NVarChar(100)
+  FDA                    String?   @db.NVarChar(100)
+  NonGMO                 String?   @db.NVarChar(100)
+  GMP                    String?   @db.NVarChar(100)
+  HACCP                  String?   @db.NVarChar(100)
+  ISO                    String?   @db.NVarChar(100)
+  FSSC22000              String?   @db.NVarChar(100)
+  EstimatePrice          Decimal?  @db.Decimal(18, 2)
+  SuggestedRetailPrice   Decimal?  @db.Decimal(18, 2)
+  SalesPrice             Decimal?  @db.Decimal(10, 2)
+  StanderImgURL          String?
+  ProductDecImgURL       String?   @db.NVarChar(Max)
+  ProductDecImgMetadata  String?   @db.NVarChar(Max)
+  CreatedAt              DateTime?
+  UpdatedAt              DateTime?
+  Sku                    String?   @db.NVarChar(10)
+  SetNewGoodsYn          String?   @db.Char(1)
+  ContactInfo            String?   @db.NVarChar(100)
+  ShippingNo             Int?
+  Keyword                String?   @db.NVarChar(30)
+  ItemCode               String?   @db.NVarChar(10)
+  ItemQty                Int?
+  ManufactureDate        DateTime?
+  ExpireDate             DateTime?
+  Option                 String?   @db.NVarChar(Max)
+}
+
+model ProductsUpickJP {
+  Id                     Int       @id(map: "PK__Products__3214EC07551318D6") @default(autoincrement())
+  Category               String?   @db.NVarChar(100)
+  FoodType               String?   @db.NVarChar(100)
+  Continent              String?   @db.NVarChar(100)
+  ContinentJp            String?   @db.NVarChar(Max)
+  Origin                 String?   @db.NVarChar(100)
+  OriginEng              String?   @db.NVarChar(100)
+  OriginJp               String?   @db.NVarChar(Max)
+  BrandEng               String?   @db.NVarChar(100)
+  BrandJp                String?   @db.NVarChar(Max)
+  BrandKor               String?   @db.NVarChar(100)
+  ProductNameKor         String?   @db.NVarChar(100)
+  ProductNameJp          String?   @db.NVarChar(Max)
+  Capacity               String?   @db.NVarChar(50)
+  DozonCode              String?   @db.NVarChar(50)
+  Barcode                String?   @db.NVarChar(50)
+  YouPickLink            String?   @db.NVarChar(255)
+  OperationStatus        String?   @db.NVarChar(50)
+  LaunchDate             String?   @db.NVarChar(100)
+  DiscontinuationDate    String?   @db.NVarChar(100)
+  TaxStatus              String?   @db.NVarChar(50)
+  ShelfLifeMonths        String?   @db.NVarChar(100)
+  RecommendedStorageTemp String?   @db.NVarChar(3000)
+  CartonUnits            String?   @db.NVarChar(100)
+  UnitPerCase            String?   @db.NVarChar(100)
+  CasePerPallet          String?   @db.NVarChar(100)
+  UnitPerPallet          String?   @db.NVarChar(100)
+  ProductWidthMM         String?   @db.NVarChar(100)
+  ProductHeightMM        String?   @db.NVarChar(100)
+  ProductDepthMM         String?   @db.NVarChar(100)
+  CartonWidthMM          String?   @db.NVarChar(100)
+  CartonHeightMM         String?   @db.NVarChar(100)
+  CartonDepthMM          String?   @db.NVarChar(100)
+  DOP                    String?   @db.NVarChar(100)
+  IGP                    String?   @db.NVarChar(100)
+  Vegan                  String?   @db.NVarChar(100)
+  GlutenFree             String?   @db.NVarChar(100)
+  Organic                String?   @db.NVarChar(100)
+  Halal                  String?   @db.NVarChar(100)
+  Kosher                 String?   @db.NVarChar(100)
+  FDA                    String?   @db.NVarChar(100)
+  NonGMO                 String?   @db.NVarChar(100)
+  GMP                    String?   @db.NVarChar(100)
+  HACCP                  String?   @db.NVarChar(100)
+  ISO                    String?   @db.NVarChar(100)
+  FSSC22000              String?   @db.NVarChar(100)
+  EstimatePrice          String?   @db.NVarChar(100)
+  SuggestedRetailPrice   String?   @db.NVarChar(100)
+  StanderImgURL          String?
+  ProductDecImgURL       String?   @db.NVarChar(Max)
+  ProductDecImgMetadata  String?   @db.NVarChar(Max)
+  CreatedAt              DateTime?
+  UpdatedAt              DateTime?
+  SKU                    String?   @db.NVarChar(10)
+  TotalCapacity          String?   @db.NVarChar(100)
+}
+
+model Qoo10_ItemDetails {
+  ItemCode            String              @id(map: "PK__Qoo10_It__3ECC0FEB01E126B5") @db.NVarChar(10)
+  CompanyId           String              @db.UniqueIdentifier
+  SellerCode          String?             @db.NVarChar(100)
+  SellerAuthKey       String?             @db.NVarChar(300)
+  ItemStatus          String?             @db.NVarChar(10)
+  ItemTitle           String?             @db.NVarChar(500)
+  PromotionName       String?             @db.NVarChar(500)
+  MainCatCd           String?             @db.NVarChar(20)
+  MainCatNm           String?             @db.NVarChar(100)
+  FirstSubCatCd       String?             @db.NVarChar(20)
+  FirstSubCatNm       String?             @db.NVarChar(100)
+  SecondSubCatCd      String?             @db.NVarChar(20)
+  SecondSubCatNm      String?             @db.NVarChar(100)
+  DrugType            String?             @db.NVarChar(2)
+  ProductionPlaceType String?             @db.NVarChar(10)
+  ProductionPlace     String?             @db.NVarChar(30)
+  IndustrialCodeType  String?             @db.NVarChar(10)
+  IndustrialCode      String?             @db.NVarChar(50)
+  RetailPrice         Decimal?            @db.Decimal(18, 2)
+  ItemPrice           Decimal?            @db.Decimal(18, 2)
+  TaxRate             Decimal?            @db.Decimal(5, 2)
+  SettlePrice         Decimal?            @db.Decimal(18, 2)
+  ItemQty             Int?
+  ExpireDate          DateTime?           @db.Date
+  DesiredShippingDate Int?
+  AvailableDateType   String?             @db.NVarChar(10)
+  AvailableDateValue  String?             @db.NVarChar(20)
+  ShippingNo          String?             @db.NVarChar(20)
+  ModelNM             String?             @db.NVarChar(100)
+  ManufacturerDate    String?             @db.NVarChar(100)
+  BrandNo             String?             @db.NVarChar(100)
+  Material            String?             @db.NVarChar(200)
+  AdultYN             String?             @db.NVarChar(10)
+  ContactInfo         String?             @db.NVarChar(200)
+  ItemDetail          String?             @db.NVarChar(Max)
+  ImageUrl            String?             @db.NVarChar(500)
+  VideoURL            String?             @db.NVarChar(500)
+  Keyword             String?             @db.NVarChar(500)
+  ListedDate          DateTime?
+  ChangedDate         DateTime?
+  LastFetchDate       DateTime?           @default(now(), map: "DF__Qoo10_Ite__LastF__2F1AED73")
+  Qoo10_ItemOptions   Qoo10_ItemOptions[]
+
+  @@index([ChangedDate], map: "IX_Qoo10ItemDetails_ChangedDate")
+  @@index([CompanyId], map: "IX_Qoo10ItemDetails_CompanyId")
+  @@index([ItemStatus], map: "IX_Qoo10ItemDetails_ItemStatus")
+  @@index([LastFetchDate], map: "IX_Qoo10ItemDetails_LastFetchDate")
+}
+
+model Qoo10_ItemDetailsUnified {
+  ItemCode              String    @id(map: "PK__Qoo10_It__3ECC0FEBA08912F0") @db.NVarChar(10)
+  SellerCode            String?   @db.NVarChar(100)
+  SellerAuthKey         String?   @db.NVarChar(300)
+  CompanyId             String    @db.UniqueIdentifier
+  Frag                  String?   @db.NVarChar(10)
+  ItemStatus            String?   @db.NVarChar(10)
+  ItemTitle             String?   @db.NVarChar(500)
+  PromotionName         String?   @db.NVarChar(500)
+  MainCatCd             String?   @db.NVarChar(20)
+  MainCatNm             String?   @db.NVarChar(100)
+  FirstSubCatCd         String?   @db.NVarChar(20)
+  FirstSubCatNm         String?   @db.NVarChar(100)
+  SecondSubCatCd        String?   @db.NVarChar(20)
+  SecondSubCatNm        String?   @db.NVarChar(100)
+  DrugType              String?   @db.NVarChar(2)
+  ProductionPlaceType   String?   @db.NVarChar(10)
+  ProductionPlace       String?   @db.NVarChar(30)
+  IndustrialCodeType    String?   @db.NVarChar(10)
+  IndustrialCode        String?   @db.NVarChar(50)
+  RetailPrice           Decimal?  @db.Decimal(18, 2)
+  ItemPrice             Decimal?  @db.Decimal(18, 2)
+  TaxRate               Decimal?  @db.Decimal(5, 2)
+  SettlePrice           Decimal?  @db.Decimal(18, 2)
+  ItemQty               Int?
+  ExpireDate            DateTime? @db.Date
+  DesiredShippingDate   Int?
+  AvailableDateType     String?   @db.NVarChar(10)
+  AvailableDateValue    String?   @db.NVarChar(20)
+  ShippingNo            String?   @db.NVarChar(20)
+  ModelNM               String?   @db.NVarChar(100)
+  ManufacturerDate      String?   @db.NVarChar(100)
+  BrandNo               String?   @db.NVarChar(100)
+  Material              String?   @db.NVarChar(200)
+  AdultYN               String?   @db.NVarChar(10)
+  ContactInfo           String?   @db.NVarChar(200)
+  ItemDetail            String?   @db.NVarChar(Max)
+  ImageUrl              String?   @db.NVarChar(500)
+  VideoURL              String?   @db.NVarChar(500)
+  Keyword               String?   @db.NVarChar(500)
+  AttributeInfo         String?   @db.NVarChar(255)
+  BuyLimitType          String?   @db.NVarChar(50)
+  BuyLimitDate          DateTime? @db.Date
+  BuyLimitQty           Int?
+  ExpirationDateType    String?   @db.NVarChar(10)
+  ExpirationDateMFD     DateTime? @db.Date
+  ExpirationDatePAO     DateTime? @db.Date
+  ExpirationDateEXP     DateTime? @db.Date
+  ImageOtherUrl         String?   @db.NVarChar(500)
+  MaterialInfo          String?   @db.NVarChar(Max)
+  MaterialNumber        String?   @db.NVarChar(Max)
+  OptionMainimage       String?   @db.NVarChar(Max)
+  OptionQty             String?   @db.NVarChar(Max)
+  OptionSubimage        String?   @db.NVarChar(Max)
+  OptionType            String?   @db.NVarChar(Max)
+  OriginCountryId       String?   @db.NVarChar(50)
+  OriginRegionId        String?   @db.NVarChar(50)
+  OriginOthers          String?   @db.NVarChar(255)
+  SeasonType            String?   @db.NVarChar(50)
+  SizetableType1        String?   @db.NVarChar(50)
+  SizetableType1Value   String?   @db.NVarChar(50)
+  SizetableType2        String?   @db.NVarChar(50)
+  SizetableType2Value   String?   @db.NVarChar(50)
+  SizetableType3        String?   @db.NVarChar(50)
+  SizetableType3Value   String?   @db.NVarChar(50)
+  StyleNumber           String?   @db.NVarChar(50)
+  TpoNumber             String?   @db.NVarChar(50)
+  VideoNumber           String?   @db.NVarChar(50)
+  WashinginfoFit        String?   @db.NVarChar(50)
+  WashinginfoLining     String?   @db.NVarChar(50)
+  WashinginfoSeethrough String?   @db.NVarChar(50)
+  WashinginfoStretch    String?   @db.NVarChar(50)
+  WashinginfoThickness  String?   @db.NVarChar(50)
+  WashinginfoWashing    String?   @db.NVarChar(50)
+  Weight                Decimal?  @db.Decimal(10, 2)
+  ListedDate            DateTime?
+  ChangedDate           DateTime?
+  LastFetchDate         DateTime? @default(now(), map: "DF__Qoo10_Ite__LastF__450A2E92")
+  CreatedAt             DateTime?
+  UpdatedAt             DateTime?
+}
+
+model Qoo10_ItemInventoryInfo {
+  Id            BigInt    @id(map: "PK__Qoo10_It__3214EC072555095A") @default(autoincrement())
+  ItemCode      String    @db.NVarChar(10)
+  CompanyId     String    @db.UniqueIdentifier
+  SellerCode    String?   @db.NVarChar(100)
+  Name1         String?   @db.NVarChar(100)
+  Value1        String?   @db.NVarChar(100)
+  Name2         String?   @db.NVarChar(100)
+  Value2        String?   @db.NVarChar(100)
+  Name3         String?   @db.NVarChar(100)
+  Value3        String?   @db.NVarChar(100)
+  Name4         String?   @db.NVarChar(100)
+  Value4        String?   @db.NVarChar(100)
+  Name5         String?   @db.NVarChar(100)
+  Value5        String?   @db.NVarChar(100)
+  Price         Decimal?  @default(0, map: "DF__Qoo10_Ite__Price__5CE1B823") @db.Decimal(18, 2)
+  Qty           Int?      @default(0, map: "DF__Qoo10_ItemI__Qty__5DD5DC5C")
+  ItemTypeCode  String?   @db.NVarChar(100)
+  CreatedAt     DateTime? @default(now(), map: "DF__Qoo10_Ite__Creat__5ECA0095")
+  UpdatedAt     DateTime? @default(now(), map: "DF__Qoo10_Ite__Updat__5FBE24CE")
+  LastFetchDate DateTime? @default(now(), map: "DF__Qoo10_Ite__LastF__60B24907")
+
+  @@index([CompanyId], map: "IX_Qoo10ItemInventoryInfo_CompanyId")
+  @@index([ItemCode], map: "IX_Qoo10ItemInventoryInfo_ItemCode")
+  @@index([ItemTypeCode], map: "IX_Qoo10ItemInventoryInfo_ItemTypeCode")
+  @@index([SellerCode], map: "IX_Qoo10ItemInventoryInfo_SellerCode")
+}
+
+model Qoo10_ItemOptions {
+  Id                BigInt            @id(map: "PK__Qoo10_It__3214EC0746EFD370") @default(autoincrement())
+  ItemCode          String            @db.NVarChar(10)
+  CompanyId         String            @db.UniqueIdentifier
+  Name              String            @db.NVarChar(200)
+  Value             String            @db.NVarChar(200)
+  Price             Decimal?          @default(0, map: "DF__Qoo10_Ite__Price__32EB7E57") @db.Decimal(18, 2)
+  OptionCode        String?           @db.NVarChar(100)
+  StockQty          Int?              @default(0, map: "DF__Qoo10_Ite__Stock__33DFA290")
+  IsEnabled         Boolean?          @default(true, map: "DF__Qoo10_Ite__IsEna__34D3C6C9")
+  DisplayOrder      Int?              @default(0, map: "DF__Qoo10_Ite__Displ__35C7EB02")
+  CreatedAt         DateTime?         @default(now(), map: "DF__Qoo10_Ite__Creat__36BC0F3B")
+  UpdatedAt         DateTime?         @default(now(), map: "DF__Qoo10_Ite__Updat__37B03374")
+  LastFetchDate     DateTime?         @default(now(), map: "DF__Qoo10_Ite__LastF__38A457AD")
+  Qoo10_ItemDetails Qoo10_ItemDetails @relation(fields: [ItemCode], references: [ItemCode], onUpdate: NoAction, map: "FK__Qoo10_Ite__ItemC__39987BE6")
+
+  @@index([CompanyId], map: "IX_Qoo10ItemOptions_CompanyId")
+  @@index([ItemCode], map: "IX_Qoo10ItemOptions_ItemCode")
+  @@index([Name], map: "IX_Qoo10ItemOptions_Name")
+  @@index([Value], map: "IX_Qoo10ItemOptions_Value")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model Qoo10_MoveItemDetails {
+  ItemCode              String?   @db.VarChar(50)
+  CompanyId             String    @db.UniqueIdentifier
+  SellerAuthKey         String?   @db.NVarChar(300)
+  AdultYN               String?   @db.Char(1)
+  AttributeInfo         String?   @db.VarChar(255)
+  AvailableDateValue    Int?
+  BrandNo               Int?
+  BuyLimitType          String?   @db.VarChar(50)
+  BuyLimitDate          DateTime? @db.Date
+  BuyLimitQty           Int?
+  ContactInfo           String?   @db.Text
+  DesiredShippingDate   Int?
+  ExpirationDateType    String?   @db.NVarChar(10)
+  ExpirationDateMFD     DateTime? @db.Date
+  ExpirationDatePAO     DateTime? @db.Date
+  ExpirationDateEXP     DateTime? @db.Date
+  ExpireDate            DateTime? @db.Date
+  ImageOtherUrl         String?   @db.Text
+  IndustrialCode        String?   @db.VarChar(50)
+  IndustrialCodeType    String?   @db.VarChar(50)
+  ItemDescription       String?   @db.Text
+  ItemPrice             Decimal?  @db.Decimal(10, 2)
+  ItemSeriesName        String?   @db.VarChar(255)
+  Keyword               String?   @db.Text
+  ManufactureDate       DateTime? @db.Date
+  MaterialInfo          String?   @db.Text
+  MaterialNumber        String?   @db.Text
+  ModelNM               String?   @db.VarChar(255)
+  OptionMainimage       String?   @db.Text
+  OptionQty             String?   @db.Text
+  OptionSubimage        String?   @db.Text
+  OptionType            String?   @db.Text
+  OriginCountryId       String?   @db.VarChar(50)
+  OriginRegionId        String?   @db.VarChar(50)
+  OriginOthers          String?   @db.Text
+  OriginType            String?   @db.NVarChar(10)
+  PromotionName         String?   @db.VarChar(255)
+  RetailPrice           Decimal?  @db.Decimal(10, 2)
+  SeasonType            String?   @db.VarChar(50)
+  SecondSubCat          String?   @db.VarChar(50)
+  SellerCode            String?   @db.VarChar(50)
+  ShippingNo            String?   @db.VarChar(50)
+  SizetableType1        String?   @db.VarChar(50)
+  SizetableType1Value   String?   @db.VarChar(50)
+  SizetableType2        String?   @db.VarChar(50)
+  SizetableType2Value   String?   @db.VarChar(50)
+  SizetableType3        String?   @db.VarChar(50)
+  SizetableType3Value   String?   @db.VarChar(50)
+  StyleNumber           String?   @db.VarChar(50)
+  TpoNumber             String?   @db.VarChar(50)
+  VideoNumber           String?   @db.VarChar(50)
+  WashinginfoFit        String?   @db.VarChar(50)
+  WashinginfoLining     String?   @db.VarChar(50)
+  WashinginfoSeethrough String?   @db.VarChar(50)
+  WashinginfoStretch    String?   @db.VarChar(50)
+  WashinginfoThickness  String?   @db.VarChar(50)
+  WashinginfoWashing    String?   @db.VarChar(50)
+  Weight                Decimal?  @db.Decimal(10, 2)
+  TaxRate               Decimal?  @db.Decimal(5, 2)
+
+  @@ignore
+}
+
+model Qoo10ProductResults {
+  ResultID                        Int       @id(map: "PK__Qoo10Pro__976902282A070996") @default(autoincrement())
+  ProductID                       Int
+  VendorProductCd                 String?   @db.NVarChar(4)
+  GdNo                            String    @db.NVarChar(50)
+  BIContentsNo                    String?   @db.NVarChar(100)
+  AIContentsNo                    String?   @db.NVarChar(100)
+  DeliveryGroupNo                 String?   @db.NVarChar(100)
+  GroupbuyNo                      Int?
+  QaBrandResult                   String?   @db.NVarChar(255)
+  OptionImgResult_ContentsNo      String?   @db.NVarChar(100)
+  OptionImgResult_ImageUrl        String?   @db.NVarChar(500)
+  OptionImgResult_IsRegistered    Boolean?
+  InventoryImgResult_ContentsNo   String?   @db.NVarChar(100)
+  InventoryImgResult_ImageUrl     String?   @db.NVarChar(500)
+  InventoryImgResult_IsRegistered Boolean?
+  CreatedAt                       DateTime  @default(now(), map: "DF__Qoo10Prod__Creat__4A18FC72") @db.DateTime
+  UpdatedAt                       DateTime? @db.DateTime
+}
+
+model SagawaShippingInfos {
+  Id              String    @id(map: "PK_SagawaShippingInfos") @db.UniqueIdentifier
+  CreatedAt       DateTime
+  UpdatedAt       DateTime?
+  DeletedAt       DateTime?
+  Status          String?   @db.NVarChar(100)
+  RefNo           String?   @db.NVarChar(100)
+  RoutingBarcode  String?   @db.NVarChar(100)
+  RoutingCode1    String?   @db.NVarChar(100)
+  RoutingCode2    String?   @db.NVarChar(100)
+  TrackingBarcode String?   @db.NVarChar(100)
+  TrackingNumber  String?   @db.NVarChar(100)
+  CODYesNo        Boolean
+}
+
+model SagawaTrackingNumbers {
+  Id             String    @id(map: "PK_SagawaTrackingNumbers") @db.UniqueIdentifier
+  CreatedAt      DateTime
+  UpdatedAt      DateTime?
+  UsedAt         DateTime?
+  DeletedAt      DateTime?
+  TrackingNumber String?   @db.NVarChar(100)
+}
+
+model ShipmentInfoLog {
+  Id          String    @id(map: "PK_ShipmentInfoLog") @db.UniqueIdentifier
+  UserInfo    String?   @db.NVarChar(100)
+  ServiceType String?   @db.NVarChar(100)
+  Sender      String?   @db.NVarChar(Max)
+  Receiver    String?   @db.NVarChar(Max)
+  Items       String?   @db.NVarChar(Max)
+  TotalWeight Float?
+  Width       Float?
+  Depth       Float?
+  Height      Float?
+  TotalValue  Float?
+  Currency    String?   @db.NVarChar(5)
+  Remarks     String?   @db.NVarChar(100)
+  OrderNum    String?   @db.NVarChar(100)
+  Platform    String?   @db.NVarChar(100)
+  IsSuccess   Boolean
+  Response    String?   @db.NVarChar(Max)
+  TomsOrderId String    @db.UniqueIdentifier
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+}
+
+model SquareProduct {
+  Id          BigInt    @id(map: "PK__SquarePr__3214EC074A780AC1") @default(autoincrement())
+  ProductName String?
+  CreatedAt   DateTime?
+  UpdatedAt   DateTime?
+}
+
+model TikTokItemTaxes {
+  ItemTaxId            Int                   @id(map: "PK__TikTokIt__0E367AC28998C891") @default(autoincrement())
+  OrderLineId          String?               @db.NVarChar(50)
+  TaxType              Int?
+  TaxAmount            Decimal?              @db.Decimal(18, 2)
+  RetailDeliveryFee    Decimal?              @db.Decimal(18, 2)
+  BuyerServiceFee      Decimal?              @db.Decimal(18, 2)
+  Cpf                  String?               @db.NVarChar(50)
+  TikTokOrderLineItems TikTokOrderLineItems? @relation(fields: [OrderLineId], references: [OrderLineId], onDelete: NoAction, onUpdate: NoAction, map: "FK__TikTokIte__Order__4BCC3ABA")
+}
+
+model TikTokOrderLineItems {
+  OrderLineId          String            @id(map: "PK__TikTokOr__29068A107D6C859C") @db.NVarChar(50)
+  OrderId              String?           @db.NVarChar(50)
+  ProductId            String?           @db.NVarChar(50)
+  ProductName          String?           @db.NVarChar(255)
+  SkuId                String?           @db.NVarChar(50)
+  SkuName              String?           @db.NVarChar(255)
+  SalePrice            Decimal?          @db.Decimal(18, 2)
+  Quantity             Int?
+  OriginalPrice        Decimal?          @db.Decimal(18, 2)
+  PlatformDiscount     Decimal?          @db.Decimal(18, 2)
+  SellerDiscount       Decimal?          @db.Decimal(18, 2)
+  CancelReason         String?           @db.NVarChar(255)
+  CancelUser           String?           @db.NVarChar(50)
+  PackageId            Int?
+  PackageStatus        Int?
+  PackageFreezeStatus  Int?
+  ShippingProviderId   String?           @db.NVarChar(50)
+  ShippingProviderName String?           @db.NVarChar(100)
+  TrackingNumber       String?           @db.NVarChar(100)
+  SmallOrderFee        Decimal?          @db.Decimal(18, 2)
+  IsGift               Boolean?
+  TikTokItemTaxes      TikTokItemTaxes[]
+  TikTokOrders         TikTokOrders?     @relation(fields: [OrderId], references: [OrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK__TikTokOrd__Order__405A880E")
+}
+
+model TikTokOrders {
+  OrderId                   String                   @id(map: "PK__TikTokOr__C3905BCF4C2077A9") @db.NVarChar(50)
+  OrderStatus               Int?
+  CancelReason              String?                  @db.NVarChar(255)
+  CancelUser                String?                  @db.NVarChar(50)
+  TrackingNumber            String?                  @db.NVarChar(100)
+  RtsTime                   Int?
+  RtsSla                    Int?
+  TtsSla                    Int?
+  CancelOrderSla            Int?
+  UpdateTime                Int?
+  BuyerUid                  String?                  @db.NVarChar(50)
+  SplitOrCombineTag         String?                  @db.NVarChar(20)
+  FulfillmentType           Int?
+  SellerNote                String?                  @db.NVarChar(Max)
+  WarehouseId               String?                  @db.NVarChar(50)
+  PaymentMethodType         Int?
+  PaymentMethodName         String?                  @db.NVarChar(100)
+  DeliveryOptionType        Int?
+  DeliveryOptionDescription String?                  @db.NVarChar(255)
+  DeliveryOptionId          String?                  @db.NVarChar(50)
+  DeliverySla               Int?
+  IsCod                     Boolean?
+  NeedUploadInvoice         Int?
+  TikTokOrderLineItems      TikTokOrderLineItems[]
+  TikTokPackages            TikTokPackages[]
+  TikTokPaymentInfo         TikTokPaymentInfo[]
+  TikTokRecipientAddress    TikTokRecipientAddress[]
+}
+
+model TikTokPackages {
+  PackageId            String        @id(map: "PK__TikTokPa__322035CCBAD103D6") @db.NVarChar(50)
+  OrderId              String?       @db.NVarChar(50)
+  PackageStatus        Int?
+  PackageFreezeStatus  Int?
+  ShippingProviderId   String?       @db.NVarChar(50)
+  ShippingProviderName String?       @db.NVarChar(100)
+  TrackingNumber       String?       @db.NVarChar(100)
+  TikTokOrders         TikTokOrders? @relation(fields: [OrderId], references: [OrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK__TikTokPac__Order__48EFCE0F")
+}
+
+model TikTokPaymentInfo {
+  PaymentId                   Int           @id(map: "PK__TikTokPa__9B556A38F04B41E3") @default(autoincrement())
+  OrderId                     String?       @db.NVarChar(50)
+  Currency                    String?       @db.NVarChar(10)
+  TotalAmount                 Decimal?      @db.Decimal(18, 2)
+  SubTotal                    Decimal?      @db.Decimal(18, 2)
+  ShippingFee                 Decimal?      @db.Decimal(18, 2)
+  SellerDiscount              Decimal?      @db.Decimal(18, 2)
+  PlatformDiscount            Decimal?      @db.Decimal(18, 2)
+  OriginalTotalProductPrice   Decimal?      @db.Decimal(18, 2)
+  OriginalShippingFee         Decimal?      @db.Decimal(18, 2)
+  ShippingFeeSellerDiscount   Decimal?      @db.Decimal(18, 2)
+  ShippingFeePlatformDiscount Decimal?      @db.Decimal(18, 2)
+  Taxes                       Decimal?      @db.Decimal(18, 2)
+  SmallOrderFee               Decimal?      @db.Decimal(18, 2)
+  ShippingFeeTax              Decimal?      @db.Decimal(18, 2)
+  ProductTaxes                Decimal?      @db.Decimal(18, 2)
+  RetailDeliveryFee           Decimal?      @db.Decimal(18, 2)
+  BuyerServiceFee             Decimal?      @db.Decimal(18, 2)
+  TikTokOrders                TikTokOrders? @relation(fields: [OrderId], references: [OrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK__TikTokPay__Order__4336F4B9")
+}
+
+model TikTokRecipientAddress {
+  AddressId     Int           @id(map: "PK__TikTokRe__091C2AFB52CF7B52") @default(autoincrement())
+  OrderId       String?       @db.NVarChar(50)
+  FullAddress   String?       @db.NVarChar(Max)
+  Name          String?       @db.NVarChar(100)
+  Phone         String?       @db.NVarChar(50)
+  Zipcode       String?       @db.NVarChar(20)
+  AddressDetail String?       @db.NVarChar(Max)
+  RegionCode    String?       @db.NVarChar(50)
+  Addressline1  String?       @db.NVarChar(255)
+  Addressline2  String?       @db.NVarChar(255)
+  Addressline3  String?       @db.NVarChar(255)
+  Addressline4  String?       @db.NVarChar(255)
+  TikTokOrders  TikTokOrders? @relation(fields: [OrderId], references: [OrderId], onDelete: NoAction, onUpdate: NoAction, map: "FK__TikTokRec__Order__46136164")
+}
+
+model TomsAmazonToQxpresses {
+  Id                   String    @id(map: "PK_TomsAmazonToQxpresses") @db.UniqueIdentifier
+  CompanyId            String    @db.UniqueIdentifier
+  CreatedAt            DateTime
+  UpdatedAt            DateTime?
+  DeletedAt            DateTime?
+  QxpressTrackingNo    String?   @db.NVarChar(100)
+  QxpressAccountId     String?   @db.NVarChar(50)
+  QxpressApiKey        String?   @db.NVarChar(300)
+  QxpressOrderDate     DateTime?
+  OrderId              String?   @db.NVarChar(30)
+  OrderItemId          String?   @db.NVarChar(30)
+  PurchaseDate         DateTime?
+  PaymentsDate         DateTime?
+  BuyerEmail           String?   @db.NVarChar(300)
+  BuyerName            String?   @db.NVarChar(300)
+  BuyerPhoneNumber     String?   @db.NVarChar(50)
+  SKU                  String?   @db.NVarChar(300)
+  ProductName          String?   @db.NVarChar(3000)
+  QuantityPurchased    Int?
+  Currency             String?   @db.NVarChar(5)
+  ItemPrice            Float?
+  ItemTax              Float?
+  ShippingPrice        Float?
+  ShippingTax          Float?
+  ShipServiceLevel     String?   @db.NVarChar(20)
+  RecipientName        String?   @db.NVarChar(300)
+  ShipAddress1         String?   @db.NVarChar(500)
+  ShipAddress2         String?   @db.NVarChar(500)
+  ShipAddress3         String?   @db.NVarChar(500)
+  ShipCity             String?   @db.NVarChar(100)
+  ShipState            String?   @db.NVarChar(100)
+  ShipPostalCode       String?   @db.NVarChar(50)
+  ShipCountry          String?   @db.NVarChar(5)
+  ShipPhoneNumber      String?   @db.NVarChar(50)
+  DeliveryStartDate    DateTime?
+  DeliveryEndDate      DateTime?
+  DeliveryTimeZone     String?   @db.NVarChar(50)
+  DeliveryInstructions String?   @db.NVarChar(500)
+}
+
+model TomsItem {
+  Id                   String        @id(map: "PK_TomsItem") @db.UniqueIdentifier
+  VariationSku         String        @db.NVarChar(200)
+  Supply               String?       @db.NVarChar(500)
+  SupplyName           String?       @db.NVarChar(500)
+  SupplyOption         String?       @db.NVarChar(500)
+  Name                 String?       @db.NVarChar(500)
+  Option               String?       @db.NVarChar(500)
+  Price                Float
+  Discount             Float?
+  AveragePrice         Float
+  HsCode               String?       @db.NVarChar(500)
+  SafetyStock          Int
+  MinSafetyStock       Int?
+  Location             String?       @db.NVarChar(50)
+  BarCode              String?       @db.NVarChar(300)
+  Weight               Float?
+  Width                Float?
+  Height               Float?
+  Status               String?       @db.NVarChar(20)
+  MainImages           String?       @db.NVarChar(Max)
+  DetailImages         String?       @db.NVarChar(Max)
+  Description          String?       @db.NVarChar(Max)
+  MaxLeadTime          Float?
+  AverageLeadTime      Float?
+  MaxWeekSellCount     Float?
+  AverageWeekSellCount Float?
+  SellCountUpdatedAt   DateTime?
+  ParentVariationSku   String?       @db.NVarChar(200)
+  CompanyId            String        @db.UniqueIdentifier
+  CreatedAt            DateTime
+  UpdatedAt            DateTime
+  DeletedAt            DateTime?
+  Memo                 String?       @db.NVarChar(2000)
+  NameEn               String?       @db.NVarChar(500)
+  SupplyRate           Float?
+  CompanyInfo          CompanyInfo   @relation(fields: [CompanyId], references: [Id], onUpdate: NoAction, map: "fk_tomsItem_company")
+  locationInfo         locationInfo? @relation(fields: [CompanyId, Location], references: [CompanyId, Location], map: "fk_tomsItem_location")
+  TomsStock            TomsStock[]
+}
+
+model TomsItemSkuKey {
+  Id         String    @id(map: "PK_TomsItemSkuKey") @db.UniqueIdentifier
+  KeySku     String    @db.NVarChar(200)
+  ItemSku    String    @db.NVarChar(200)
+  CompanyId  String    @db.UniqueIdentifier
+  TomsItemId String    @db.UniqueIdentifier
+  CreatedAt  DateTime
+  UpdatedAt  DateTime
+  DeletedAt  DateTime?
+}
+
+model TomsLazadaAddressBillings {
+  Id                  String           @id(map: "PK_TomsLazadaAddressBillings") @db.UniqueIdentifier
+  Address1            String?          @db.NVarChar(Max)
+  Address2            String?          @db.NVarChar(Max)
+  Address3            String?          @db.NVarChar(Max)
+  Address4            String?          @db.NVarChar(Max)
+  Address5            String?          @db.NVarChar(Max)
+  PostCode            String?          @db.NVarChar(Max)
+  FirstName           String?          @db.NVarChar(Max)
+  LastName            String?          @db.NVarChar(Max)
+  Country             Int
+  City                String?          @db.NVarChar(Max)
+  Phone               String?          @db.NVarChar(Max)
+  Phone2              String?          @db.NVarChar(Max)
+  TomsLazadaOrderPKId String           @db.UniqueIdentifier
+  TomsLazadaOrders    TomsLazadaOrders @relation(fields: [TomsLazadaOrderPKId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsLazadaAddressBillings_TomsLazadaOrders_TomsLazadaOrderPKId")
+}
+
+model TomsLazadaAddressShippings {
+  Id                  String           @id(map: "PK_TomsLazadaAddressShippings") @db.UniqueIdentifier
+  Address1            String?          @db.NVarChar(Max)
+  Address2            String?          @db.NVarChar(Max)
+  Address3            String?          @db.NVarChar(Max)
+  Address4            String?          @db.NVarChar(Max)
+  Address5            String?          @db.NVarChar(Max)
+  PostCode            String?          @db.NVarChar(Max)
+  FirstName           String?          @db.NVarChar(Max)
+  LastName            String?          @db.NVarChar(Max)
+  Country             Int
+  City                String?          @db.NVarChar(Max)
+  Phone               String?          @db.NVarChar(Max)
+  Phone2              String?          @db.NVarChar(Max)
+  TomsLazadaOrderPKId String           @db.UniqueIdentifier
+  TomsLazadaOrders    TomsLazadaOrders @relation(fields: [TomsLazadaOrderPKId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsLazadaAddressShippings_TomsLazadaOrders_TomsLazadaOrderPKId")
+}
+
+model TomsLazadaOrderItems {
+  Id                          String           @id(map: "PK_TomsLazadaOrderItems") @db.UniqueIdentifier
+  PurchaseOrderNumber         String?          @db.NVarChar(Max)
+  Name                        String?          @db.NVarChar(Max)
+  ProductMainImage            String?          @db.NVarChar(Max)
+  ItemPrice                   Float
+  TaxAmount                   Float
+  Status                      Int
+  CancelReturnInitiator       String?          @db.NVarChar(Max)
+  VoucherPlatform             Float
+  VoucherSeller               Float
+  OrderType                   String?          @db.NVarChar(Max)
+  StagePayStatus              String?          @db.NVarChar(Max)
+  WarehouseCode               String?          @db.NVarChar(Max)
+  VoucherSellerLpi            String?          @db.NVarChar(Max)
+  VoucherPlatformLpi          String?          @db.NVarChar(Max)
+  BuyerId                     String?          @db.NVarChar(Max)
+  ShippingFeeOriginal         Float
+  ShippingFeeDiscountSeller   Float
+  ShippingFeeDiscountPlatform Float
+  VoucherCodeSeller           String?          @db.NVarChar(Max)
+  VoucherCodePlatform         String?          @db.NVarChar(Max)
+  DeliveryOptionSof           String?          @db.NVarChar(Max)
+  IsFbl                       String?          @db.NVarChar(Max)
+  IsReroute                   String?          @db.NVarChar(Max)
+  Reason                      String?          @db.NVarChar(Max)
+  DigitalDeliveryInfo         String?          @db.NVarChar(Max)
+  PromisedShippingTime        String?          @db.NVarChar(Max)
+  OrderId                     BigInt
+  VoucherAmount               Float
+  ReturnStatus                String?          @db.NVarChar(Max)
+  ShippingType                String           @db.NVarChar(50)
+  ShipmentProvider            String?          @db.NVarChar(Max)
+  Variation                   String?          @db.NVarChar(Max)
+  LazadaCreatedAt             DateTime?
+  InvoiceNumber               String?          @db.NVarChar(Max)
+  ShippingAmount              Float
+  Currency                    Int
+  OrderFlag                   String?          @db.NVarChar(Max)
+  ShopId                      String?          @db.NVarChar(Max)
+  SlaTimeStamp                String?          @db.NVarChar(Max)
+  Sku                         String?          @db.NVarChar(Max)
+  VoucherCode                 String?          @db.NVarChar(Max)
+  WalletCredits               Float
+  LazadaUpdatedAt             DateTime?
+  IsDigital                   Boolean
+  TrackingCodePre             String?          @db.NVarChar(Max)
+  OrderItemId                 BigInt
+  PackageId                   String?          @db.NVarChar(Max)
+  TrackingCode                String?          @db.NVarChar(Max)
+  ShippingServiceCost         Float
+  ExtraAttributes             String?          @db.NVarChar(Max)
+  PaidPrice                   Float
+  ShippingProviderType        String?          @db.NVarChar(Max)
+  ProductDetailUrl            String?          @db.NVarChar(Max)
+  ShopSku                     String?          @db.NVarChar(Max)
+  ReasonDetail                String?          @db.NVarChar(Max)
+  PurchaseOrderId             String?          @db.NVarChar(Max)
+  CreatedAt                   DateTime
+  UpdatedAt                   DateTime
+  DeletedAt                   DateTime?
+  TomsLazadaOrderPKId         String           @db.UniqueIdentifier
+  TomsLazadaOrders            TomsLazadaOrders @relation(fields: [TomsLazadaOrderPKId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsLazadaOrderItems_TomsLazadaOrders_TomsLazadaOrderPKId")
+}
+
+model TomsLazadaOrders {
+  Id                          String                       @id(map: "PK_TomsLazadaOrders") @db.UniqueIdentifier
+  CompanyId                   String                       @db.UniqueIdentifier
+  SellerId                    String?                      @db.NVarChar(Max)
+  Status                      Int?
+  LazadaCreatedAt             DateTime?
+  AddressUpdatedAt            DateTime?
+  BranchNumber                String?                      @db.NVarChar(Max)
+  CustomerFirstName           String?                      @db.NVarChar(Max)
+  CustomerLastName            String?                      @db.NVarChar(Max)
+  DeliveryInfo                String?                      @db.NVarChar(Max)
+  ExtraAttributes             String?                      @db.NVarChar(Max)
+  GiftMessage                 String?                      @db.NVarChar(Max)
+  GiftOption                  Boolean?
+  ItemsCount                  BigInt?
+  NationalRegistrationNumber  String?                      @db.NVarChar(Max)
+  OrderId                     BigInt
+  OrderNumber                 BigInt?
+  PaymentMethod               String?                      @db.NVarChar(Max)
+  Price                       Float?
+  PromisedShippingTimes       String?                      @db.NVarChar(Max)
+  Remarks                     String?                      @db.NVarChar(Max)
+  ShippingFee                 Float?
+  ShippingFeeDiscountPlatform Float?
+  ShippingFeeDiscountSeller   Float?
+  ShippingFeeOriginal         Float?
+  TaxCode                     String?                      @db.NVarChar(Max)
+  LazadaUpdatedAt             DateTime?
+  Voucher                     Float?
+  VoucherCode                 String?                      @db.NVarChar(Max)
+  VoucherPlatform             String?                      @db.NVarChar(Max)
+  VoucherSeller               String?                      @db.NVarChar(Max)
+  WarehouseCode               String?                      @db.NVarChar(Max)
+  CreatedAt                   DateTime
+  UpdatedAt                   DateTime
+  DeletedAt                   DateTime?
+  TomsLazadaAddressBillings   TomsLazadaAddressBillings[]
+  TomsLazadaAddressShippings  TomsLazadaAddressShippings[]
+  TomsLazadaOrderItems        TomsLazadaOrderItems[]
+}
+
+model TomsLogistic {
+  Id                   String                @id(map: "PK_TomsLogistic") @db.UniqueIdentifier
+  Name                 String?               @db.NVarChar(100)
+  TrackingNo           String?               @db.NVarChar(100)
+  EstimatedShippingFee Float?
+  ActualShippingCost   Float?
+  Platform             String?               @db.NVarChar(50)
+  TomsOrderId          String                @db.UniqueIdentifier
+  CreatedAt            DateTime
+  UpdatedAt            DateTime
+  DeletedAt            DateTime?
+  TomsOrder            TomsOrder             @relation(fields: [TomsOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsLogistic_TomsOrder_TomsOrderId")
+  TomsLogisticHistory  TomsLogisticHistory[]
+}
+
+model TomsLogisticHistory {
+  Id             String       @id(map: "PK_TomsLogisticHistory") @db.UniqueIdentifier
+  TrackingNo     String?      @db.NVarChar(50)
+  LogisticDate   DateTime
+  Location       String?      @db.NVarChar(100)
+  LogisticStatus String       @db.NVarChar(50)
+  CreatedAt      DateTime
+  UpdatedAt      DateTime
+  DeletedAt      DateTime?
+  TomsLogisticId String       @db.UniqueIdentifier
+  TomsLogistic   TomsLogistic @relation(fields: [TomsLogisticId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsLogisticHistory_TomsLogistic_TomsLogisticId")
+}
+
+model TomsOrder {
+  Id                  String          @id(map: "PK_TomsOrder") @db.UniqueIdentifier
+  Platform            String          @db.NVarChar(50)
+  OrderNum            String?         @db.NVarChar(50)
+  Status              String?         @db.NVarChar(20)
+  ActionStatus        String?         @db.NVarChar(20)
+  OtherStatus         String?         @db.NVarChar(20)
+  CountryCode         String?         @db.NVarChar(5)
+  Currency            String?         @db.NVarChar(5)
+  OrderDate           DateTime?
+  PayDate             DateTime?
+  DayToShip           DateTime?
+  Price               Float
+  CompanyId           String          @db.UniqueIdentifier
+  ShopId              String          @db.NVarChar(250)
+  ExportDeclarationNo String?         @db.NVarChar(200)
+  SimpleMemo          String?
+  CreatedAt           DateTime
+  UpdatedAt           DateTime
+  DeletedAt           DateTime?
+  ArrangeShipmentAt   DateTime?
+  PrintAt             DateTime?
+  CancelBy            String?         @db.NVarChar(200)
+  CancelReason        String?         @db.NVarChar(500)
+  FulfillmentFlag     String?         @db.NVarChar(20)
+  MessageToSeller     String?         @db.NVarChar(500)
+  TomsLogistic        TomsLogistic[]
+  TomsOrderItem       TomsOrderItem[]
+  TomsRecipient       TomsRecipient[]
+}
+
+model TomsOrderItem {
+  Id                String    @id(map: "PK_TomsOrderItem") @db.UniqueIdentifier
+  PlatformItemId    String?   @db.NVarChar(200)
+  VariationSku      String    @db.NVarChar(200)
+  PromoVariationSku String?   @db.NVarChar(200)
+  Name              String    @db.NVarChar(500)
+  Option            String?   @db.NVarChar(500)
+  Price             Float
+  OriginalPrice     Float
+  Qty               Int
+  Weight            Float?
+  Index             Int
+  Platform          String?   @db.NVarChar(50)
+  TrackingNo        String?   @db.NVarChar(100)
+  TomsOrderId       String    @db.UniqueIdentifier
+  TomsLogisticId    String    @db.UniqueIdentifier
+  TomsItemId        String    @db.UniqueIdentifier
+  CompanyId         String    @db.UniqueIdentifier
+  CreatedAt         DateTime
+  UpdatedAt         DateTime
+  DeletedAt         DateTime?
+  ImageUrl          String?   @db.NVarChar(500)
+  TomsOrder         TomsOrder @relation(fields: [TomsOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsOrderItem_TomsOrder_TomsOrderId")
+}
+
+model TomsOrderLostList {
+  Seq       Int      @id(map: "PK__TomsOrde__CA1E3C88B28AF43C") @default(autoincrement())
+  ShopId    String   @db.NChar(100)
+  OrderNum  String   @db.NVarChar(100)
+  CreatedAt DateTime
+  UpdatedAt DateTime
+}
+
+model TomsQoo10JPOrderItems {
+  OrderNo               BigInt            @id(map: "PK_TomsQoo10JPOrderItems")
+  ShippingStatus        String?           @db.NVarChar(30)
+  PaymentDate           DateTime?
+  EstShippingDate       DateTime?
+  ShippingDate          DateTime?
+  ItemCode              String?           @db.NVarChar(20)
+  SellerItemCode        String?           @db.NVarChar(200)
+  ItemTitle             String?           @db.NVarChar(500)
+  Option                String?           @db.NVarChar(500)
+  OptionCode            String?           @db.NVarChar(200)
+  OrderPrice            Float
+  OrderQty              Int
+  Discount              Float
+  Total                 Float
+  PaymentMethod         String?           @db.NVarChar(100)
+  SellerDiscount        Float
+  ShippingRate          Float
+  ShippingRateType      String            @db.NVarChar(30)
+  DeliveryCompany       String?           @db.NVarChar(20)
+  VoucherCode           String?           @db.NVarChar(100)
+  PackingNo             String?           @db.NVarChar(50)
+  SellerDeliveryNo      String?           @db.NVarChar(50)
+  TrackingNo            String?           @db.NVarChar(200)
+  DeliveredDate         DateTime?
+  ClaimStatus           String?           @db.NVarChar(200)
+  CancelRefundDate      DateTime?
+  Reason                String?           @db.NVarChar(500)
+  RequestDate           DateTime?
+  Currency              String?           @db.NVarChar(5)
+  DeliveryCompanyReturn String?           @db.NVarChar(50)
+  TrackingNoReturn      String?           @db.NVarChar(50)
+  PickupAddress         String?           @db.NVarChar(500)
+  PickUpZipCode         String?           @db.NVarChar(20)
+  PaymentReturnShipping String?           @db.NVarChar(50)
+  ItemCondition         String?           @db.NVarChar(50)
+  CODCancelPrice        Float?
+  CODQRefundPrice       Float
+  CODCancelRelatedOrder String?           @db.NVarChar(500)
+  NRDutyTarget          String?           @db.NVarChar(20)
+  NRSolType             String?           @db.NVarChar(20)
+  NRPartRefundCnt       Int
+  NRPartRefundBalance   Float
+  CreatedAt             DateTime
+  UpdatedAt             DateTime
+  TomsQoo10JpOrderId    String            @db.UniqueIdentifier
+  CompanyId             String            @default(dbgenerated("00000000-0000-0000-0000-000000000000"), map: "DF__TomsQoo10__Compa__29221CFB") @db.UniqueIdentifier
+  KSETrackingNo         String?           @db.NVarChar(50)
+  SellerAuthKey         String?           @db.NVarChar(200)
+  TomsQoo10JPOrders     TomsQoo10JPOrders @relation(fields: [TomsQoo10JpOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsQoo10JPOrderItems_TomsQoo10JPOrders_TomsQoo10JpOrderId")
+}
+
+model TomsQoo10JPOrders {
+  Id                    String                  @id(map: "PK_TomsQoo10JPOrders") @db.UniqueIdentifier
+  CompanyId             String                  @db.UniqueIdentifier
+  CreatedAt             DateTime
+  UpdatedAt             DateTime
+  DeletedAt             DateTime?
+  PackNo                BigInt
+  OrderDate             DateTime?
+  OrderType             String                  @db.NVarChar(30)
+  RelatedOrder          String?                 @db.NVarChar(Max)
+  PaymentNation         String                  @db.NVarChar(5)
+  Gift                  String?                 @db.NVarChar(200)
+  CodPrice              Float
+  CartDiscountSeller    Float
+  CartDiscountQoo10     Float
+  SettlePrice           Float
+  BranchName            String?                 @db.NVarChar(50)
+  SellerAuthKey         String?                 @db.NVarChar(300)
+  ActionStatus          String?                 @db.NVarChar(20)
+  PrintAt               DateTime?
+  TomsQoo10JPOrderItems TomsQoo10JPOrderItems[]
+  TomsQoo10JpRecipients TomsQoo10JpRecipients?
+}
+
+model TomsQoo10JpRecipients {
+  TomsQoo10JpOrderId         String            @id(map: "PK_TomsQoo10JpRecipients") @db.UniqueIdentifier
+  Buyer                      String?           @db.NVarChar(100)
+  BuyerGata                  String?           @db.NVarChar(100)
+  BuyerTel                   String?           @db.NVarChar(50)
+  BuyerMobile                String?           @db.NVarChar(50)
+  BuyerEmail                 String?           @db.NVarChar(200)
+  Receiver                   String?           @db.NVarChar(100)
+  ReceiverGata               String?           @db.NVarChar(100)
+  ShippingCountry            String?           @db.NVarChar(5)
+  ZipCode                    String?           @db.NVarChar(20)
+  ShippingAddr               String?           @db.NVarChar(500)
+  Addr1                      String?           @db.NVarChar(500)
+  Addr2                      String?           @db.NVarChar(500)
+  ReceiverTel                String?           @db.NVarChar(50)
+  ReceiverMobile             String?           @db.NVarChar(50)
+  HopeDate                   DateTime?
+  SenderName                 String?           @db.NVarChar(200)
+  SenderTel                  String?           @db.NVarChar(50)
+  SenderNation               String?           @db.NVarChar(10)
+  SenderZipCode              String?           @db.NVarChar(20)
+  SenderAddr                 String?           @db.NVarChar(500)
+  ShippingWay                String?           @db.NVarChar(50)
+  ShippingMsg                String?           @db.NVarChar(500)
+  OverseaConsignment         String?           @db.NVarChar(10)
+  OverseaConsignmentReceiver String?           @db.NVarChar(100)
+  OverseaConsignmentCountry  String?           @db.NVarChar(5)
+  OverseaConsignmentZipCode  String?           @db.NVarChar(20)
+  OverseaConsignmentAddr1    String?           @db.NVarChar(500)
+  OverseaConsignmentAddr2    String?           @db.NVarChar(500)
+  CreatedAt                  DateTime
+  UpdatedAt                  DateTime
+  TomsQoo10JPOrders          TomsQoo10JPOrders @relation(fields: [TomsQoo10JpOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsQoo10JpRecipients_TomsQoo10JPOrders_TomsQoo10JpOrderId")
+}
+
+model TomsRakutenItem {
+  Id                               String    @id(map: "PK__TomsRaku__3214EC07F0799194") @db.UniqueIdentifier
+  TomsRakutenOrderId               String    @db.UniqueIdentifier
+  ItemDetailId                     BigInt?
+  ItemName                         String    @db.NVarChar(Max)
+  ItemId                           String    @db.NVarChar(100)
+  ItemNumber                       String?   @db.NVarChar(100)
+  ManageNumber                     String?   @db.NVarChar(100)
+  Price                            Float?
+  Units                            Int
+  IncludePostageFlag               Int?
+  IncludeTaxFlag                   Int?
+  IncludeCashOnDeliveryPostageFlag Int?
+  SelectedChoice                   String?   @db.NVarChar(Max)
+  PointRate                        Float?
+  PointType                        BigInt?
+  InventoryType                    BigInt?
+  DelvdateInfo                     String?   @db.NVarChar(100)
+  RestoreInventoryFlag             Int?
+  DealFlag                         Int?
+  DrugFlag                         Int?
+  DeleteItemFlag                   Int?
+  TaxRate                          Float?
+  PriceTaxIncl                     BigInt?
+  IsSingleItemShipping             Int?
+  CreatedAt                        DateTime?
+  UpdatedAt                        DateTime?
+  DeletedAt                        DateTime?
+}
+
+model TomsRakutenOrder {
+  Id                             String    @id(map: "PK__TomsRaku__3214EC070894AF36") @db.UniqueIdentifier
+  Platform                       String?   @db.NVarChar(50)
+  CompanyId                      String?   @db.UniqueIdentifier
+  Status                         String?   @db.NVarChar(50)
+  OrderNumber                    String    @db.NVarChar(100)
+  OrderProgress                  Int?
+  SubStatusId                    String?   @db.NVarChar(100)
+  SubStatusName                  String?   @db.NVarChar(100)
+  OrderDatetime                  DateTime
+  ShopOrderCfmDatetime           DateTime?
+  OrderFixDatetime               DateTime?
+  ShippingInstDatetime           DateTime?
+  ShippingCmplRptDatetime        DateTime?
+  CancelDueDate                  DateTime? @db.Date
+  DeliveryDate                   DateTime? @db.Date
+  ShippingTerm                   Int?
+  Remarks                        String?   @db.NVarChar(Max)
+  GiftCheckFlag                  Int?
+  SeveralSenderFlag              Int?
+  EqualSenderFlag                Int?
+  IsolatedIslandFlag             Int?
+  RakutenMemberFlag              Int?
+  CarrierCode                    Int?
+  EmailCarrierCode               Int?
+  OrderType                      Int?
+  ReserveNumber                  String?   @db.NVarChar(100)
+  ReserveDeliveryCount           Int?
+  CautionDisplayType             Int?
+  CautionDisplayDetailType       Int?
+  RakutenConfirmFlag             Int?
+  GoodsPrice                     Int?
+  GoodsTax                       Int?
+  PostagePrice                   Int?
+  DeliveryPrice                  Int?
+  PaymentCharge                  Int?
+  PaymentChargeTaxRate           Float?
+  TotalPrice                     Int?
+  RequestPrice                   Int?
+  CouponAllTotalPrice            Int?
+  CouponShopPrice                Int?
+  CouponOtherPrice               Int?
+  AdditionalFeeOccurAmountToUser Int?
+  AdditionalFeeOccurAmountToShop Int?
+  AsurakuFlag                    Int?
+  DrugFlag                       Int?
+  DealFlag                       Int?
+  MembershipType                 Int?
+  Memo                           String?   @db.NVarChar(Max)
+  Operator                       String?   @db.NVarChar(382)
+  MailPlugSentence               String?   @db.NVarChar(Max)
+  ModifyFlag                     Int?
+  ReceiptIssueCount              BigInt?
+  DeliveryCertPrgFlag            Int?
+  OneDayOperationFlag            Int?
+  CreatedAt                      DateTime?
+  UpdatedAt                      DateTime?
+  DeletedAt                      DateTime?
+}
+
+model TomsRakutenOrderer {
+  Id                 String    @id(map: "PK__TomsRaku__3214EC07BE2CE5D5") @db.UniqueIdentifier
+  TomsRakutenOrderId String    @db.UniqueIdentifier
+  ZipCode1           String?   @db.NVarChar(10)
+  ZipCode2           String?   @db.NVarChar(10)
+  Prefecture         String?   @db.NVarChar(100)
+  City               String?   @db.NVarChar(100)
+  SubAddress         String?   @db.NVarChar(300)
+  FamilyName         String?   @db.NVarChar(200)
+  FirstName          String?   @db.NVarChar(200)
+  FamilyNameKana     String?   @db.NVarChar(200)
+  FirstNameKana      String?   @db.NVarChar(200)
+  PhoneNumber1       String?   @db.NVarChar(50)
+  PhoneNumber2       String?   @db.NVarChar(50)
+  PhoneNumber3       String?   @db.NVarChar(50)
+  EmailAddress       String?   @db.NVarChar(500)
+  Sex                String?   @db.NVarChar(20)
+  BirthYear          Int?
+  BirthMonth         Int?
+  BirthDay           Int?
+  CreatedAt          DateTime?
+  UpdatedAt          DateTime?
+  DeletedAt          DateTime?
+}
+
+model TomsRakutenPackage {
+  Id                         String    @id(map: "PK__TomsRaku__3214EC07A6138C79") @db.UniqueIdentifier
+  TomsRakutenOrderId         String    @db.UniqueIdentifier
+  BasketId                   BigInt
+  PostagePrice               Int?
+  PostageTaxRate             Float?
+  DeliveryPrice              Int?
+  DeliveryTaxRate            Float?
+  GoodsTax                   Int?
+  GoodsPrice                 Int?
+  TotalPrice                 Int?
+  Noshi                      String?   @db.NVarChar(255)
+  PackageDeleteFlag          Int?
+  DefaultDeliveryCompanyCode String?   @db.NVarChar(255)
+  CreatedAt                  DateTime?
+  UpdatedAt                  DateTime?
+  DeletedAt                  DateTime?
+}
+
+model TomsRakutenSender {
+  Id                 String    @id(map: "PK__TomsRaku__3214EC07DA9F01E9") @db.UniqueIdentifier
+  TomsRakutenOrderId String    @db.UniqueIdentifier
+  ZipCode1           String?   @db.NVarChar(10)
+  ZipCode2           String?   @db.NVarChar(10)
+  Prefecture         String?   @db.NVarChar(100)
+  City               String?   @db.NVarChar(100)
+  SubAddress         String?   @db.NVarChar(300)
+  FamilyName         String?   @db.NVarChar(200)
+  FirstName          String?   @db.NVarChar(200)
+  FamilyNameKana     String?   @db.NVarChar(200)
+  FirstNameKana      String?   @db.NVarChar(200)
+  PhoneNumber1       String?   @db.NVarChar(50)
+  PhoneNumber2       String?   @db.NVarChar(50)
+  PhoneNumber3       String?   @db.NVarChar(50)
+  IsolatedIslandFlag Int?
+  CreatedAt          DateTime?
+  UpdatedAt          DateTime?
+}
+
+model TomsRakutenShipping {
+  Id                          String    @id(map: "PK__TomsRaku__3214EC07F3C2A645") @db.UniqueIdentifier
+  TomsRakutenOrderId          String    @db.UniqueIdentifier
+  ShippingDetailId            BigInt?
+  ShippingNumber              String?   @db.NVarChar(30)
+  DeliveryCompany             String?   @db.NVarChar(100)
+  DeliveryCompanyName         String?   @db.NVarChar(100)
+  ShippingDate                DateTime? @db.Date
+  FullfillmentDeliveryCompany String?   @db.NVarChar(100)
+  CreatedAt                   DateTime?
+  UpdatedAt                   DateTime?
+  DeletedAt                   DateTime?
+}
+
+model TomsRakutenSku {
+  Id                   String    @id(map: "PK__TomsRaku__3214EC078D6B7A36") @db.UniqueIdentifier
+  TomsRakutenItemId    String    @db.UniqueIdentifier
+  VariantId            String?   @db.NVarChar(100)
+  MerchantDefinedSkuId String?   @db.NVarChar(100)
+  SkuInfo              String?   @db.NVarChar(300)
+  CreatedAt            DateTime?
+  UpdatedAt            DateTime?
+  DeletedAt            DateTime?
+}
+
+model TomsRecipient {
+  Id          String    @id(map: "PK_TomsRecipient") @db.UniqueIdentifier
+  OrderNum    String?   @db.NVarChar(50)
+  City        String?   @db.NVarChar(500)
+  District    String?   @db.NVarChar(500)
+  Town        String?   @db.NVarChar(500)
+  PostCode    String?   @db.NVarChar(500)
+  CountryCode String    @db.NVarChar(5)
+  Address     String?   @db.NVarChar(500)
+  Address2    String?   @db.NVarChar(500)
+  Name        String    @db.NVarChar(100)
+  Tel         String?   @db.NVarChar(100)
+  Mobile      String?   @db.NVarChar(100)
+  Message     String?
+  Platform    String?   @db.NVarChar(50)
+  TomsOrderId String    @db.UniqueIdentifier
+  CompanyId   String    @db.UniqueIdentifier
+  ShopId      String?   @db.NVarChar(100)
+  CreatedAt   DateTime
+  UpdatedAt   DateTime
+  DeletedAt   DateTime?
+  TomsOrder   TomsOrder @relation(fields: [TomsOrderId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsRecipient_TomsOrder_TomsOrderId")
+}
+
+model TomsShopifyBillingAddress {
+  Tid                String    @id(map: "PK__TomsShop__C451DB315D0DD30B") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 BigInt?
+  Address1           String?   @db.NVarChar(300)
+  Address2           String?   @db.NVarChar(300)
+  City               String?   @db.NVarChar(100)
+  Company            String?   @db.NVarChar(100)
+  Country            String?   @db.NVarChar(100)
+  CountryCode        String?   @db.NVarChar(100)
+  CountryName        String?   @db.NVarChar(100)
+  Default            Boolean?
+  FirstName          String?   @db.NVarChar(100)
+  LastName           String?   @db.NVarChar(100)
+  Latitude           Decimal?  @db.Decimal(18, 0)
+  Longitude          Decimal?  @db.Decimal(18, 0)
+  Name               String?   @db.NVarChar(200)
+  Phone              String?   @db.NVarChar(100)
+  Province           String?   @db.NVarChar(100)
+  ProvinceCode       String?   @db.NVarChar(50)
+  Zip                String?   @db.NVarChar(50)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyDiscountCode {
+  Tid                String    @id(map: "PK__TomsShop__C451DB313DCB5679") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 BigInt?
+  AdminGraphQLAPIId  String?   @db.NVarChar(50)
+  Amount             String?   @db.NVarChar(100)
+  Code               String?   @db.NVarChar(50)
+  Type               String?   @db.NVarChar(50)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyFulfillment {
+  Tid                         String    @id(map: "PK__TomsShop__C451DB313868DA84") @db.UniqueIdentifier
+  TomsShopifyOrderId          String    @db.UniqueIdentifier
+  Id                          BigInt?
+  AdminGraphQLAPIId           String?   @db.NVarChar(50)
+  OrderId                     BigInt?
+  Receipt                     String?   @db.NVarChar(200)
+  Status                      String?   @db.NVarChar(100)
+  LocationId                  BigInt?
+  Email                       String?   @db.NVarChar(100)
+  NotifyCustomer              Boolean?
+  Destination                 String?   @db.NVarChar(Max)
+  TrackingCompany             String?   @db.NVarChar(Max)
+  FullfillmentDeliveryCompany String?   @db.NVarChar(100)
+  TrackingNumber              String?   @db.NVarChar(Max)
+  TrackingUrl                 String?   @db.NVarChar(Max)
+  VariantInventoryManagement  String?   @db.NVarChar(Max)
+  Service                     String?   @db.NVarChar(Max)
+  ShipmentStatus              String?   @db.NVarChar(Max)
+  Name                        String?   @db.NVarChar(Max)
+  OriginAddress               String?   @db.NVarChar(Max)
+  CreatedAt                   DateTime? @db.DateTimeOffset
+  UpdatedAt                   DateTime? @db.DateTimeOffset
+  TomsCreatedAt               DateTime?
+  TomsUpdatedAt               DateTime?
+  RegNo                       String?   @db.VarChar(50)
+}
+
+model TomsShopifyLineItem {
+  Tid                        String    @id(map: "PK__TomsShop__C451DB31E4DD71D4") @db.UniqueIdentifier
+  TomsShopifyOrderId         String    @db.UniqueIdentifier
+  Id                         BigInt?
+  FulfillableQuantity        Int?
+  FulfillmentService         String?   @db.NVarChar(200)
+  FulfillmentStatus          String?   @db.NVarChar(100)
+  Grams                      BigInt?
+  Price                      Decimal?  @db.Decimal(18, 0)
+  ProductId                  BigInt?
+  Quantity                   Int?
+  RequiresShipping           Boolean?
+  SKU                        String?   @db.NVarChar(300)
+  Title                      String?   @db.NVarChar(500)
+  VariantId                  BigInt?
+  VariantTitle               String?   @db.NVarChar(500)
+  Name                       String?   @db.NVarChar(300)
+  Vendor                     String?   @db.NVarChar(300)
+  GiftCard                   Boolean?
+  Taxable                    Boolean?
+  TipPaymentGateway          String?   @db.NVarChar(200)
+  TipPaymentMethod           String?   @db.NVarChar(200)
+  TipPaymentGatewaySpecified Boolean?
+  TotalDiscount              Decimal?  @db.Decimal(18, 0)
+  VariantInventoryManagement String?   @db.NVarChar(200)
+  ProductExists              Boolean?
+  PreTaxPrice                Decimal?  @db.Decimal(18, 0)
+  TomsCreatedAt              DateTime?
+  TomsUpdatedAt              DateTime?
+}
+
+model TomsShopifyNoteAttribute {
+  Tid                String    @id(map: "PK__TomsShop__C451DB3131E5848F") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 Int?
+  Name               String?   @db.NVarChar(100)
+  Value              String?   @db.NVarChar(200)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyOrder {
+  Tid                           String    @id(map: "PK__TomsShop__C451DB31120FD1F6") @db.UniqueIdentifier
+  Platform                      String?   @db.NVarChar(50)
+  CompanyId                     String?   @db.UniqueIdentifier
+  ShopID                        String?   @db.VarChar(50)
+  Id                            BigInt?
+  AdminGraphqlApiId             String?   @db.NVarChar(50)
+  AppId                         String?   @db.NVarChar(200)
+  BuyerAcceptsMarketing         Boolean?
+  CancelReason                  String?   @db.NVarChar(200)
+  CancelledAt                   DateTime? @db.DateTimeOffset
+  CartToken                     String?   @db.NVarChar(200)
+  CheckoutId                    String?   @db.NVarChar(200)
+  CheckoutToken                 String?   @db.NVarChar(200)
+  ClientDetails                 String?   @db.NVarChar(100)
+  ClosedAt                      DateTime? @db.DateTimeOffset
+  ConfirmationNumber            String?   @db.NVarChar(200)
+  Confirmed                     Boolean?
+  Currency                      String?   @db.NVarChar(200)
+  CurrentSubtotalPrice          Decimal?  @db.Decimal(18, 0)
+  CurrentTotalAdditionalFeesSet String?   @db.NVarChar(200)
+  CurrentTotalDiscounts         Decimal?  @db.Decimal(18, 0)
+  CurrentTotalTax               Decimal?  @db.Decimal(18, 0)
+  CustomerLocale                String?   @db.NVarChar(200)
+  DeviceId                      String?   @db.NVarChar(200)
+  EstimatedTaxes                Boolean?
+  FinancialStatus               String?   @db.NVarChar(200)
+  FulfillmentStatus             String?   @db.NVarChar(100)
+  LandingSite                   String?   @db.NVarChar(3000)
+  LandingSiteRef                String?   @db.NVarChar(200)
+  LocationId                    String?   @db.NVarChar(100)
+  MerchantOfRecordAppId         String?   @db.NVarChar(100)
+  Name                          String?   @db.NVarChar(100)
+  Note                          String?   @db.NVarChar(Max)
+  Number                        Int?
+  OrderNumber                   Int?
+  PoNumber                      String?   @db.NVarChar(100)
+  PresentmentCurrency           String?   @db.NVarChar(100)
+  ProcessedAt                   DateTime? @db.DateTimeOffset
+  Reference                     String?   @db.NVarChar(100)
+  ReferringSite                 String?   @db.NVarChar(300)
+  SourceIdentifier              String?   @db.NVarChar(100)
+  SourceName                    String?   @db.NVarChar(300)
+  SourceUrl                     String?   @db.NVarChar(300)
+  SubtotalPrice                 Decimal?  @db.Decimal(18, 0)
+  Tags                          String?   @db.NVarChar(300)
+  TaxExempt                     Boolean?
+  Test                          Boolean?
+  Token                         String?   @db.NVarChar(200)
+  TotalDiscounts                Decimal?  @db.Decimal(18, 0)
+  TotalLineItemsPrice           Decimal?  @db.Decimal(18, 0)
+  TotalOutstanding              Decimal?  @db.Decimal(18, 0)
+  TotalPrice                    Decimal?  @db.Decimal(18, 0)
+  TotalTax                      Decimal?  @db.Decimal(18, 0)
+  TotalTipReceived              Decimal?  @db.Decimal(18, 0)
+  TotalWeight                   Int?
+  UserId                        String?   @db.NVarChar(100)
+  Customer                      String?   @db.NVarChar(200)
+  PaymentTerms                  String?   @db.NVarChar(300)
+  CreatedAt                     DateTime? @db.DateTimeOffset
+  UpdatedAt                     DateTime? @db.DateTimeOffset
+  TomsCreatedAt                 DateTime?
+  TomsUpdatedAt                 DateTime?
+}
+
+model TomsShopifyPriceSet {
+  Tid                String    @id(map: "PK__TomsShop__C451DB314BEF8EBC") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 Int?
+  ShopMoney          Decimal?  @db.Decimal(18, 0)
+  PresentmentMoney   Decimal?  @db.Decimal(18, 0)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyRefund {
+  Tid                String    @id(map: "PK__TomsShop__C451DB31FF713BD1") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 BigInt?
+  OrderId            BigInt?
+  Notify             Boolean?
+  Currency           String?   @db.NVarChar(100)
+  ProcessedAt        DateTime? @db.DateTimeOffset
+  Note               String?   @db.NVarChar(Max)
+  DiscrepancyReason  String?   @db.NVarChar(200)
+  UserId             BigInt?
+  CreatedAt          DateTime? @db.DateTimeOffset
+  UpdatedAt          DateTime? @db.DateTimeOffset
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyShippingAddress {
+  Tid                String    @id(map: "PK__TomsShop__C451DB3116D8C979") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 BigInt?
+  Address1           String?   @db.NVarChar(300)
+  Address2           String?   @db.NVarChar(300)
+  City               String?   @db.NVarChar(100)
+  Company            String?   @db.NVarChar(100)
+  Country            String?   @db.NVarChar(100)
+  CountryCode        String?   @db.NVarChar(100)
+  CountryName        String?   @db.NVarChar(100)
+  Default            Boolean?
+  FirstName          String?   @db.NVarChar(100)
+  LastName           String?   @db.NVarChar(100)
+  Latitude           Decimal?  @db.Decimal(18, 0)
+  Longitude          Decimal?  @db.Decimal(18, 0)
+  Name               String?   @db.NVarChar(200)
+  Phone              String?   @db.NVarChar(100)
+  Province           String?   @db.NVarChar(100)
+  ProvinceCode       String?   @db.NVarChar(50)
+  Zip                String?   @db.NVarChar(50)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyShippingLine {
+  Tid                String    @id(map: "PK__TomsShop__C451DB31051A4A11") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  Id                 BigInt?
+  CarrierIdentifier  String?   @db.NVarChar(300)
+  Code               String?   @db.NVarChar(100)
+  IsRemoved          Boolean?
+  Phone              String?   @db.NVarChar(100)
+  Price              Decimal?  @db.Decimal(18, 0)
+  DiscountedPrice    Decimal?  @db.Decimal(18, 0)
+  Source             String?   @db.NVarChar(200)
+  Title              String?   @db.NVarChar(300)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyTaxLine {
+  Tid                String    @id(map: "PK__TomsShop__C451DB31D1F60C9A") @db.UniqueIdentifier
+  TomsShopifyOrderId String    @db.UniqueIdentifier
+  TaxLineId          Int?
+  Price              Decimal?  @db.Decimal(18, 0)
+  Rate               Decimal?  @db.Decimal(18, 0)
+  Title              String?   @db.NVarChar(300)
+  TomsCreatedAt      DateTime?
+  TomsUpdatedAt      DateTime?
+}
+
+model TomsShopifyTransaction {
+  Tid                    String    @id(map: "PK__TomsShop__C451DB315C49DA80") @db.UniqueIdentifier
+  TomsShopifyOrderId     String    @db.UniqueIdentifier
+  Id                     BigInt?
+  Amount                 Decimal?  @db.Decimal(18, 0)
+  Authorization          String?   @db.NVarChar(200)
+  AuthorizationExpiresAt DateTime? @db.DateTimeOffset
+  DeviceId               BigInt?
+  Gateway                String?   @db.NVarChar(200)
+  SourceName             String?   @db.NVarChar(200)
+  Source                 String?   @db.NVarChar(200)
+  Kind                   String?   @db.NVarChar(200)
+  OrderId                BigInt?
+  ErrorCode              String?   @db.NVarChar(300)
+  Status                 String?   @db.NVarChar(100)
+  Test                   Boolean?
+  UserId                 BigInt?
+  Currency               String?   @db.NVarChar(100)
+  Message                String?   @db.NVarChar(300)
+  LocationId             BigInt?
+  ParentId               BigInt?
+  ProcessedAt            DateTime? @db.DateTimeOffset
+  MaximumRefundable      Decimal?  @db.Decimal(18, 0)
+  PaymentId              String?   @db.NVarChar(100)
+  CreatedAt              DateTime? @db.DateTimeOffset
+  UpdatedAt              DateTime? @db.DateTimeOffset
+  TomsCreatedAt          DateTime?
+  TomsUpdatedAt          DateTime?
+}
+
+model TomsStock {
+  Id               String             @id(map: "PK_TomsStock") @db.UniqueIdentifier
+  VariationSku     String?            @db.NVarChar(200)
+  Type             String             @db.NVarChar(10)
+  NowStock         Int
+  TomsItemId       String             @db.UniqueIdentifier
+  CompanyId        String             @db.UniqueIdentifier
+  CreatedAt        DateTime
+  UpdatedAt        DateTime
+  DeletedAt        DateTime?
+  TomsItem         TomsItem           @relation(fields: [TomsItemId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsStock_TomsItem_TomsItemId")
+  TomsStockHistory TomsStockHistory[]
+}
+
+model TomsStockHistory {
+  Id           String    @id(map: "PK_TomsStockHistory") @db.UniqueIdentifier
+  CompanyId    String    @db.UniqueIdentifier
+  In           Int
+  Out          Int
+  UpdateDate   DateTime
+  CreatedAt    DateTime
+  UpdatedAt    DateTime
+  DeletedAt    DateTime?
+  TomsStockId  String    @db.UniqueIdentifier
+  Memo         String?
+  Reason       String?   @db.NVarChar(200)
+  Approve      Boolean   @default(dbgenerated("CONVERT([bit],(0))"), map: "DF__TomsStock__Appro__2A164134")
+  CurrentStock Int?
+  TomsStock    TomsStock @relation(fields: [TomsStockId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_TomsStockHistory_TomsStock_TomsStockId")
+}
+
+model UserInfo {
+  UserId         String      @id(map: "PK_UserInfo") @db.NVarChar(100)
+  Password       String?     @db.NVarChar(500)
+  Name           String?     @db.NVarChar(100)
+  Email          String?     @db.NVarChar(100)
+  IsConfirmEmail Boolean
+  CompanyId      String      @db.UniqueIdentifier
+  CreatedAt      DateTime
+  UpdatedAt      DateTime
+  DeletedAt      DateTime?
+  CompanyInfo    CompanyInfo @relation(fields: [CompanyId], references: [Id], onDelete: Cascade, onUpdate: NoAction, map: "FK_UserInfo_CompanyInfo_CompanyId")
+}
+
+model VoyageBillToAddress {
+  Id              Int             @id(map: "PK__VoyageBi__3214EC07118C366C") @default(autoincrement())
+  OrderViewId     String          @db.NVarChar(255)
+  CompanyId       String          @db.UniqueIdentifier
+  FirstName       String          @db.NVarChar(255)
+  LastName        String          @db.NVarChar(255)
+  NameSuffix      String?         @db.NVarChar(50)
+  EmailAddress    String          @db.NVarChar(255)
+  DaytimePhone    String          @db.NVarChar(50)
+  EveningPhone    String?         @db.NVarChar(50)
+  CompanyName     String?         @db.NVarChar(255)
+  Country         String          @db.NVarChar(50)
+  StateOrProvince String          @db.NVarChar(255)
+  City            String          @db.NVarChar(255)
+  AddressLine1    String          @db.NVarChar(255)
+  AddressLine2    String?         @db.NVarChar(255)
+  PostalCode      String          @db.NVarChar(50)
+  CreatedAt       DateTime
+  UpdatedAt       DateTime?
+  VoyageOrderView VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageBil__Updat__5FF32EF8")
+
+  @@index([OrderViewId], map: "IX_VoyageBillToAddress_OrderViewId")
+}
+
+model VoyageOrderItem {
+  Id                  Int             @id(map: "PK__VoyageOr__3214EC07015E74D2") @default(autoincrement())
+  OrderViewId         String          @db.NVarChar(255)
+  CompanyId           String          @db.UniqueIdentifier
+  Sku                 String          @db.NVarChar(255)
+  Code                String          @db.NVarChar(100)
+  Model               String?         @db.NVarChar(255)
+  Title               String          @db.NVarChar(500)
+  Cost                Float?
+  PlatformUnitPrice   Float?
+  Qty                 BigInt
+  PlatformAmount      Float?
+  PlatformTax         Float?
+  PlatformDiscount    Float?
+  PlatformShippingFee Float?
+  Amount              Float?
+  Tax                 Float?
+  Discount            Float?
+  ShippingFee         Float?
+  UnitPrice           Float?
+  PromotionDetails    Float?
+  CreatedAt           DateTime
+  UpdatedAt           DateTime?
+  VoyageOrderView     VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageOrd__Updat__5D16C24D")
+
+  @@index([OrderViewId], map: "IX_VoyageOrderItem_OrderViewId")
+}
+
+model VoyageOrderView {
+  OrderId              String                @id(map: "PK__VoyageOr__C3905BCFD73E7AC4") @db.NVarChar(255)
+  CompanyId            String                @db.UniqueIdentifier
+  OrderTime            BigInt
+  PlatformId           String                @db.NVarChar(50)
+  CartId               String                @db.NVarChar(50)
+  CartOrderId          String                @db.NVarChar(255)
+  OrderStatus          String                @db.NVarChar(50)
+  PlatformCurrency     String                @db.NVarChar(50)
+  PlatformAmount       Float?
+  PlatformDiscount     Float?
+  PlatformTax          Float?
+  PlatformShippingFee  Float?
+  PlatformRefundAmount Float?
+  ExchangeRate         Float?
+  Currency             String?               @db.NVarChar(50)
+  Amount               Float?
+  Tax                  Float?
+  Discount             Float?
+  ShippingFee          Float?
+  FromWarehouseKey     String                @db.NVarChar(100)
+  PromotionDetails     Float?
+  CancelledTime        BigInt?
+  ShopCancelledTime    BigInt?
+  SupplyType           String?               @db.NVarChar(10)
+  CancelType           String?               @db.NVarChar(10)
+  CreatedAt            DateTime
+  UpdatedAt            DateTime?
+  InternalOrderStatus  String?               @db.NVarChar(50)
+  VoyageBillToAddress  VoyageBillToAddress[]
+  VoyageOrderItem      VoyageOrderItem[]
+  VoyageShipToAddress  VoyageShipToAddress[]
+  VoyageSlaInfo        VoyageSlaInfo[]
+}
+
+model VoyageShipToAddress {
+  Id              Int             @id(map: "PK__VoyageSh__3214EC07DFC4CED8") @default(autoincrement())
+  OrderViewId     String          @db.NVarChar(255)
+  CompanyId       String          @db.UniqueIdentifier
+  FirstName       String          @db.NVarChar(255)
+  LastName        String          @db.NVarChar(255)
+  NameSuffix      String?         @db.NVarChar(50)
+  EmailAddress    String          @db.NVarChar(255)
+  DaytimePhone    String          @db.NVarChar(50)
+  EveningPhone    String?         @db.NVarChar(50)
+  CompanyName     String?         @db.NVarChar(255)
+  Country         String          @db.NVarChar(50)
+  StateOrProvince String          @db.NVarChar(255)
+  City            String          @db.NVarChar(255)
+  AddressLine1    String          @db.NVarChar(255)
+  AddressLine2    String?         @db.NVarChar(255)
+  PostalCode      String          @db.NVarChar(50)
+  ShippingMethod  String?         @db.NVarChar(255)
+  Warehouse       String?         @db.NVarChar(255)
+  CarrierCode     String?         @db.NVarChar(50)
+  TrackingNo      String?         @db.NVarChar(255)
+  ShipLabelType   String?         @db.NVarChar(50)
+  ShipLabelValue  String?         @db.NVarChar(Max)
+  CreatedAt       DateTime
+  UpdatedAt       DateTime?
+  VoyageOrderView VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageShi__Updat__62CF9BA3")
+
+  @@index([OrderViewId], map: "IX_VoyageShipToAddress_OrderViewId")
+}
+
+model VoyageSlaInfo {
+  Id                   Int             @id(map: "PK__VoyageSl__3214EC078C656982") @default(autoincrement())
+  OrderViewId          String          @db.NVarChar(255)
+  CompanyId            String          @db.UniqueIdentifier
+  LastAcknowledgeTime  BigInt?
+  AcknowledgedTime     BigInt?
+  ShipAlterTime        BigInt?
+  LastShipTime         BigInt?
+  ShipTime             BigInt?
+  StockAlterTime       BigInt?
+  ArriveAlertTime      BigInt?
+  LastArriveTime       BigInt?
+  ArriveTime           BigInt?
+  DelayShipAlter       Boolean?
+  DelayShip            Boolean?
+  SuspectedStock       Boolean?
+  DelayArriveAlter     Boolean?
+  DelayArrive          Boolean?
+  WhiteListFlg         Boolean?
+  LastShipTime2nd      BigInt?
+  LastArriveTime2nd    BigInt?
+  OrderAbnormalRecords String?         @db.NVarChar(Max)
+  CreatedAt            DateTime        @default(dbgenerated("getutcdate()"), map: "DF__VoyageSla__Creat__65AC084E")
+  UpdatedAt            DateTime?
+  VoyageOrderView      VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageSla__Order__66A02C87")
+}
