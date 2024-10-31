@@ -1,19 +1,40 @@
 'use client'
 
-import { ChevronDown, ChevronRight, HelpCircle, Image, Package2, Settings, Square, Eraser, Scissors, LayoutDashboard } from "lucide-react"
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  HelpCircle, 
+  Image, 
+  Package2, 
+  Settings, 
+  Square, 
+  Eraser, 
+  Scissors, 
+  LayoutDashboard,
+  ScanSearch 
+} from "lucide-react"
 import NextImage from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { usePathname } from "next/navigation"
 
 export function Sidebar() {
-  const [isImageMenuOpen, setIsImageMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
 
   const toggleImageMenu = () => {
     setIsImageMenuOpen(!isImageMenuOpen)
   }
+
+  useEffect(() => {
+    if (pathname.startsWith('/image')) {
+      setIsImageMenuOpen(true)
+    }
+  }, [pathname])
 
   return (
     <div className="hidden border-r bg-gray-100/40 lg:block">
@@ -85,6 +106,16 @@ export function Sidebar() {
                     <Scissors className="h-4 w-4" />
                     이미지 분할
                   </Link>
+                  <Button
+                    variant={pathname === "/image/text-detection" ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href="/image/text-detection">
+                      <ScanSearch className="mr-2 h-4 w-4" />
+                      이미지 텍스트 검출
+                    </Link>
+                  </Button>
                 </div>
               )}
             </div>
