@@ -74,6 +74,13 @@ export function LoginPage() {
                 placeholder="Enter your password" 
                 required 
               />
+              <button 
+                type="button" 
+                onClick={togglePassword}
+                className="text-sm text-gray-500"
+              >
+                {showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+              </button>
             </div>
             {error && (
               <div className="text-sm text-red-500">
