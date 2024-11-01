@@ -1206,10 +1206,11 @@ model ShipmentInfoLog {
 }
 
 model SquareProduct {
-  Id          BigInt    @id(map: "PK__SquarePr__3214EC074A780AC1") @default(autoincrement())
-  ProductName String?
-  CreatedAt   DateTime?
-  UpdatedAt   DateTime?
+  id           BigInt    @id @default(autoincrement())
+  productName  String?   @db.NVarChar(1000)
+  thumbnailURL String    @db.NVarChar(2000)
+  createdAt    DateTime  @db.DateTime2
+  updatedAt    DateTime  @db.DateTime2
 }
 
 model TikTokItemTaxes {
@@ -2030,7 +2031,7 @@ model TomsShopifyFulfillment {
   CreatedAt                   DateTime? @db.DateTimeOffset
   UpdatedAt                   DateTime? @db.DateTimeOffset
   TomsCreatedAt               DateTime?
-  TomsUpdatedAt               DateTime?
+  TomsUpdatedAt             DateTime?
   RegNo                       String?   @db.VarChar(50)
 }
 
@@ -2436,3 +2437,4 @@ model VoyageSlaInfo {
   UpdatedAt            DateTime?
   VoyageOrderView      VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageSla__Order__66A02C87")
 }
+

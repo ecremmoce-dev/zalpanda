@@ -7,7 +7,6 @@ import Image from 'next/image'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { Save } from "lucide-react"
-import { prisma } from '@/lib/db'
 
 interface ImageData {
   name: string
@@ -116,16 +115,39 @@ export function ImageResizeConverter() {
     try {
       const processedItems = data.filter(item => item.processed)
       
-      for (const item of processedItems) {
-        await fetch('/api/images/save-product', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ProductName: item.name
-          })
+      // KT 클라우드에 이미지 업로드
+      const uploadResponse = await fetch('/api/images/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images: processedItems.map(item => item.processed),
+          companyId: '6f8471c9-32e6-49a2-b8cc-6e970be40744',
+          productName: processedItems[0].name
         })
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('이미지 업로드에 실패했습니다.')
+      }
+
+      const { urls } = await uploadResponse.json()
+
+      // 상품 정보 저장
+      const saveResponse = await fetch('/api/images/save-product', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ProductName: processedItems[0].name,
+          ThumbnailURL: urls[0]
+        })
+      })
+
+      if (!saveResponse.ok) {
+        throw new Error('상품 정보 저장에 실패했습니다.')
       }
       
       alert('이미지 정보가 성공적으로 저장되었습니다.')
