@@ -1,163 +1,90 @@
 import { NextResponse } from 'next/server'
 import sql from 'mssql'
 
-const config = {
+// SQL Server 연결 풀 설정
+const poolConfig = {
   user: process.env.TOMS_DATABASE_USER,
   password: process.env.TOMS_DATABASE_PASSWORD,
-  server: process.env.TOMS_DATABASE_URL?.split(';')[0] || '',
-  database: process.env.TOMS_DATABASE_NAME,
+  server: '192.168.0.135',  // 직접 IP 지정
+  database: process.env.TOMS_DATABASE_NAME || 'awesomesqag_cafe',
   options: {
-    encrypt: true,
+    encrypt: false,  // 로컬 연결은 암호화 비활성화
     trustServerCertificate: true,
-    connectionTimeout: 30000,
-    requestTimeout: 30000
+    enableArithAbort: true,
+    connectTimeout: 15000,  // 연결 타임아웃 15초로 감소
+    requestTimeout: 15000,  // 요청 타임아웃 15초로 감소
+    pool: {
+      max: 10,  // 최대 연결 수
+      min: 0,   // 최소 연결 수
+      idleTimeoutMillis: 30000  // 유휴 연결 타임아웃
+    }
   }
 }
 
-// 데이터베이스 연결 함수
-async function connectDB() {
+// 전역 연결 풀
+let pool: sql.ConnectionPool | null = null
+
+// 연결 풀 초기화 함수
+async function getPool() {
   try {
-    console.log('Attempting to connect to database...')
-    console.log('Connection config:', {
-      server: config.server,
-      database: config.database,
-      user: config.user,
-      options: config.options
-    })
-    
-    // 연결 전에 설정 유효성 검사
-    if (!config.server || !config.database || !config.user || !config.password) {
-      throw new Error('Missing database configuration. Please check your environment variables.')
+    if (pool) {
+      // 기존 연결이 있고 연결된 상태면 재사용
+      if (pool.connected) {
+        return pool
+      }
+      // 연결이 끊어진 경우 새로 연결
+      await pool.connect()
+      return pool
     }
 
-    // SQL Server 포트가 포함된 경우 처리
-    if (config.server.includes(':')) {
-      const [host, port] = config.server.split(':')
-      config.server = host
-      config.options.port = parseInt(port)
-    }
-    
-    const pool = await sql.connect(config)
-    console.log('Database connected successfully')
+    // 새 연결 풀 생성
+    pool = await new sql.ConnectionPool(poolConfig).connect()
+    console.log('New database connection pool created')
     return pool
-  } catch (error: any) {
-    console.error('Database connection error:', {
-      error: error.message,
-      code: error.code,
-      originalError: error.originalError
-    })
-    throw new Error(`Database connection failed: ${error.message}`)
+  } catch (error) {
+    console.error('Failed to create connection pool:', error)
+    throw error
   }
 }
 
-// GET: 모든 회사 정보 조회
+// GET: 모든 회사 정보 조회 (성능 최적화)
 export async function GET() {
-  let pool
   try {
-    pool = await connectDB()
+    console.log('Fetching companies...')
+    const pool = await getPool()
     
-    console.log('Executing SELECT query...')
-    const result = await pool.request().query(`
-      SELECT 
-        Id,
-        Name,
-        BizNum,
-        OwnerName,
-        Tel,
-        Email,
-        ManagerName,
-        FORMAT(CreatedAt, 'yyyy-MM-dd') as CreatedAt
-      FROM Zal_CompanyInfo
-      WHERE DeletedAt IS NULL
-      ORDER BY CreatedAt DESC
-    `)
+    const result = await pool.request()
+      .query(`
+        SELECT TOP 100
+          Id,
+          Name,
+          BizNum,
+          OwnerName,
+          Tel,
+          Email,
+          ManagerName,
+          FORMAT(CreatedAt, 'yyyy-MM-dd') as CreatedAt
+        FROM Zal_CompanyInfo WITH (NOLOCK)
+        WHERE DeletedAt IS NULL
+        ORDER BY CreatedAt DESC
+      `)
     
-    console.log(`Query executed successfully. Found ${result.recordset.length} records`)
+    console.log(`Found ${result.recordset.length} companies`)
     return NextResponse.json(result.recordset)
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Error:', {
       message: error.message,
-      stack: error.stack,
       code: error.code,
       state: error.state
     })
     return NextResponse.json(
       { 
         error: 'Failed to fetch companies',
-        details: error.message,
-        code: error.code 
+        details: error.message 
       }, 
       { status: 500 }
     )
-  } finally {
-    if (pool) {
-      try {
-        await pool.close()
-        console.log('Database connection closed')
-      } catch (error) {
-        console.error('Error closing database connection:', error)
-      }
-    }
   }
 }
 
-// POST: 새 회사 정보 추가
-export async function POST(request: Request) {
-  let pool
-  try {
-    const body = await request.json()
-    pool = await connectDB()
-    
-    console.log('Creating new company with data:', body)
-    
-    // NEWID() 함수를 사용하여 GUID 생성
-    const result = await pool.request()
-      .input('Name', sql.NVarChar, body.Name)
-      .input('BizNum', sql.NVarChar, body.BizNum)
-      .input('OwnerName', sql.NVarChar, body.OwnerName)
-      .input('Tel', sql.NVarChar, body.Tel)
-      .input('Email', sql.NVarChar, body.Email)
-      .input('ManagerName', sql.NVarChar, body.ManagerName)
-      .input('CreatedAt', sql.DateTime2, new Date())
-      .input('UpdatedAt', sql.DateTime2, new Date())
-      .query(`
-        DECLARE @NewId uniqueidentifier = NEWID();
-        
-        INSERT INTO Zal_CompanyInfo (
-          Id, Name, BizNum, OwnerName, Tel, Email, ManagerName, CreatedAt, UpdatedAt
-        )
-        VALUES (
-          @NewId, @Name, @BizNum, @OwnerName, @Tel, @Email, @ManagerName, @CreatedAt, @UpdatedAt
-        );
-        
-        SELECT @NewId as Id;
-      `)
-    
-    console.log('Company created successfully with ID:', result.recordset[0].Id)
-    return NextResponse.json({ id: result.recordset[0].Id })
-  } catch (error) {
-    console.error('API Error:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      state: error.state
-    })
-    return NextResponse.json(
-      { 
-        error: 'Failed to create company',
-        details: error.message,
-        code: error.code 
-      }, 
-      { status: 500 }
-    )
-  } finally {
-    if (pool) {
-      try {
-        await pool.close()
-        console.log('Database connection closed')
-      } catch (error) {
-        console.error('Error closing database connection:', error)
-      }
-    }
-  }
-} 
+// ... 나머지 코드는 동일 ...

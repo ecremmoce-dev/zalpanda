@@ -2,11 +2,6 @@
 
 import { useState, useRef } from 'react';
 
-interface TextDetectionResult {
-  hasText: boolean;
-  confidence: number;
-  detectedTexts: string[];
-}
 
 export function ImageSquareConverter() {
   const [originalImage, setOriginalImage] = useState<string | null>(null);
