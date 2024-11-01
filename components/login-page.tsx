@@ -22,6 +22,10 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
+  const togglePassword = () => {
+    setShowPassword(!showPassword)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -29,7 +33,6 @@ export function LoginPage() {
     try {
       // 임시 로그인 로직
       if (email === TEST_ACCOUNT.email && password === TEST_ACCOUNT.password) {
-        // 로그인 성공 시 토큰 저장
         localStorage.setItem('token', 'dummy_token')
         router.push('/dashboard')
       } else {
@@ -71,6 +74,13 @@ export function LoginPage() {
                 placeholder="Enter your password" 
                 required 
               />
+              <button 
+                type="button" 
+                onClick={togglePassword}
+                className="text-sm text-gray-500"
+              >
+                {showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+              </button>
             </div>
             {error && (
               <div className="text-sm text-red-500">

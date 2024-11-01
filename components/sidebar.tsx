@@ -66,6 +66,13 @@ export function Sidebar() {
                   </Link>
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/image/resize"
+                  >
+                    <Image className="h-4 w-4" />
+                    이미지 사이즈 변경
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
                     href="/image/background"
                   >
                     <Eraser className="h-4 w-4" />
