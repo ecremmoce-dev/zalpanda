@@ -11,7 +11,10 @@ import {
   Eraser, 
   Scissors, 
   LayoutDashboard,
-  ScanSearch 
+  ScanSearch,
+  ShoppingCart,
+  Users,
+  Languages
 } from "lucide-react"
 import NextImage from "next/image"
 import Link from "next/link"
@@ -25,14 +28,22 @@ export function Sidebar() {
   const pathname = usePathname()
 
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
+  const [isQoo10MenuOpen, setIsQoo10MenuOpen] = useState(pathname.startsWith('/qoo10'))
 
   const toggleImageMenu = () => {
     setIsImageMenuOpen(!isImageMenuOpen)
   }
 
+  const toggleQoo10Menu = () => {
+    setIsQoo10MenuOpen(!isQoo10MenuOpen)
+  }
+
   useEffect(() => {
     if (pathname.startsWith('/image')) {
       setIsImageMenuOpen(true)
+    }
+    if (pathname.startsWith('/qoo10')) {
+      setIsQoo10MenuOpen(true)
     }
   }, [pathname])
 
@@ -116,6 +127,47 @@ export function Sidebar() {
                       이미지 텍스트 검출
                     </Link>
                   </Button>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/image/translation"
+                  >
+                    <Languages className="h-4 w-4" />
+                    이미지 번역
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleQoo10Menu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="font-semibold">QOO10</span>
+                </div>
+                {isQoo10MenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isQoo10MenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/accounts"
+                  >
+                    <Users className="h-4 w-4" />
+                    업체계정관리
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/products"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    상품관리
+                  </Link>
                 </div>
               )}
             </div>
