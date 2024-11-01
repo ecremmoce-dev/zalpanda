@@ -1,19 +1,51 @@
 'use client'
 
-import { ChevronDown, ChevronRight, HelpCircle, Image, Package2, Settings, Square, Eraser, Scissors, LayoutDashboard } from "lucide-react"
+import { 
+  ChevronDown, 
+  ChevronRight, 
+  HelpCircle, 
+  Image, 
+  Package2, 
+  Settings, 
+  Square, 
+  Eraser, 
+  Scissors, 
+  LayoutDashboard,
+  ScanSearch,
+  ShoppingCart,
+  Users,
+  Languages
+} from "lucide-react"
 import NextImage from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { usePathname } from "next/navigation"
 
 export function Sidebar() {
-  const [isImageMenuOpen, setIsImageMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
+  const [isQoo10MenuOpen, setIsQoo10MenuOpen] = useState(pathname.startsWith('/qoo10'))
 
   const toggleImageMenu = () => {
     setIsImageMenuOpen(!isImageMenuOpen)
   }
+
+  const toggleQoo10Menu = () => {
+    setIsQoo10MenuOpen(!isQoo10MenuOpen)
+  }
+
+  useEffect(() => {
+    if (pathname.startsWith('/image')) {
+      setIsImageMenuOpen(true)
+    }
+    if (pathname.startsWith('/qoo10')) {
+      setIsQoo10MenuOpen(true)
+    }
+  }, [pathname])
 
   return (
     <div className="hidden border-r bg-gray-100/40 lg:block">
@@ -84,6 +116,57 @@ export function Sidebar() {
                   >
                     <Scissors className="h-4 w-4" />
                     이미지 분할
+                  </Link>
+                  <Button
+                    variant={pathname === "/image/text-detection" ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    asChild
+                  >
+                    <Link href="/image/text-detection">
+                      <ScanSearch className="mr-2 h-4 w-4" />
+                      이미지 텍스트 검출
+                    </Link>
+                  </Button>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/image/translation"
+                  >
+                    <Languages className="h-4 w-4" />
+                    이미지 번역
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleQoo10Menu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="font-semibold">QOO10</span>
+                </div>
+                {isQoo10MenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isQoo10MenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/accounts"
+                  >
+                    <Users className="h-4 w-4" />
+                    업체계정관리
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/products"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    상품관리
                   </Link>
                 </div>
               )}

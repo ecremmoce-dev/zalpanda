@@ -8,6 +8,7 @@ export async function POST(request: Request) {
     const savedProduct = await prisma.squareProduct.create({
       data: {
         ProductName: data.ProductName,
+        ThumbnailURL: data.ThumbnailURL,
         CreatedAt: new Date(),
         UpdatedAt: new Date()
       }
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       id: savedProduct.Id.toString(),
       productName: savedProduct.ProductName,
+      thumbnailURL: savedProduct.ThumbnailURL,
       createdAt: savedProduct.CreatedAt,
       updatedAt: savedProduct.UpdatedAt
     })
