@@ -2438,8 +2438,6 @@ model VoyageSlaInfo {
   VoyageOrderView      VoyageOrderView @relation(fields: [OrderViewId], references: [OrderId], onDelete: Cascade, onUpdate: NoAction, map: "FK__VoyageSla__Order__66A02C87")
 }
 
-
-
 model Zal_CompanyInfo {
   Id                  String                @id(map: "PK__Zal_Comp__3214EC07A617C15A") @db.UniqueIdentifier
   Name                String?               @db.NVarChar(100)
