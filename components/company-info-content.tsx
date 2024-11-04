@@ -185,9 +185,6 @@ export function CompanyInfoContent() {
           </TableBody>
         </Table>
       </div>
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? '저장 중...' : '저장'}
-      </Button>
     </div>
   )
 }
