@@ -19,8 +19,16 @@ export async function POST(request: Request) {
     formData.append('source', source)
     formData.append('target', target)
     
-    const imageBlob = await fetch(image).then(res => res.blob())
-    formData.append('image', imageBlob, 'image.jpg')
+    try {
+      const imageBlob = await fetch(image).then(res => res.blob())
+      formData.append('image', imageBlob, 'image.jpg')
+    } catch (error) {
+      console.error('Failed to fetch image:', error)
+      return NextResponse.json(
+        { error: 'Failed to process image', originalImage: image },
+        { status: 400 }
+      )
+    }
 
     console.log('Sending request to Naver API...')
     const response = await fetch(NAVER_API_URL, {
@@ -37,7 +45,8 @@ export async function POST(request: Request) {
         status: response.status,
         statusText: response.statusText
       })
-      throw new Error(`API request failed with status ${response.status}`)
+      // 오류 발생 시 원본 이미지 반환
+      return NextResponse.json({ originalImage: image })
     }
 
     const data = await response.json()
@@ -49,7 +58,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ originalImage: image })
       }
       console.error('Naver API error response:', data.error)
-      return NextResponse.json({ error: data.error.message }, { status: 400 })
+      return NextResponse.json({ originalImage: image })
     }
 
     if ('data' in data && 'renderedImage' in data.data) {
@@ -58,20 +67,14 @@ export async function POST(request: Request) {
     }
 
     console.error('Unexpected API response format:', data)
-    return NextResponse.json(
-      { error: 'Unexpected response format' }, 
-      { status: 400 }
-    )
+    return NextResponse.json({ originalImage: image })
   } catch (error: any) {
     console.error('Translation error:', {
       message: error.message,
       stack: error.stack
     })
     return NextResponse.json(
-      { 
-        error: '이미지 번역 중 오류가 발생했습니다.',
-        details: error.message 
-      }, 
+      { originalImage: Image },
       { status: 500 }
     )
   }
@@ -80,7 +83,7 @@ export async function POST(request: Request) {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-} 
+      sizeLimit: '10mb'
+    }
+  }
+} as const;

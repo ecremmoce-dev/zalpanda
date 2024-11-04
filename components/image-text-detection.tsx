@@ -7,6 +7,14 @@ import { useState } from "react"
 import { createWorker } from 'tesseract.js'
 import { Progress } from "@/components/ui/progress"
 
+type TesseractWorker = Awaited<ReturnType<typeof createWorker>>;
+
+interface LoggerMessage {
+  progress: number;
+  status: string;
+  userJobId: string;
+}
+
 export function ImageTextDetection() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [detectedText, setDetectedText] = useState<string>("")
@@ -31,28 +39,22 @@ export function ImageTextDetection() {
     setProgress(0)
     
     try {
-      const worker = await createWorker()
+      const worker: TesseractWorker = await createWorker();
       
-      worker.logger = (m) => {
-        if (m.status === 'recognizing text') {
-          setProgress(m.progress * 100)
-        }
-      }
-
-      // 한국어와 영어 모두 인식하도록 설정
-      await worker.loadLanguage('kor+eng')
-      await worker.initialize('kor+eng')
+      await worker.load();
+      await worker.loadLanguage('kor+eng');
+      await worker.initialize('kor+eng');
       
-      const { data: { text } } = await worker.recognize(selectedFile)
-      setDetectedText(text)
+      const result = await worker.recognize(selectedFile);
+      setDetectedText(result.data.text);
       
-      await worker.terminate()
+      await worker.terminate();
     } catch (error) {
-      console.error('텍스트 검출 중 오류 발생:', error)
-      setDetectedText('텍스트 검출 중 오류가 발생했습니다.')
+      console.error('텍스트 검출 중 오류 발생:', error);
+      setDetectedText('텍스트 검출 중 오류가 발생했습니다.');
     } finally {
-      setIsProcessing(false)
-      setProgress(100)
+      setIsProcessing(false);
+      setProgress(100);
     }
   }
 

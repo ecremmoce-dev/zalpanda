@@ -1,90 +1,65 @@
 import { NextResponse } from 'next/server'
-import sql from 'mssql'
+import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
-// SQL Server 연결 풀 설정
-const poolConfig = {
-  user: process.env.TOMS_DATABASE_USER,
-  password: process.env.TOMS_DATABASE_PASSWORD,
-  server: '192.168.0.135',  // 직접 IP 지정
-  database: process.env.TOMS_DATABASE_NAME || 'awesomesqag_cafe',
-  options: {
-    encrypt: false,  // 로컬 연결은 암호화 비활성화
-    trustServerCertificate: true,
-    enableArithAbort: true,
-    connectTimeout: 15000,  // 연결 타임아웃 15초로 감소
-    requestTimeout: 15000,  // 요청 타임아웃 15초로 감소
-    pool: {
-      max: 10,  // 최대 연결 수
-      min: 0,   // 최소 연결 수
-      idleTimeoutMillis: 30000  // 유휴 연결 타임아웃
-    }
-  }
-}
+const prisma = new PrismaClient()
 
-// 전역 연결 풀
-let pool: sql.ConnectionPool | null = null
-
-// 연결 풀 초기화 함수
-async function getPool() {
-  try {
-    if (pool) {
-      // 기존 연결이 있고 연결된 상태면 재사용
-      if (pool.connected) {
-        return pool
-      }
-      // 연결이 끊어진 경우 새로 연결
-      await pool.connect()
-      return pool
-    }
-
-    // 새 연결 풀 생성
-    pool = await new sql.ConnectionPool(poolConfig).connect()
-    console.log('New database connection pool created')
-    return pool
-  } catch (error) {
-    console.error('Failed to create connection pool:', error)
-    throw error
-  }
-}
-
-// GET: 모든 회사 정보 조회 (성능 최적화)
+// GET: 모든 회사 정보 조회
 export async function GET() {
   try {
-    console.log('Fetching companies...')
-    const pool = await getPool()
+    console.log('모든 회사 정보 조회 중...')
     
-    const result = await pool.request()
-      .query(`
-        SELECT TOP 100
-          Id,
-          Name,
-          BizNum,
-          OwnerName,
-          Tel,
-          Email,
-          ManagerName,
-          FORMAT(CreatedAt, 'yyyy-MM-dd') as CreatedAt
-        FROM Zal_CompanyInfo WITH (NOLOCK)
-        WHERE DeletedAt IS NULL
-        ORDER BY CreatedAt DESC
-      `)
-    
-    console.log(`Found ${result.recordset.length} companies`)
-    return NextResponse.json(result.recordset)
-  } catch (error: any) {
-    console.error('API Error:', {
-      message: error.message,
-      code: error.code,
-      state: error.state
+    const companies = await prisma.zal_CompanyInfo.findMany({
+      where: {
+        DeletedAt: null
+      },
+      orderBy: {
+        CreatedAt: 'desc'
+      }
     })
+
+    console.log(`${companies.length}개의 회사 정보를 찾았습니다.`)
+    return NextResponse.json(companies)
+  } catch (error) {
+    console.error('API 오류:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch companies',
-        details: error.message 
-      }, 
+      { error: '회사 정보 조회에 실패했습니다.' }, 
       { status: 500 }
     )
   }
 }
 
-// ... 나머지 코드는 동일 ...
+// POST: 새 회사 정보 추가
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    console.log('새 회사 정보 생성:', body)
+
+    const newCompany = await prisma.zal_CompanyInfo.create({
+      data: {
+        Id: randomUUID(),
+        Name: body.Name,
+        NameEn: body.NameEn,
+        BizNum: body.BizNum,
+        BizType: body.BizType,
+        BizClass: body.BizClass,
+        OwnerName: body.OwnerName,
+        Tel: body.Tel,
+        Email: body.Email,
+        ManagerName: body.ManagerName,
+        CreatedAt: new Date(),
+        UpdatedAt: new Date()
+      }
+    })
+
+    console.log('새 회사가 성공적으로 생성되었습니다. ID:', newCompany.Id)
+    return NextResponse.json(newCompany)
+  } catch (error) {
+    console.error('API 오류:', error)
+    return NextResponse.json(
+      { error: '회사 생성에 실패했습니다.' }, 
+      { status: 500 }
+    )
+  }
+}
+

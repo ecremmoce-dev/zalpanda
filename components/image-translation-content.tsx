@@ -16,6 +16,7 @@ interface ImageInfo {
   width: number;
   height: number;
   selected: boolean;
+  isTranslationSuccessful?: boolean;
 }
 
 interface LanguageOption {
@@ -78,34 +79,6 @@ export default function ImageTranslationContent() {
     setImages(prev => prev.map(img => ({ ...img, selected: select })))
   }
 
-  const translateSelectedImages = async () => {
-    setLoading(true)
-    try {
-      const updatedImages = await Promise.all(
-        images.map(async (img) => {
-          if (img.selected && !img.translated) {
-            const translatedImage = await translateImage(img.originalFile)
-            return { ...img, translated: translatedImage }
-          }
-          return img
-        })
-      )
-      setImages(updatedImages)
-      toast({
-        description: "선택한 이미지가 성공적으로 번역되었습니다."
-      })
-    } catch (error) {
-      console.error('번역 중 오류 발생:', error)
-      toast({
-        variant: "destructive",
-        title: "오류",
-        description: "이미지 번역 중 오류가 발생했습니다. 다시 시도해 주세요."
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const translateImage = async (file: File): Promise<string> => {
     const base64Image = await new Promise<string>((resolve) => {
       const reader = new FileReader()
@@ -113,49 +86,129 @@ export default function ImageTranslationContent() {
       reader.readAsDataURL(file)
     })
 
-    const response = await fetch('/api/translate-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        image: base64Image,
-        source: sourceLanguage,
-        target: targetLanguage
-      }),
-    })
+    try {
+      const response = await fetch('/api/translate-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: base64Image,
+          source: sourceLanguage,
+          target: targetLanguage
+        }),
+      })
 
-    if (!response.ok) {
-      throw new Error('Translation failed')
+      if (!response.ok) {
+        console.error('Translation request failed:', response.status)
+        return base64Image  // 실패 시 원본 이미지 반환
+      }
+
+      const data = await response.json()
+      
+      // API 응답에서 번역된 이미지 또는 원본 이미지 반환
+      if (data.translatedImage) {
+        return `data:image/png;base64,${data.translatedImage}`
+      } else if (data.originalImage) {
+        return data.originalImage
+      }
+      
+      // 예상치 못한 응답 형식인 경우 원본 이미지 반환
+      console.error('Unexpected API response format:', data)
+      return base64Image
+
+    } catch (error) {
+      console.error('Translation error:', error)
+      return base64Image  // 오류 발생 시 원본 이미지 반환
     }
+  }
 
-    const data = await response.json()
-    if (data.error) {
-      throw new Error(data.error)
+  const translateSelectedImages = async () => {
+    setLoading(true)
+    try {
+      const translationPromises = images.map(async (img, index) => {
+        if (!img.selected || img.translated) {
+          return img;
+        }
+
+        try {
+          const translatedImage = await translateImage(img.originalFile)
+          console.log(`Image ${index + 1} translation completed`)
+          // 번역 결과가 원본과 다른 경우에만 translated 플래그 설정
+          const isTranslated = translatedImage !== img.original
+          return { 
+            ...img, 
+            translated: translatedImage,
+            isTranslationSuccessful: isTranslated  // 번역 성공 여부 표시
+          }
+        } catch (error) {
+          console.error(`Failed to translate image ${index + 1}:`, error)
+          return { 
+            ...img, 
+            translated: img.original,  // 실패 시 원본 이미지 사용
+            isTranslationSuccessful: false
+          }
+        }
+      })
+
+      const updatedImages = await Promise.allSettled(translationPromises)
+      
+      const newImages = updatedImages.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value
+        }
+        console.error(`Image ${index + 1} translation rejected:`, result.reason)
+        return {
+          ...images[index],
+          translated: images[index].original,  // 실패 시 원본 이미지 사용
+          isTranslationSuccessful: false
+        }
+      })
+
+      setImages(newImages)
+      toast({
+        description: "번역 작업이 완료되었습니다."
+      })
+    } catch (error) {
+      console.error('Translation process error:', error)
+      toast({
+        variant: "destructive",
+        title: "오류",
+        description: "일부 이미지 번역 중 오류가 발생했습니다."
+      })
+    } finally {
+      setLoading(false)
     }
-
-    return `data:image/png;base64,${data.translatedImage}`
   }
 
   const downloadAllTranslated = async () => {
     const zip = new JSZip()
-    const translatedImages = images.filter(img => img.translated)
+    
+    const selectedImages = images.filter(img => img.selected)
 
-    if (translatedImages.length === 0) {
+    if (selectedImages.length === 0) {
       toast({
         variant: "destructive",
-        description: "다운로드할 번역된 이미지가 없습니다."
+        description: "다운로드할 이미지가 없습니다."
       })
       return
     }
 
-    translatedImages.forEach((img, index) => {
-      const imgData = img.translated!.split(',')[1]
-      zip.file(`translated_image_${index + 1}.png`, imgData, { base64: true })
+    selectedImages.forEach((img, index) => {
+      const imageData = (img.translated || img.original).split(',')[1]
+      const fileName = img.translated 
+        ? `translated_${img.name}`
+        : `original_${img.name}`
+      
+      zip.file(fileName, imageData, { base64: true })
     })
 
     const content = await zip.generateAsync({ type: 'blob' })
     saveAs(content, 'translated_images.zip')
+    
+    toast({
+      description: "이미지 다운로드가 완료되었습니다."
+    })
   }
 
   return (
@@ -252,23 +305,34 @@ export default function ImageTranslationContent() {
         <div ref={rightColumnRef} className="w-1/2 overflow-y-auto pl-2">
           {images.map((image, index) => (
             <div key={`translated-${index}`} className="mb-4">
-              <div className="relative border-2 border-gray-300">
-                <Image
-                  src={image.translated || image.original}
-                  alt={`Translated ${index + 1}`}
-                  width={500}
-                  height={500}
-                  className="w-full h-auto"
-                  unoptimized
-                />
-                <div className="absolute top-2 left-2 bg-white/80 px-2 py-1 rounded">
-                  <span className="text-sm">
-                    {image.translated ? '번역됨' : '대기중'}
-                  </span>
+              {image.selected && (
+                <div className="relative border-2 border-gray-300">
+                  <Image
+                    src={image.translated || image.original}  // 번역된 이미지 또는 원본 이미지
+                    alt={`Translated ${index + 1}`}
+                    width={500}
+                    height={500}
+                    className="w-full h-auto"
+                    unoptimized
+                  />
+                  <div className="absolute top-2 left-2 bg-white/80 px-2 py-1 rounded">
+                    <span className="text-sm">
+                      {image.translated ? (
+                        image.isTranslationSuccessful ? 
+                          '번역 완료' : 
+                          '번역 실패 (원본 표시)'
+                      ) : '번역 대기중'}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
+          {!images.some(img => img.selected) && (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              <p>이미지를 선택해주세요</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
