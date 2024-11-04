@@ -2439,7 +2439,7 @@ model VoyageSlaInfo {
 }
 
 model Zal_CompanyInfo {
-  Id                  String                @id(map: "PK__Zal_Comp__3214EC07A617C15A") @db.UniqueIdentifier
+  Id                  String                @id(map: "PK__Zal_Comp__3214EC071DF830D0") @db.UniqueIdentifier
   Name                String?               @db.NVarChar(100)
   NameEn              String?               @db.NVarChar(100)
   BizNum              String?               @db.NVarChar(100)
@@ -2463,14 +2463,14 @@ model Zal_CompanyInfo {
   Memo                String?
   ReceivingAccount    String?               @db.VarChar(100)
   ReceivingBank       String?               @db.VarChar(100)
-  CreatedAt           DateTime              @default(now(), map: "DF__Zal_Compa__Creat__1CC7330E")
+  CreatedAt           DateTime              @default(now(), map: "DF__Zal_Compa__Creat__41F8B7BD")
   UpdatedAt           DateTime?
   DeletedAt           DateTime?
   Zal_CompanyPlatform Zal_CompanyPlatform[]
 }
 
 model Zal_CompanyPlatform {
-  Id              String          @id(map: "PK__Zal_Comp__3214EC076BEF31F7") @default(dbgenerated("newid()"), map: "DF__Zal_CompanyP__Id__2097C3F2") @db.UniqueIdentifier
+  Id              String          @id(map: "PK__Zal_Comp__3214EC07412CD151") @default(dbgenerated("newid()"), map: "DF__Zal_CompanyP__Id__46BD6CDA") @db.UniqueIdentifier
   CompanyId       String          @db.UniqueIdentifier
   Platform        String          @db.VarChar(20)
   SellerId        String?         @db.NVarChar(100)
@@ -2480,10 +2480,10 @@ model Zal_CompanyPlatform {
   AccessToken     String?
   RefreshToken    String?
   TokenExpiryDate DateTime?
-  IsActive        Boolean         @default(true, map: "DF__Zal_Compa__IsAct__218BE82B")
+  IsActive        Boolean         @default(true, map: "DF__Zal_Compa__IsAct__47B19113")
   LastSyncDate    DateTime?
   Memo            String?
-  CreatedAt       DateTime        @default(now(), map: "DF__Zal_Compa__Creat__22800C64")
+  CreatedAt       DateTime        @default(now(), map: "DF__Zal_Compa__Creat__48A5B54C")
   UpdatedAt       DateTime?
   DeletedAt       DateTime?
   Zal_CompanyInfo Zal_CompanyInfo @relation(fields: [CompanyId], references: [Id], onUpdate: NoAction, map: "FK_CompanyPlatform_Company")
