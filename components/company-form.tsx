@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Company } from '@/types'
 
 interface CompanyFormProps {
   initialData?: Company | null
@@ -64,6 +65,7 @@ export function CompanyForm({ initialData, onSuccess }: CompanyFormProps) {
       <div className="space-y-2">
         <Label htmlFor="Name">회사명</Label>
         <Input
+          id="Name"
           name="Name"
           value={formData.Name}
           onChange={handleChange}

@@ -14,29 +14,7 @@ import { PlusCircle, ChevronDown, ChevronRight, Edit, Trash } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { CompanyForm } from './company-form'
 import { PlatformForm } from './platform-form'
-
-interface Company {
-  Id: string
-  Name: string
-  BizNum: string
-  OwnerName: string
-  Tel: string
-  Email: string
-  ManagerName: string
-  CreatedAt: string
-  platforms?: Platform[]
-  isExpanded?: boolean
-}
-
-interface Platform {
-  Id: string
-  CompanyId: string
-  Platform: string
-  SellerId: string
-  IsActive: boolean
-  LastSyncDate: string | null
-  CreatedAt: string
-}
+import { Company, Platform } from '@/types'
 
 export function CompanyInfoContent() {
   const [companies, setCompanies] = useState<Company[]>([])

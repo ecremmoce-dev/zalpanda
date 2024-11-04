@@ -29,14 +29,16 @@ export async function getKTCloudToken(): Promise<string> {
 
     console.log('KT Cloud 인증 요청:', JSON.stringify(reqObj, null, 2));
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Connection': 'keep-alive',
+      'User-Agent': 'EcremmoceClientSDK/1.0',
+      'Host': process.env.KT_CLOUD_HOST || ''
+    } as const;
+
     const response = await fetch('https://ssproxy2.ucloudbiz.olleh.com:5000/v3/auth/tokens', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Connection': 'keep-alive',
-        'User-Agent': 'EcremmoceClientSDK/1.0',
-        'Host': process.env.KT_CLOUD_HOST
-      },
+      headers,
       body: JSON.stringify(reqObj)
     });
 

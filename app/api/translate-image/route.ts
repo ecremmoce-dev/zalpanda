@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       stack: error.stack
     })
     return NextResponse.json(
-      { originalImage: image },
+      { originalImage: Image },
       { status: 500 }
     )
   }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-} 
+      sizeLimit: '10mb'
+    }
+  }
+} as const;

@@ -488,7 +488,7 @@ model GsellerProducts {
 }
 
 model GsellerProductsHistory {
-  ID                  String    @id(map: "PK__GsellerP__3214EC27838FC82C") @default(dbgenerated("newid()"), map: "DF__GsellerProdu__ID__30242045") @db.UniqueIdentifier
+  ID                  String    @default(dbgenerated("newid()"), map: "DF__GsellerProdu__ID__4C764630") @db.UniqueIdentifier
   VenderProductCd     String?   @db.NVarChar(4)
   IndexID             Int?
   ManagementCode      String?   @db.NVarChar(10)
@@ -501,11 +501,14 @@ model GsellerProductsHistory {
   ExchangeCost        Decimal?  @db.Decimal(18, 2)
   RefundCost          Decimal?  @db.Decimal(18, 2)
   HardToShipAreasCost Decimal?  @db.Decimal(18, 2)
-  UpdateDate          DateTime? @default(now(), map: "DF__GsellerPr__Updat__3118447E")
+  UpdateDate          DateTime? @default(now(), map: "DF__GsellerPr__Updat__4D6A6A69")
   Thumbnail           String?   @db.NVarChar(Max)
   BrandCode           String?   @db.NVarChar(50)
   Price               Decimal?  @db.Decimal(18, 0)
   DetailImage         String?   @db.NVarChar(Max)
+  LocationType        Boolean
+
+  @@id([ID, LocationType], map: "PK__GsellerP__88F6B36BA796E0C1")
 }
 
 model GsellerProvisionCodes {
@@ -2595,4 +2598,17 @@ model Zal_Qoo10ItemOptions {
   UpdatedAt            DateTime?
   LastFetchDate        DateTime?
   Zal_Qoo10ItemDetails Zal_Qoo10ItemDetails @relation(fields: [ItemCode], references: [ItemCode], onDelete: Cascade, onUpdate: NoAction, map: "FK_ItemOptions_ItemCode")
+}
+
+/// --------- DO NOT REMOVE OR MODIFY THIS MODEL ---------
+/// @keep
+model SavedImage {
+  id          String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  userId      String
+  originalUrl String
+  resizedUrl  String
+  width       Int
+  height      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

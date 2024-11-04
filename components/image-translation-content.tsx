@@ -16,6 +16,7 @@ interface ImageInfo {
   width: number;
   height: number;
   selected: boolean;
+  isTranslationSuccessful?: boolean;
 }
 
 interface LanguageOption {
