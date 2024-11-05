@@ -5,7 +5,10 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
+<<<<<<< HEAD
 import { ProductManagementContent } from "@/components/product-management-content"
+=======
+>>>>>>> 73f51b86d62288d067048bf35218a00fad2fb313
 
 const checkAuth = () => {
   const token = localStorage.getItem('token')
