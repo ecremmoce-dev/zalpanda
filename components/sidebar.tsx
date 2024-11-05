@@ -29,6 +29,7 @@ export function Sidebar() {
 
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
   const [isQoo10MenuOpen, setIsQoo10MenuOpen] = useState(pathname.startsWith('/qoo10'))
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(pathname.startsWith('/settings'))
 
   const toggleImageMenu = () => {
     setIsImageMenuOpen(!isImageMenuOpen)
@@ -38,12 +39,19 @@ export function Sidebar() {
     setIsQoo10MenuOpen(!isQoo10MenuOpen)
   }
 
+  const toggleSettingsMenu = () => {
+    setIsSettingsMenuOpen(!isSettingsMenuOpen)
+  }
+
   useEffect(() => {
     if (pathname.startsWith('/image')) {
       setIsImageMenuOpen(true)
     }
     if (pathname.startsWith('/qoo10')) {
       setIsQoo10MenuOpen(true)
+    }
+    if (pathname.startsWith('/settings')) {
+      setIsSettingsMenuOpen(true)
     }
   }, [pathname])
 
@@ -156,17 +164,37 @@ export function Sidebar() {
                 <div className="ml-6 mt-2 space-y-1">
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
-                    href="/qoo10/accounts"
-                  >
-                    <Users className="h-4 w-4" />
-                    업체계정관리
-                  </Link>
-                  <Link
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
                     href="/qoo10/products"
                   >
                     <ShoppingCart className="h-4 w-4" />
                     상품관리
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleSettingsMenu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="h-4 w-4" />
+                  <span className="font-semibold">설정</span>
+                </div>
+                {isSettingsMenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isSettingsMenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/settings/accounts"
+                  >
+                    <Users className="h-4 w-4" />
+                    업체계정관리
                   </Link>
                 </div>
               )}
