@@ -2601,15 +2601,3 @@ model Zal_Qoo10ItemOptions {
   Zal_Qoo10ItemDetails Zal_Qoo10ItemDetails @relation(fields: [ItemCode], references: [ItemCode], onDelete: Cascade, onUpdate: NoAction, map: "FK_ItemOptions_ItemCode")
 }
 
-/// --------- DO NOT REMOVE OR MODIFY THIS MODEL ---------
-/// @keep
-model SavedImage {
-  id          String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  userId      String
-  originalUrl String
-  resizedUrl  String
-  width       Int
-  height      Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}

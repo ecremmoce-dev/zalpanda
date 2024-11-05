@@ -1,29 +1,34 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-import { randomUUID } from 'crypto'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET: 모든 회사 정보 조회
 export async function GET() {
   try {
-    console.log('모든 회사 정보 조회 중...')
-    
     const companies = await prisma.zal_CompanyInfo.findMany({
       where: {
         DeletedAt: null
+      },
+      select: {
+        Id: true,
+        Name: true
       },
       orderBy: {
         CreatedAt: 'desc'
       }
     })
 
-    console.log(`${companies.length}개의 회사 정보를 찾았습니다.`)
+    // 연결 해제
+    await prisma.$disconnect()
+
     return NextResponse.json(companies)
   } catch (error) {
-    console.error('API 오류:', error)
+    console.error('Failed to fetch companies:', error)
+    
+    // 에러 발생 시에도 연결 해제
+    await prisma.$disconnect()
+    
     return NextResponse.json(
-      { error: '회사 정보 조회에 실패했습니다.' }, 
+      { error: '회사 정보 조회에 실패했습니다.' },
       { status: 500 }
     )
   }

@@ -14,7 +14,9 @@ import {
   ScanSearch,
   ShoppingCart,
   Users,
-  Languages
+  Languages,
+  Globe,
+  MessageSquare
 } from "lucide-react"
 import NextImage from "next/image"
 import Link from "next/link"
@@ -46,6 +48,29 @@ export function Sidebar() {
       setIsQoo10MenuOpen(true)
     }
   }, [pathname])
+
+  const qoo10SubMenus = [
+    {
+      title: '상품관리',
+      href: '/qoo10/products',
+      icon: Package2
+    },
+    {
+      title: '상품COSMOS',
+      href: '/qoo10/cosmos',
+      icon: Globe
+    },
+    {
+      title: '주문관리',
+      href: '/qoo10/orders',
+      icon: ShoppingCart
+    },
+    {
+      title: '문의관리',
+      href: '/qoo10/inquiries',
+      icon: MessageSquare
+    }
+  ]
 
   return (
     <div className="hidden border-r bg-gray-100/40 lg:block">
@@ -161,13 +186,16 @@ export function Sidebar() {
                     <Users className="h-4 w-4" />
                     업체계정관리
                   </Link>
-                  <Link
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
-                    href="/qoo10/products"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    상품관리
-                  </Link>
+                  {qoo10SubMenus.map(menu => (
+                    <Link
+                      key={menu.title}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                      href={menu.href}
+                    >
+                      {menu.icon && <menu.icon className="h-4 w-4" />}
+                      {menu.title}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
