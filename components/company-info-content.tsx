@@ -172,13 +172,8 @@ export function CompanyInfoContent() {
           </TableHeader>
           <TableBody>
             {companies.map((company) => (
-<<<<<<< HEAD
               <React.Fragment key={company.Id}>
                 <TableRow className="cursor-pointer hover:bg-gray-100">
-=======
-              <>
-                <TableRow key={company.Id} className="cursor-pointer hover:bg-gray-100">
->>>>>>> 73f51b86d62288d067048bf35218a00fad2fb313
                   <TableCell onClick={() => handleRowClick(company.Id)}>
                     {company.isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </TableCell>
@@ -218,11 +213,7 @@ export function CompanyInfoContent() {
                   </TableCell>
                 </TableRow>
                 {company.isExpanded && (
-<<<<<<< HEAD
                   <TableRow key={`${company.Id}-expanded`}>
-=======
-                  <TableRow>
->>>>>>> 73f51b86d62288d067048bf35218a00fad2fb313
                     <TableCell colSpan={9}>
                       <div className="p-6 bg-gray-50 rounded-lg shadow-inner">
                         <div className="flex justify-between items-center mb-4">
@@ -311,11 +302,7 @@ export function CompanyInfoContent() {
                     </TableCell>
                   </TableRow>
                 )}
-<<<<<<< HEAD
               </React.Fragment>
-=======
-              </>
->>>>>>> 73f51b86d62288d067048bf35218a00fad2fb313
             ))}
           </TableBody>
         </Table>
