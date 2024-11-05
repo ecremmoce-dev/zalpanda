@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, ChevronDown } from "lucide-react"
+import { Menu, ChevronDown, Package, Globe, ShoppingCart, MessageSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,29 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/sidebar"
+
+const qoo10SubMenus = [
+  {
+    title: '상품관리',
+    href: '/qoo10/products',
+    icon: Package
+  },
+  {
+    title: '상품COSMOS',
+    href: '/qoo10/cosmos',
+    icon: Globe
+  },
+  {
+    title: '주문관리',
+    href: '/qoo10/orders',
+    icon: ShoppingCart
+  },
+  {
+    title: '문의관리',
+    href: '/qoo10/inquiries',
+    icon: MessageSquare
+  }
+]
 
 export function Dashboard() {
   return (

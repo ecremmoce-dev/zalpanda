@@ -47,145 +47,103 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
   }
 }
 
-// 타입 정의 추가
-type Qoo10ItemDetail = {
-  CompanyId: string;
-  ItemCode: string;
-  Flag: string;
-  ItemStatus: string;
-  ItemTitle: string;
-  PromotionName: string;
-  RetailPrice: number | null;
-  ItemPrice: number | null;
-  TaxRate: number | null;
-  ItemQty: number | null;
-  ExpireDate: Date | null;
-  DesiredShippingDate: number | null;
-  AvailableDateValue: string | null;
-  ShippingNo: string | null;
-  ModelNM: string | null;
-  ManufacturerDate: string | null;
-  BrandNo: string | null;
-  AdultYN: string | null;
-  ContactInfo: string | null;
-  ItemDetail: string | null;
-  ImageUrl: string | null;
-  Keyword: string | null;
-  AttributeInfo: string | null;
-  BuyLimitType: string | null;
-  BuyLimitDate: Date | null;
-  BuyLimitQty: number | null;
-  ExpirationDateType: string | null;
-  ExpirationDateMFD: Date | null;
-  ExpirationDatePAO: Date | null;
-  ExpirationDateEXP: Date | null;
-  ImageOtherUrl: string | null;
-  MaterialInfo: string | null;
-  MaterialNumber: string | null;
-  OptionMainimage: string | null;
-  OptionQty: string | null;
-  OptionSubimage: string | null;
-  OptionType: string | null;
-  OriginCountryId: string | null;
-  OriginRegionId: string | null;
-  OriginOthers: string | null;
-  SeasonType: string | null;
-  StyleNumber: string | null;
-  TpoNumber: string | null;
-  VideoNumber: string | null;
-  WashinginfoFit: string | null;
-  WashinginfoLining: string | null;
-  WashinginfoSeethrough: string | null;
-  WashinginfoStretch: string | null;
-  WashinginfoThickness: string | null;
-  WashinginfoWashing: string | null;
-  Weight: number | null;
-  LastFetchDate: Date;
-  CreatedAt: Date;
-  UpdatedAt: Date;
-};
-
-// 상품 상세 정보 조회
-async function fetchItemDetail(authKey: string, itemCode: string, isMoveItem: boolean = false): Promise<Qoo10ItemDetail | null> {
+// 상품 상세 정보 조회 함수 수정
+async function fetchItemDetail(authKey: string, itemCode: string) {
   try {
-    const baseUrl = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan.qapi'
-    const method = isMoveItem ? 'ItemsLookup.GetMoveItemDetailInfo' : 'ItemsLookup.GetItemDetailInfo'
-    
-    const params = new URLSearchParams({
-      'v': '1.2',
-      'method': method,
-      'key': authKey,
-      'ItemCode': itemCode
-    })
-
-    const response = await fetch(`${baseUrl}?${params.toString()}`)
-    if (!response.ok) throw new Error(`API request failed: ${response.status}`)
-
-    const data = await response.json()
-    if (!data.ResultObject) return null
-
-    const item = isMoveItem ? data.ResultObject : data.ResultObject[0]
-    if (!item) return null
-
-    return {
-      CompanyId: '',  // 기본값 추가
-      ItemCode: item.ItemCode,
-      Flag: isMoveItem ? 'MOVE' : 'NONE',
-      ItemStatus: 'S2',
-      ItemTitle: item.ItemTitle || item.ItemSeriesName,
-      PromotionName: item.PromotionName || '',
-      RetailPrice: item.RetailPrice ? parseFloat(item.RetailPrice) : null,
-      ItemPrice: item.ItemPrice ? parseFloat(item.ItemPrice) : null,
-      TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : null,
-      ItemQty: item.ItemQty ? parseInt(item.ItemQty) : null,
-      ExpireDate: item.ExpireDate ? new Date(item.ExpireDate) : null,
-      DesiredShippingDate: item.DesiredShippingDate ? parseInt(item.DesiredShippingDate) : null,
-      AvailableDateValue: item.AvailableDateValue,
-      ShippingNo: item.ShippingNo,
-      ModelNM: item.ModelNM,
-      ManufacturerDate: item.ManufacturerDate,
-      BrandNo: item.BrandNo,
-      AdultYN: item.AdultYN,
-      ContactInfo: item.ContactInfo,
-      ItemDetail: item.ItemDetail || item.ItemDescription,
-      ImageUrl: item.ImageUrl,
-      Keyword: item.Keyword,
-      AttributeInfo: item.AttributeInfo,
-      BuyLimitType: item.BuyLimitType,
-      BuyLimitDate: item.BuyLimitDate ? new Date(item.BuyLimitDate) : null,
-      BuyLimitQty: item.BuyLimitQty ? parseInt(item.BuyLimitQty) : null,
-      ExpirationDateType: item.ExpirationDateType,
-      ExpirationDateMFD: item.ExpirationDateMFD ? new Date(item.ExpirationDateMFD) : null,
-      ExpirationDatePAO: item.ExpirationDatePAO ? new Date(item.ExpirationDatePAO) : null,
-      ExpirationDateEXP: item.ExpirationDateEXP ? new Date(item.ExpirationDateEXP) : null,
-      ImageOtherUrl: item.ImageOtherUrl,
-      MaterialInfo: item.MaterialInfo,
-      MaterialNumber: item.MaterialNumber,
-      OptionMainimage: item.OptionMainimage,
-      OptionQty: item.OptionQty,
-      OptionSubimage: item.OptionSubimage,
-      OptionType: item.OptionType,
-      OriginCountryId: item.OriginCountryId,
-      OriginRegionId: item.OriginRegionId,
-      OriginOthers: item.OriginOthers,
-      SeasonType: item.SeasonType,
-      StyleNumber: item.StyleNumber,
-      TpoNumber: item.TpoNumber,
-      VideoNumber: item.VideoNumber,
-      WashinginfoFit: item.WashinginfoFit,
-      WashinginfoLining: item.WashinginfoLining,
-      WashinginfoSeethrough: item.WashinginfoSeethrough,
-      WashinginfoStretch: item.WashinginfoStretch,
-      WashinginfoThickness: item.WashinginfoThickness,
-      WashinginfoWashing: item.WashinginfoWashing,
-      Weight: item.Weight ? parseFloat(item.Weight) : null,
-      LastFetchDate: new Date(),
-      CreatedAt: new Date(),
-      UpdatedAt: new Date()
+    // 먼저 GetItemDetailInfo로 시도
+    const detail = await fetchDetailWithMethod(authKey, itemCode, false)
+    if (detail) {
+      return { ...detail, Flag: 'NONE' }
     }
+
+    // 실패하면 GetMoveItemDetailInfo로 시도
+    const moveDetail = await fetchDetailWithMethod(authKey, itemCode, true)
+    if (moveDetail) {
+      return { ...moveDetail, Flag: 'MOVE' }
+    }
+
+    return null
   } catch (error) {
     console.error(`Failed to fetch item detail (${itemCode}):`, error)
     return null
+  }
+}
+
+// 실제 API 호출을 담당하는 내부 함수
+async function fetchDetailWithMethod(authKey: string, itemCode: string, isMoveItem: boolean) {
+  const baseUrl = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan.qapi'
+  const method = isMoveItem ? 'ItemsLookup.GetMoveItemDetailInfo' : 'ItemsLookup.GetItemDetailInfo'
+  
+  const params = new URLSearchParams({
+    'v': '1.2',
+    'method': method,
+    'key': authKey,
+    'ItemCode': itemCode
+  })
+
+  const response = await fetch(`${baseUrl}?${params.toString()}`)
+  if (!response.ok) return null
+
+  const data = await response.json()
+  if (!data.ResultObject) return null
+
+  const item = isMoveItem ? data.ResultObject : data.ResultObject[0]
+  if (!item) return null
+
+  return {
+    ItemCode: item.ItemCode,
+    Flag: isMoveItem ? 'MOVE' : 'NONE',
+    ItemStatus: 'S2',
+    ItemTitle: item.ItemTitle || item.ItemSeriesName,
+    PromotionName: item.PromotionName || '',
+    RetailPrice: item.RetailPrice ? parseFloat(item.RetailPrice) : null,
+    ItemPrice: item.ItemPrice ? parseFloat(item.ItemPrice) : null,
+    TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : null,
+    ItemQty: item.ItemQty ? parseInt(item.ItemQty) : null,
+    ExpireDate: item.ExpireDate ? new Date(item.ExpireDate) : null,
+    DesiredShippingDate: item.DesiredShippingDate ? parseInt(item.DesiredShippingDate) : null,
+    AvailableDateValue: item.AvailableDateValue,
+    ShippingNo: item.ShippingNo,
+    ModelNM: item.ModelNM,
+    ManufacturerDate: item.ManufacturerDate,
+    BrandNo: item.BrandNo,
+    AdultYN: item.AdultYN,
+    ContactInfo: item.ContactInfo,
+    ItemDetail: item.ItemDetail || item.ItemDescription,
+    ImageUrl: item.ImageUrl,
+    Keyword: item.Keyword,
+    AttributeInfo: item.AttributeInfo,
+    BuyLimitType: item.BuyLimitType,
+    BuyLimitDate: item.BuyLimitDate ? new Date(item.BuyLimitDate) : null,
+    BuyLimitQty: item.BuyLimitQty ? parseInt(item.BuyLimitQty) : null,
+    ExpirationDateType: item.ExpirationDateType,
+    ExpirationDateMFD: item.ExpirationDateMFD ? new Date(item.ExpirationDateMFD) : null,
+    ExpirationDatePAO: item.ExpirationDatePAO ? new Date(item.ExpirationDatePAO) : null,
+    ExpirationDateEXP: item.ExpirationDateEXP ? new Date(item.ExpirationDateEXP) : null,
+    ImageOtherUrl: item.ImageOtherUrl,
+    MaterialInfo: item.MaterialInfo,
+    MaterialNumber: item.MaterialNumber,
+    OptionMainimage: item.OptionMainimage,
+    OptionQty: item.OptionQty,
+    OptionSubimage: item.OptionSubimage,
+    OptionType: item.OptionType,
+    OriginCountryId: item.OriginCountryId,
+    OriginRegionId: item.OriginRegionId,
+    OriginOthers: item.OriginOthers,
+    SeasonType: item.SeasonType,
+    StyleNumber: item.StyleNumber,
+    TpoNumber: item.TpoNumber,
+    VideoNumber: item.VideoNumber,
+    WashinginfoFit: item.WashinginfoFit,
+    WashinginfoLining: item.WashinginfoLining,
+    WashinginfoSeethrough: item.WashinginfoSeethrough,
+    WashinginfoStretch: item.WashinginfoStretch,
+    WashinginfoThickness: item.WashinginfoThickness,
+    WashinginfoWashing: item.WashinginfoWashing,
+    Weight: item.Weight ? parseFloat(item.Weight) : null,
+    LastFetchDate: new Date(),
+    CreatedAt: new Date(),
+    UpdatedAt: new Date()
   }
 }
 
@@ -420,49 +378,48 @@ export async function POST(request: Request) {
       const itemDetails = []
 
       for (const itemCode of batch) {
-        const isMoveItem = !existingItemCodes.has(itemCode)
-        const detail = await fetchItemDetail(platform.ApiKey, itemCode, isMoveItem)
+        const detail = await fetchItemDetail(platform.ApiKey, itemCode)
         
         if (detail) {
           detail.CompanyId = companyId
           itemDetails.push(detail)
 
-          // 먼저 상품 정보 저장
+          // 상품 정보 저장
           await prisma.zal_Qoo10ItemDetails.upsert({
             where: { ItemCode: itemCode },
             create: {
               ...detail,
+              CompanyId: companyId,
               SellerAuthKey: platform.ApiKey,
               SellerId: platform.SellerId
             },
             update: {
               ...detail,
+              CompanyId: companyId,
               SellerAuthKey: platform.ApiKey,
               SellerId: platform.SellerId
             }
           })
 
-          // 상품 정보 저장 후 옵션 정보 저장
-          if (!isMoveItem) {
+          // Flag에 따라 옵션 정보 저장 로직 분기
+          if (detail.Flag === 'NONE') {
             const inventoryInfo = await fetchItemInventoryInfo(platform.ApiKey, itemCode)
             if (inventoryInfo.length > 0) {
               await saveItemOptions(itemCode, companyId, inventoryInfo, 'NONE')
             }
-          } else {
-            if (detail.OptionQty) {
-              const moveOptions = detail.OptionQty.split('$$').map((option: string) => {
-                const [color, size, qty, code] = option.split('||*')
-                return {
-                  Name1: 'Color',
-                  Value1: color,
-                  Name2: 'Size',
-                  Value2: size,
-                  Qty: parseInt(qty) || 0,
-                  ItemTypeCode: code || null
-                }
-              })
-              await saveItemOptions(itemCode, companyId, moveOptions, 'MOVE')
-            }
+          } else if (detail.Flag === 'MOVE' && detail.OptionQty) {
+            const moveOptions = detail.OptionQty.split('$$').map((option: string) => {
+              const [color, size, qty, code] = option.split('||*')
+              return {
+                Name1: 'Color',
+                Value1: color,
+                Name2: 'Size',
+                Value2: size,
+                Qty: parseInt(qty) || 0,
+                ItemTypeCode: code || null
+              }
+            })
+            await saveItemOptions(itemCode, companyId, moveOptions, 'MOVE')
           }
         }
         await new Promise(resolve => setTimeout(resolve, 100))

@@ -43,6 +43,31 @@ interface Product {
   LastFetchDate: string
 }
 
+interface Option {
+  Id: string;
+  Name1: string | null;
+  Value1: string | null;
+  Name2: string | null;
+  Value2: string | null;
+  Name3: string | null;
+  Value3: string | null;
+  Name4: string | null;
+  Value4: string | null;
+  Name5: string | null;
+  Value5: string | null;
+  Price: number;
+  Qty: number;
+  ItemTypeCode: string | null;
+  Flag: string;
+}
+
+interface ProductDetail {
+  ItemCode: string;
+  ItemTitle: string;
+  // ... 기존 상품 필드들
+  Options: Option[];
+}
+
 export function ProductManagementContent() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [selectedCompany, setSelectedCompany] = useState<string>('')
@@ -53,7 +78,8 @@ export function ProductManagementContent() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedTab, setSelectedTab] = useState('all')
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchCompanies()
@@ -189,6 +215,20 @@ export function ProductManagementContent() {
         ...selectedProduct,
         [field]: value
       })
+    }
+  }
+
+  const handleEditClick = async (itemCode: string) => {
+    try {
+      const response = await fetch(`/api/qoo10/products/${itemCode}`)
+      if (!response.ok) throw new Error('상품 조회에 실패했습니다.')
+      
+      const product = await response.json()
+      setSelectedProduct(product)
+      setIsEditDialogOpen(true)
+    } catch (error) {
+      console.error('상품 조회 실패:', error)
+      // 에러 처리 로직
     }
   }
 
@@ -473,6 +513,71 @@ export function ProductManagementContent() {
                   닫기
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>상품 정보 수정</DialogTitle>
+          </DialogHeader>
+          
+          {selectedProduct && (
+            <div className="grid gap-4">
+              {/* 기본 상품 정보 */}
+              <div className="grid gap-2">
+                <Label>상품코드</Label>
+                <Input value={selectedProduct.ItemCode} disabled />
+                
+                <Label>상품명</Label>
+                <Input value={selectedProduct.ItemTitle} />
+                
+                {/* ... 다른 기본 정보 필드들 ... */}
+              </div>
+
+              {/* 옵션 정보 */}
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold mb-2">옵션 정보</h3>
+                <div className="border rounded-md p-4">
+                  {selectedProduct.Options.length > 0 ? (
+                    <table className="w-full">
+                      <thead>
+                        <tr>
+                          <th className="text-left">옵션명1</th>
+                          <th className="text-left">옵션값1</th>
+                          <th className="text-left">옵션명2</th>
+                          <th className="text-left">옵션값2</th>
+                          <th className="text-right">가격</th>
+                          <th className="text-right">수량</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedProduct.Options.map((option) => (
+                          <tr key={option.Id}>
+                            <td>{option.Name1}</td>
+                            <td>{option.Value1}</td>
+                            <td>{option.Name2}</td>
+                            <td>{option.Value2}</td>
+                            <td className="text-right">{option.Price.toLocaleString()}</td>
+                            <td className="text-right">{option.Qty}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="text-center text-gray-500">등록된 옵션이 없습니다.</p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  취소
+                </Button>
+                <Button type="submit">저장</Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>

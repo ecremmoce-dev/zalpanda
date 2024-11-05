@@ -1,0 +1,104 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("COSMOS_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/cosmos-client"
+}
+
+model Qoo10Product {
+  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  itemCode              String    @unique
+  companyId             String
+  flag                  String
+  sellerCode            String?
+  itemStatus            String?
+  itemTitle             String?
+  promotionName         String?
+  mainCatCd            String?
+  mainCatNm            String?
+  firstSubCatCd        String?
+  firstSubCatNm        String?
+  secondSubCatCd       String?
+  secondSubCatNm       String?
+  drugType             String?
+  productionPlaceType  String?
+  productionPlace      String?
+  industrialCodeType   String?
+  industrialCode       String?
+  retailPrice          Float?
+  itemPrice            Float?
+  taxRate              Float?
+  settlePrice          Float?
+  itemQty              Int?
+  expireDate           DateTime?
+  desiredShippingDate  Int?
+  availableDateType    String?
+  availableDateValue   String?
+  shippingNo           String?
+  modelNM              String?
+  manufacturerDate     String?
+  brandNo              String?
+  material             String?
+  adultYN              String?
+  contactInfo          String?
+  itemDetail           String?   @db.String
+  imageUrl             String?
+  videoURL             String?
+  keyword              String?
+  listedDate           DateTime?
+  changedDate          DateTime?
+  lastFetchDate        DateTime?
+  optionType           String?
+  optionMainimage      String?
+  optionSubimage       String?
+  optionQty            String?
+  originCountryId      String?
+  originRegionId       String?
+  originOthers         String?
+  seasonType           String?
+  styleNumber          String?
+  tpoNumber            String?
+  videoNumber          String?
+  washinginfoFit       String?
+  washinginfoLining    String?
+  washinginfoSeethrough String?
+  washinginfoStretch   String?
+  washinginfoThickness String?
+  washinginfoWashing   String?
+  weight               Float?
+  options              Option[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  sellerId              String?
+  sellerAuthKey         String?
+  platformId            String
+
+  @@map("qoo10_products")
+}
+
+model Option {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  productId     String       @db.ObjectId
+  name1         String?
+  value1        String?
+  name2         String?
+  value2        String?
+  name3         String?
+  value3        String?
+  name4         String?
+  value4        String?
+  name5         String?
+  value5        String?
+  price         Float?
+  qty           Int?
+  itemTypeCode  String?
+  flag          String?
+  product       Qoo10Product @relation(fields: [productId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("qoo10_options")
+} 

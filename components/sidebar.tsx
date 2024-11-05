@@ -14,7 +14,9 @@ import {
   ScanSearch,
   ShoppingCart,
   Users,
-  Languages
+  Languages,
+  Globe,
+  MessageSquare
 } from "lucide-react"
 import NextImage from "next/image"
 import Link from "next/link"
@@ -54,6 +56,29 @@ export function Sidebar() {
       setIsSettingsMenuOpen(true)
     }
   }, [pathname])
+
+  const qoo10SubMenus = [
+    {
+      title: '상품관리',
+      href: '/qoo10/products',
+      icon: Package2
+    },
+    {
+      title: '상품COSMOS',
+      href: '/qoo10/cosmos',
+      icon: Globe
+    },
+    {
+      title: '주문관리',
+      href: '/qoo10/orders',
+      icon: ShoppingCart
+    },
+    {
+      title: '문의관리',
+      href: '/qoo10/inquiries',
+      icon: MessageSquare
+    }
+  ]
 
   return (
     <div className="hidden border-r bg-gray-100/40 lg:block">
