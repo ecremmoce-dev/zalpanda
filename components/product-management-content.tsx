@@ -346,7 +346,7 @@ export function ProductManagementContent() {
                   <div>
                     <Label>옵션 이미지</Label>
                     <div className="grid grid-cols-2 gap-2 mt-2 max-h-[400px] overflow-y-auto">
-                      {selectedProduct.OptionMainimage?.split('$$').map((img, index) => {
+                      {selectedProduct.OptionMainimage?.split('$$').map((img: string, index: number) => {
                         const imageUrl = img.split('||*')[1]
                         return imageUrl ? (
                           <div key={index} className="relative aspect-square">
@@ -406,7 +406,7 @@ export function ProductManagementContent() {
                 <h3 className="text-lg font-semibold">옵션 정보</h3>
                 <div className="border rounded-lg p-4">
                   <div className="grid grid-cols-3 gap-4">
-                    {selectedProduct.OptionType?.split('$$').map((option, index) => {
+                    {selectedProduct.OptionType?.split('$$').map((option: string, index: number) => {
                       const [name, color, isDefault] = option.split('||*')
                       return (
                         <div key={index} className="flex items-center space-x-2 p-2 border rounded">
@@ -452,7 +452,7 @@ export function ProductManagementContent() {
                 <div>
                   <Label>키워드</Label>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedProduct.Keyword?.split(',').map((keyword, index) => (
+                    {selectedProduct.Keyword?.split(',').map((keyword: string, index: number) => (
                       <span 
                         key={index}
                         className="px-2 py-1 bg-gray-100 rounded-full text-sm"

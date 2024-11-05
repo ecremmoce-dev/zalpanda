@@ -47,8 +47,66 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
   }
 }
 
+// 타입 정의 추가
+type Qoo10ItemDetail = {
+  CompanyId: string;
+  ItemCode: string;
+  Flag: string;
+  ItemStatus: string;
+  ItemTitle: string;
+  PromotionName: string;
+  RetailPrice: number | null;
+  ItemPrice: number | null;
+  TaxRate: number | null;
+  ItemQty: number | null;
+  ExpireDate: Date | null;
+  DesiredShippingDate: number | null;
+  AvailableDateValue: string | null;
+  ShippingNo: string | null;
+  ModelNM: string | null;
+  ManufacturerDate: string | null;
+  BrandNo: string | null;
+  AdultYN: string | null;
+  ContactInfo: string | null;
+  ItemDetail: string | null;
+  ImageUrl: string | null;
+  Keyword: string | null;
+  AttributeInfo: string | null;
+  BuyLimitType: string | null;
+  BuyLimitDate: Date | null;
+  BuyLimitQty: number | null;
+  ExpirationDateType: string | null;
+  ExpirationDateMFD: Date | null;
+  ExpirationDatePAO: Date | null;
+  ExpirationDateEXP: Date | null;
+  ImageOtherUrl: string | null;
+  MaterialInfo: string | null;
+  MaterialNumber: string | null;
+  OptionMainimage: string | null;
+  OptionQty: string | null;
+  OptionSubimage: string | null;
+  OptionType: string | null;
+  OriginCountryId: string | null;
+  OriginRegionId: string | null;
+  OriginOthers: string | null;
+  SeasonType: string | null;
+  StyleNumber: string | null;
+  TpoNumber: string | null;
+  VideoNumber: string | null;
+  WashinginfoFit: string | null;
+  WashinginfoLining: string | null;
+  WashinginfoSeethrough: string | null;
+  WashinginfoStretch: string | null;
+  WashinginfoThickness: string | null;
+  WashinginfoWashing: string | null;
+  Weight: number | null;
+  LastFetchDate: Date;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+};
+
 // 상품 상세 정보 조회
-async function fetchItemDetail(authKey: string, itemCode: string, isMoveItem: boolean = false) {
+async function fetchItemDetail(authKey: string, itemCode: string, isMoveItem: boolean = false): Promise<Qoo10ItemDetail | null> {
   try {
     const baseUrl = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan.qapi'
     const method = isMoveItem ? 'ItemsLookup.GetMoveItemDetailInfo' : 'ItemsLookup.GetItemDetailInfo'
@@ -70,6 +128,7 @@ async function fetchItemDetail(authKey: string, itemCode: string, isMoveItem: bo
     if (!item) return null
 
     return {
+      CompanyId: '',  // 기본값 추가
       ItemCode: item.ItemCode,
       Flag: isMoveItem ? 'MOVE' : 'NONE',
       ItemStatus: 'S2',
