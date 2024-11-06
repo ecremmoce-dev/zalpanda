@@ -8,7 +8,8 @@ const client = new CosmosClient({
 })
 
 const database = client.database("Zalpanda")
-const container = database.container("Temp_qoo10jp_product")
+const moveContainer = database.container("Temp_qoo10jp_move_product")
+const normalContainer = database.container("Temp_qoo10jp_nonemove_product")
 
 export async function GET(request: Request) {
   try {
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
     const pageSize = parseInt(searchParams.get('pageSize') || '20')
     const flag = searchParams.get('flag')
     const searchTerm = searchParams.get('search')
-    const searchField = searchParams.get('searchField') // itemCode, itemTitle, sellerCode
+    const searchField = searchParams.get('searchField')
 
     if (!companyId || !platformId) {
       return NextResponse.json(
@@ -44,43 +45,54 @@ export async function GET(request: Request) {
       )
     }
 
-    let querySpec = {
-      query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.SellerId = @sellerId",
-      parameters: [
-        {
-          name: "@companyId",
-          value: companyId
-        },
-        {
-          name: "@sellerId",
-          value: platform.SellerId
-        }
-      ]
-    }
+    let items = []
+    if (!flag || flag === 'all') {
+      // 두 컨테이너에서 모두 조회
+      const moveQuery = {
+        query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.SellerId = @sellerId",
+        parameters: [
+          { name: "@companyId", value: companyId },
+          { name: "@sellerId", value: platform.SellerId }
+        ]
+      }
+      const normalQuery = { ...moveQuery }
 
-    if (flag) {
-      querySpec.query += " AND c.Flag = @flag"
-      querySpec.parameters.push({
-        name: "@flag",
-        value: flag
-      })
-    }
+      // 검색 조건 추가
+      if (searchTerm && searchField) {
+        moveQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
+        normalQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
+        moveQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
+        normalQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
+      }
 
-    // 검색 조건 추가
-    if (searchTerm && searchField) {
-      querySpec.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
-      querySpec.parameters.push({
-        name: "@searchTerm",
-        value: searchTerm
-      })
+      const [moveItems, normalItems] = await Promise.all([
+        moveContainer.items.query(moveQuery).fetchAll(),
+        normalContainer.items.query(normalQuery).fetchAll()
+      ])
+
+      items = [...moveItems.resources, ...normalItems.resources]
+    } else {
+      // flag에 따라 해당 컨테이너만 조회
+      const container = flag === 'MOVE' ? moveContainer : normalContainer
+      const query = {
+        query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.SellerId = @sellerId",
+        parameters: [
+          { name: "@companyId", value: companyId },
+          { name: "@sellerId", value: platform.SellerId }
+        ]
+      }
+
+      if (searchTerm && searchField) {
+        query.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
+        query.parameters.push({ name: "@searchTerm", value: searchTerm })
+      }
+
+      const { resources } = await container.items.query(query).fetchAll()
+      items = resources
     }
 
     // 최신 동기화 순으로 정렬
-    querySpec.query += " ORDER BY c.LastSyncDate DESC"
-
-    const { resources: items } = await container.items
-      .query(querySpec)
-      .fetchAll()
+    items.sort((a, b) => new Date(b.LastSyncDate).getTime() - new Date(a.LastSyncDate).getTime())
 
     // 페이지네이션 적용
     const startIndex = (page - 1) * pageSize

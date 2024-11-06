@@ -9,7 +9,8 @@ const client = new CosmosClient({
 })
 
 const database = client.database("Zalpanda")
-const container = database.container("Temp_qoo10jp_product")
+const moveContainer = database.container("Temp_qoo10jp_move_product")
+const normalContainer = database.container("Temp_qoo10jp_nonemove_product")
 
 // 전체 상품 목록 조회
 async function fetchQoo10Products(authKey: string, page: number = 1) {
@@ -19,7 +20,7 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
       'v': '1.0',
       'method': 'ItemsLookup.GetAllGoodsInfo',
       'key': authKey,
-      'ItemStatus': 'S1,S2',
+      'ItemStatus': 'S0,S1,S2,S3,S5,S8',
       'Page': page.toString()
     })
 
@@ -32,7 +33,7 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
       총페이지수: data.ResultObject.TotalPages,
       현재페이지: data.ResultObject.PresentPage,
       조회된상품수: data.ResultObject.Items.length,
-      상태값: 'S1(판매중지), S2(판매중)'
+      상태값: 'S0(검수대기), S1(거래대기), S2(거래가능), S3(거래중지), S5(거래제한), S8(승인거부)'
     })
 
     return data
@@ -108,109 +109,162 @@ async function fetchItemInventoryInfo(authKey: string, itemCode: string) {
   }
 }
 
-// Cosmos DB에 상품 데이터 저장 함수 수정
+// 무브상품 데이터 변환 함수
+async function convertMoveItemData(item: any, companyId: string, platformId: string, sellerId: string, sellerAuthKey: string) {
+  // 무브상품 옵션 파싱
+  const options = item.OptionQty ? item.OptionQty.split('$$').map((option: string) => {
+    const [color, size, qty, code] = option.split('||*')
+    return {
+      id: `${item.ItemCode}_${color}_${size}`.replace(/\s+/g, '_'),
+      name1: 'Color',
+      value1: color,
+      name2: 'Size',
+      value2: size,
+      qty: parseInt(qty) || 0,
+      price: parseFloat(item.ItemPrice) || 0,
+      itemTypeCode: code,
+      flag: 'MOVE',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  }) : []
+
+  return {
+    id: item.ItemCode,
+    ItemCode: item.ItemCode,
+    CompanyId: companyId,
+    PlatformId: platformId,
+    SellerId: sellerId,
+    SellerAuthKey: sellerAuthKey,
+    Flag: 'MOVE',
+    SellerCode: item.SellerCode || '',
+    ItemStatus: 'S2',
+    ItemTitle: item.ItemSeriesName || '',
+    PromotionName: item.PromotionName || '',
+    SecondSubCat: item.SecondSubCat || '',
+    BrandNo: item.BrandNo || '',
+    RetailPrice: parseFloat(item.RetailPrice) || 0,
+    ItemPrice: parseFloat(item.ItemPrice) || 0,
+    TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : null,
+    ExpireDate: item.ExpireDate || null,
+    DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
+    AvailableDateValue: item.AvailableDateValue || '',
+    ShippingNo: item.ShippingNo || '',
+    Weight: parseFloat(item.Weight) || 0,
+    AdultYN: item.AdultYN || 'N',
+    ContactInfo: item.ContactInfo || '',
+    ItemDetail: item.ItemDescription || '',
+    Keyword: item.Keyword || '',
+    AttributeInfo: item.AttributeInfo || '',
+    MaterialInfo: item.MaterialInfo || '',
+    MaterialNumber: item.MaterialNumber || '',
+    OptionType: item.OptionType || '',
+    OptionMainimage: item.OptionMainimage || '',
+    OptionSubimage: item.OptionSubimage || '',
+    OptionQty: item.OptionQty || '',
+    OriginType: item.OriginType || '',
+    OriginCountryId: item.OriginCountryId || '',
+    OriginRegionId: item.OriginRegionId || '',
+    OriginOthers: item.OriginOthers || '',
+    SeasonType: item.SeasonType || '',
+    StyleNumber: item.StyleNumber || '',
+    TpoNumber: item.TpoNumber || '',
+    VideoNumber: item.VideoNumber || '',
+    WashinginfoFit: item.WashinginfoFit || '',
+    WashinginfoLining: item.WashinginfoLining || '',
+    WashinginfoSeethrough: item.WashinginfoSeethrough || '',
+    WashinginfoStretch: item.WashinginfoStretch || '',
+    WashinginfoThickness: item.WashinginfoThickness || '',
+    WashinginfoWashing: item.washinginfoWashing || '',
+    Options: options,
+    LastFetchDate: new Date().toISOString(),
+    CreatedAt: new Date().toISOString(),
+    UpdatedAt: new Date().toISOString()
+  }
+}
+
+// 일반상품 데이터 변환 함수
+async function convertNormalItemData(item: any, companyId: string, platformId: string, sellerId: string, sellerAuthKey: string, inventoryInfo: any[] = []) {
+  // 일반상품 옵션 변환
+  const options = inventoryInfo.map((opt: any) => ({
+    id: `${item.ItemCode}_${opt.Name1}_${opt.Value1}_${opt.Name2}_${opt.Value2}`.replace(/\s+/g, '_'),
+    name1: opt.Name1,
+    value1: opt.Value1,
+    name2: opt.Name2,
+    value2: opt.Value2,
+    name3: opt.Name3,
+    value3: opt.Value3,
+    name4: opt.Name4,
+    value4: opt.Value4,
+    name5: opt.Name5,
+    value5: opt.Value5,
+    price: parseFloat(opt.Price) || 0,
+    qty: parseInt(opt.Qty) || 0,
+    itemTypeCode: opt.ItemTypeCode,
+    flag: 'NONE',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }))
+
+  return {
+    id: item.ItemCode,
+    ItemCode: item.ItemCode,
+    CompanyId: companyId,
+    PlatformId: platformId,
+    SellerId: sellerId,
+    SellerAuthKey: sellerAuthKey,
+    Flag: 'NONE',
+    SellerCode: item.SellerCode || '',
+    ItemStatus: item.ItemStatus || 'S2',
+    ItemTitle: item.ItemTitle || '',
+    PromotionName: item.PromotionName || '',
+    MainCatCd: item.MainCatCd || '',
+    MainCatNm: item.MainCatNm || '',
+    FirstSubCatCd: item.FirstSubCatCd || '',
+    FirstSubCatNm: item.FirstSubCatNm || '',
+    SecondSubCatCd: item.SecondSubCatCd || '',
+    SecondSubCatNm: item.SecondSubCatNm || '',
+    DrugType: item.Drugtype || '',
+    ProductionPlaceType: item.ProductionPlaceType || '',
+    ProductionPlace: item.ProductionPlace || '',
+    IndustrialCodeType: item.IndustrialCodeType || '',
+    IndustrialCode: item.IndustrialCode || '',
+    RetailPrice: parseFloat(item.RetailPrice) || 0,
+    ItemPrice: parseFloat(item.ItemPrice) || 0,
+    TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : null,
+    SettlePrice: parseFloat(item.SettlePrice) || 0,
+    ItemQty: parseInt(item.ItemQty) || 0,
+    ExpireDate: item.ExpireDate || null,
+    ShippingNo: item.ShippingNo || '',
+    ModelNM: item.ModelNM || '',
+    ManufacturerDate: item.ManufacturerDate || '',
+    BrandNo: item.BrandNo || '',
+    Material: item.Material || '',
+    AdultYN: item.AdultYN || 'N',
+    ContactInfo: item.ContactInfo || '',
+    ItemDetail: item.ItemDetail || '',
+    ImageUrl: item.ImageUrl || '',
+    VideoURL: item.VideoURL || '',
+    Keyword: item.Keyword || '',
+    ListedDate: item.ListedDate || null,
+    ChangedDate: item.ChangedDate || null,
+    Options: options,
+    LastFetchDate: new Date().toISOString(),
+    CreatedAt: new Date().toISOString(),
+    UpdatedAt: new Date().toISOString()
+  }
+}
+
+// 상품 저장 함수 수정
 async function saveToCosmosDB(item: any, companyId: string, platformId: string, flag: string, sellerId: string, sellerAuthKey: string, options: any[] = []) {
   try {
-    const { resources: existingItems } = await container.items
-      .query({
-        query: "SELECT * FROM c WHERE c.ItemCode = @itemCode",
-        parameters: [{ name: "@itemCode", value: item.ItemCode }]
-      })
-      .fetchAll()
+    const container = flag === 'MOVE' ? moveContainer : normalContainer
+    const convertedItem = flag === 'MOVE' 
+      ? await convertMoveItemData(item, companyId, platformId, sellerId, sellerAuthKey)
+      : await convertNormalItemData(item, companyId, platformId, sellerId, sellerAuthKey, options)
 
-    const existingItem = existingItems[0]
-    const existingId = existingItem?._id
-
-    const cosmosItem = {
-      id: existingId || item.ItemCode,
-      ItemCode: item.ItemCode,
-      CompanyId: companyId,
-      PlatformId: platformId,
-      SellerId: sellerId,
-      SellerAuthKey: sellerAuthKey,
-      Flag: flag,
-      SellerCode: item.SellerCode || "",
-      ItemStatus: item.ItemStatus || "S2",
-      ItemTitle: item.ItemTitle || item.ItemSeriesName || "",
-      PromotionName: item.PromotionName || "",
-      MainCatCd: item.MainCatCd || "",
-      MainCatNm: item.MainCatNm || "",
-      FirstSubCatCd: item.FirstSubCatCd || "",
-      FirstSubCatNm: item.FirstSubCatNm || "",
-      SecondSubCatCd: item.SecondSubCatCd || "",
-      SecondSubCatNm: item.SecondSubCatNm || "",
-      DrugType: item.DrugType || "",
-      ProductionPlaceType: item.ProductionPlaceType || "",
-      ProductionPlace: item.ProductionPlace || "",
-      IndustrialCodeType: item.IndustrialCodeType || "",
-      IndustrialCode: item.IndustrialCode || "",
-      RetailPrice: item.RetailPrice ? parseFloat(item.RetailPrice) : 0,
-      ItemPrice: item.ItemPrice ? parseFloat(item.ItemPrice) : 0,
-      TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : 0,
-      SettlePrice: item.SettlePrice ? parseFloat(item.SettlePrice) : 0,
-      ItemQty: item.ItemQty ? parseInt(item.ItemQty) : 0,
-      ExpireDate: item.ExpireDate || null,
-      DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
-      AvailableDateType: item.AvailableDateType || "",
-      AvailableDateValue: item.AvailableDateValue || "",
-      ShippingNo: item.ShippingNo || "",
-      ModelNM: item.ModelNM || "",
-      ManufacturerDate: item.ManufactureDate || "",
-      BrandNo: item.BrandNo || "",
-      Material: item.Material || "",
-      AdultYN: item.AdultYN || "N",
-      ContactInfo: item.ContactInfo || "",
-      ItemDetail: item.ItemDetail || item.ItemDescription || "",
-      ImageUrl: item.ImageUrl || "",
-      VideoURL: item.VideoURL || "",
-      Keyword: item.Keyword || "",
-      ListedDate: item.ListedDate || null,
-      ChangedDate: item.ChangedDate || null,
-      LastFetchDate: new Date().toISOString(),
-      OptionType: item.OptionType || "",
-      OptionMainimage: item.OptionMainimage || "",
-      OptionSubimage: item.OptionSubimage || "",
-      OptionQty: item.OptionQty || "",
-      OriginCountryId: item.OriginCountryId || "",
-      OriginRegionId: item.OriginRegionId || "",
-      OriginOthers: item.OriginOthers || "",
-      SeasonType: item.SeasonType || "",
-      StyleNumber: item.StyleNumber || "",
-      TpoNumber: item.TpoNumber || "",
-      VideoNumber: item.VideoNumber || "",
-      WashinginfoFit: item.WashinginfoFit || "",
-      WashinginfoLining: item.WashinginfoLining || "",
-      WashinginfoSeethrough: item.WashinginfoSeethrough || "",
-      WashinginfoStretch: item.WashinginfoStretch || "",
-      WashinginfoThickness: item.WashinginfoThickness || "",
-      WashinginfoWashing: item.WashinginfoWashing || "",
-      Weight: parseFloat(item.Weight) || 0,
-      Options: options.map(opt => ({
-        id: `${item.ItemCode}_${opt.Name1}_${opt.Value1}_${opt.Name2}_${opt.Value2}`.replace(/\s+/g, '_'),
-        name1: opt.Name1,
-        value1: opt.Value1,
-        name2: opt.Name2,
-        value2: opt.Value2,
-        name3: opt.Name3,
-        value3: opt.Value3,
-        name4: opt.Name4,
-        value4: opt.Value4,
-        name5: opt.Name5,
-        value5: opt.Value5,
-        price: parseFloat(opt.Price) || 0,
-        qty: parseInt(opt.Qty) || 0,
-        itemTypeCode: opt.ItemTypeCode,
-        flag: flag,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      })),
-      CreatedAt: existingItem?.createdAt || new Date().toISOString(),
-      UpdatedAt: new Date().toISOString(),
-      LastSyncDate: new Date().toISOString()
-    }
-
-    await container.items.upsert(cosmosItem)
-    console.log(`상품 저장 완료: ${item.ItemCode} (${flag}) - 옵션 ${options.length}개, SettlePrice: ${cosmosItem.SettlePrice}`)
+    await container.items.upsert(convertedItem)
+    console.log(`상품 저장 완료: ${item.ItemCode} (${flag}) - 옵션 ${options.length}개`)
   } catch (error) {
     console.error(`Failed to save item to Cosmos DB (${item.ItemCode}):`, error)
     throw error
