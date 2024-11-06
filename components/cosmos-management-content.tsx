@@ -23,6 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CKEditor } from '@ckeditor/ckeditor5-react'
+import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 
 interface Company {
   Id: string
@@ -139,7 +141,7 @@ interface DetailProduct {
   LastSyncDate: string;
 }
 
-// Quill 에디터 설정 추가
+// Quill 에디터 설정 수정
 const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
@@ -148,7 +150,8 @@ const quillModules = {
     [{ 'align': ['', 'center', 'right', 'justify'] }],
     [{ 'list': 'ordered'}, { 'list': 'bullet' }],
     ['link', 'image'],
-    ['clean']
+    ['clean'],
+    ['code'],
   ],
   clipboard: {
     matchVisual: false
@@ -161,7 +164,8 @@ const quillFormats = [
   'color', 'background',
   'align',
   'list', 'bullet',
-  'link', 'image'
+  'link', 'image',
+  'code'
 ]
 
 // React-Quill 동적 임포트 수정
@@ -269,13 +273,13 @@ const COUNTRY_OPTIONS = [
   { value: 'ZW', label: 'Zimbabwe' }
 ]
 
-// 상품 상태 옵션 추가
+// 상품 상태 옵션 수정
 const ITEM_STATUS_OPTIONS = [
   { value: 'S0', label: '검수대기' },
   { value: 'S1', label: '거래대기' },
   { value: 'S2', label: '거래가능' },
-  { value: 'S3', label: '거래중지' },
-  { value: 'S5', label: '거래제한' },
+  { value: 'S3', label: '거래중지(Qoo10)' },
+  { value: 'S5', label: '거래제한(Qoo10)' },
   { value: 'S8', label: '승인거부' }
 ]
 
@@ -331,7 +335,7 @@ const getAvailableDatePlaceholder = (type: string) => {
 // 발송 가능일 값 유성 검사
 const validateAvailableDateValue = (type: string, value: string): boolean => {
   switch (type) {
-    case '0': // 일발
+    case '0': // 일
       const normalDays = parseInt(value)
       return !isNaN(normalDays) && normalDays >= 1 && normalDays <= 3
     case '1': // 상품준비일
@@ -370,12 +374,24 @@ const convertHtmlToQoo10Format = (html: string) => {
     .replace(/\n/g, '')
 }
 
+// 상품 상태 옵션 추가
+const SYNC_STATUS_OPTIONS = [
+  { value: 'S0', label: '검수대기' },
+  { value: 'S1', label: '거래대기' },
+  { value: 'S2', label: '거래가능' },
+  { value: 'S3', label: '거래중지(Qoo10)' },
+  { value: 'S5', label: '거래제한(Qoo10)' },
+  { value: 'S8', label: '승인거부' }
+]
+
 export function CosmosManagementContent() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [selectedCompany, setSelectedCompany] = useState<string>('')
   const [platforms, setPlatforms] = useState<Platform[]>([])
   const [selectedPlatform, setSelectedPlatform] = useState<string>('')
   const [isSyncing, setIsSyncing] = useState(false)
+  // 상태 선택 상태를 단일 값으로 수정
+  const [selectedStatus, setSelectedStatus] = useState<string>('S2') // 기본값: 거래가능
 
   const [products, setProducts] = useState<CosmosProduct[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -393,6 +409,10 @@ export function CosmosManagementContent() {
   const [searchField, setSearchField] = useState('itemCode')
 
   const [imageUrl, setImageUrl] = useState('')
+
+  // HTML 소스보기 모달 상태 추가
+  const [isHtmlSourceOpen, setIsHtmlSourceOpen] = useState(false)
+  const [htmlSource, setHtmlSource] = useState('')
 
   useEffect(() => {
     fetchCompanies()
@@ -494,7 +514,8 @@ export function CosmosManagementContent() {
         },
         body: JSON.stringify({
           companyId: selectedCompany,
-          platformId: selectedPlatform
+          platformId: selectedPlatform,
+          itemStatus: selectedStatus // 단일 상태값만 전달
         }),
       })
 
@@ -503,7 +524,9 @@ export function CosmosManagementContent() {
       }
 
       const result = await response.json()
-      alert(`Cosmos DB 동기화 완료되습니다. 총 ${result.totalProducts}개의 상품이 동기화되었습니다.`)
+      alert(`Cosmos DB 동기화가 완료되었습니다.\n총 ${result.totalProducts}개의 상품이 동기화되었습니다.\n선택된 상태: ${
+        SYNC_STATUS_OPTIONS.find(s => s.value === selectedStatus)?.label
+      }`)
     } catch (error) {
       console.error('Failed to sync with Cosmos DB:', error)
       alert('Cosmos DB 동기화에 실패했습니다.')
@@ -526,7 +549,7 @@ export function CosmosManagementContent() {
   const handleEditClick = async (itemCode: string) => {
     try {
       const response = await fetch(`/api/qoo10/cosmos/products/${itemCode}`)
-      if (!response.ok) throw new Error('상품 조회에 실패했습니다.')
+      if (!response.ok) throw new Error('상품 조회 실패했습니다.')
       
       const product = await response.json()
       setSelectedProduct(product)
@@ -563,7 +586,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 원산지 유형 변경 핸들러
+  // 원산지 형 변경 핸들러
   const handleProductionPlaceTypeChange = (value: string) => {
     if (!editedProduct) return
 
@@ -769,167 +792,268 @@ export function CosmosManagementContent() {
     const results = [] // API 호출 결과를 저장할 배열
 
     try {
-      // 1. ItemsBasic.UpdateGoods API
-      console.log('[QOO10 적용] UpdateGoods API 호출 시작...')
-      const updateGoodsResponse = await fetch(`/api/qoo10/products/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ItemCode: selectedProduct.ItemCode,
-          SellerCode: selectedProduct.SellerCode,
-          SecondSubCat: selectedProduct.SecondSubCatCd,
-          ItemTitle: selectedProduct.ItemTitle,
-          PromotionName: selectedProduct.PromotionName,
-          IndustrialCodeType: selectedProduct.IndustrialCodeType,
-          IndustrialCode: selectedProduct.IndustrialCode,
-          BrandNo: selectedProduct.BrandNo,
-          ManufactureDate: selectedProduct.ManufacturerDate,
-          ModelNm: selectedProduct.ModelNM,
-          Material: selectedProduct.Material,
-          ProductionPlaceType: selectedProduct.ProductionPlaceType,
-          ProductionPlace: selectedProduct.ProductionPlace,
-          RetailPrice: selectedProduct.RetailPrice,
-          AdultYN: selectedProduct.AdultYN,
-          ContactInfo: selectedProduct.ContactInfo,
-          ShippingNo: selectedProduct.ShippingNo,
-          Weight: selectedProduct.Weight,
-          DesiredShippingDate: selectedProduct.DesiredShippingDate,
-          AvailableDateType: selectedProduct.AvailableDateType,
-          AvailableDateValue: selectedProduct.AvailableDateValue,
-          Keyword: selectedProduct.Keyword,
-          SellerAuthKey: selectedProduct.SellerAuthKey
-        })
-      })
-
-      const updateGoodsResult = await updateGoodsResponse.json()
-      console.log('[QOO10 적용] UpdateGoods API 응답:', updateGoodsResult)
-      results.push({
-        api: 'UpdateGoods (상품 기본정보)',
-        success: updateGoodsResult.ResultCode === 0,
-        message: updateGoodsResult.ResultMsg,
-        returnMessage: `상태코드: ${updateGoodsResult.ResultCode}, 메시지: ${updateGoodsResult.ResultMsg}`
-      })
-
-      // EditGoodsStatus API 호출
-      console.log('[QOO10 적용] EditGoodsStatus API 호출 시작...')
-      const editStatusResponse = await fetch(`/api/qoo10/products/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ItemCode: selectedProduct.ItemCode,
-          SellerCode: selectedProduct.SellerCode,
-          Status: selectedProduct.ItemStatus === 'S2' ? '2' : '1',
-          SellerAuthKey: selectedProduct.SellerAuthKey
-        })
-      })
-
-      const editStatusResult = await editStatusResponse.json()
-      console.log('[QOO10 적용] EditGoodsStatus API 응답:', editStatusResult)
-
-      // EditGoodsStatus 에러 메시지 매핑
-      const statusErrorMessages: { [key: string]: string } = {
-        '-10000': 'API 인증키를 확인해주세요.',
-        '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
-        '-10002': '검수 중인 상품은 수정할 수 없습니다.',
-        '-10003': '거래중지된 상품은 수정할 수 없습니다.',
-        '-10004': '거래한된 상품은 수정할 수 없습니다.',
-        '-10005': '승인거부된 상품은 수정할 수 없습니다.',
-        '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
-        '-10101': '처리 중 오류가 발생했습니다.'
-      }
-
-      results.push({
-        api: 'EditGoodsStatus (판매상태)',
-        success: editStatusResult.ResultCode === 0,
-        message: editStatusResult.ResultMsg,
-        returnMessage: `상태코드: ${editStatusResult.ResultCode}, 메시지: ${statusErrorMessages[editStatusResult.ResultCode] || editStatusResult.ResultMsg}`
-      })
-
-      // SetGoodsPriceQty API 호출
-      console.log('[QOO10 적용] SetGoodsPriceQty API 호출 시작...')
-      const setPriceQtyResponse = await fetch(`/api/qoo10/products/price-qty`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ItemCode: selectedProduct.ItemCode,
-          SellerCode: selectedProduct.SellerCode,
-          Price: selectedProduct.ItemPrice,
-          TaxRate: selectedProduct.TaxRate,
-          Qty: selectedProduct.ItemQty,
-          ExpireDate: selectedProduct.ExpireDate,
-          SellerAuthKey: selectedProduct.SellerAuthKey
-        })
-      })
-
-      const setPriceQtyResult = await setPriceQtyResponse.json()
-      console.log('[QOO10 적용] SetGoodsPriceQty API 응답:', setPriceQtyResult)
-
-      // SetGoodsPriceQty 에러 메시지 매핑
-      const priceQtyErrorMessages: { [key: string]: string } = {
-        '-10000': 'API 인증키를 확인해주세요.',
-        '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
-        '-10101': '처리 중 오류가 발생했습니다.',
-        '-90001': 'API가 존재하지 않습니다.',
-        '-90002': '권한이 없습니다.',
-        '-90003': '권한이 없습니다.',
-        '-90004': 'API 인증키가 만료되었습니다.',
-        '-90005': 'API 인증키가 만료되었습니다.'
-      }
-
-      results.push({
-        api: 'SetGoodsPriceQty (가격/수량)',
-        success: setPriceQtyResult.ResultCode === 0,
-        message: setPriceQtyResult.ResultMsg,
-        returnMessage: `상태코드: ${setPriceQtyResult.ResultCode}, 메시지: ${priceQtyErrorMessages[setPriceQtyResult.ResultCode] || setPriceQtyResult.ResultMsg}`
-      })
-
-      // 4. ItemsContents.EditGoodsContents API
-      if (selectedProduct.ItemDetail) {
-        console.log('[QOO10 적용] EditGoodsContents API 호출 시작...')
-        const editContentsResponse = await fetch(`/api/qoo10/products/contents`, {
+      if (selectedProduct.Flag === 'MOVE') {
+        // MOVE 상품인 경우
+        // 1. ItemsBasic.UpdateMoveGoods API 호출
+        console.log('[QOO10 적용] UpdateMoveGoods API 호출 시작...')
+        const updateMoveGoodsResponse = await fetch(`/api/qoo10/products/move/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ItemCode: selectedProduct.ItemCode,
             SellerCode: selectedProduct.SellerCode,
-            Contents: selectedProduct.ItemDetail,
+            SecondSubCat: selectedProduct.SecondSubCatCd,
+            ItemSeriesName: selectedProduct.ItemTitle,
+            PromotionName: selectedProduct.PromotionName,
+            ItemPrice: selectedProduct.ItemPrice,
+            RetailPrice: selectedProduct.RetailPrice,
+            TaxRate: selectedProduct.TaxRate,
+            OptionType: selectedProduct.OptionType,
+            OptionMainimage: selectedProduct.OptionMainimage,
+            OptionSubimage: selectedProduct.OptionSubimage,
+            OptionQty: selectedProduct.OptionQty,
+            StyleNumber: selectedProduct.StyleNumber,
+            TpoNumber: selectedProduct.TpoNumber,
+            SeasonType: selectedProduct.SeasonType,
+            MaterialInfo: selectedProduct.MaterialInfo,
+            MaterialNumber: selectedProduct.MaterialNumber,
+            AttributeInfo: selectedProduct.AttributeInfo,
+            ItemDescription: selectedProduct.ItemDetail,
+            WashinginfoWashing: selectedProduct.WashinginfoWashing,
+            WashinginfoStretch: selectedProduct.WashinginfoStretch,
+            WashinginfoFit: selectedProduct.WashinginfoFit,
+            WashinginfoThickness: selectedProduct.WashinginfoThickness,
+            WashinginfoLining: selectedProduct.WashinginfoLining,
+            WashinginfoSeethrough: selectedProduct.WashinginfoSeethrough,
+            ImageOtherUrl: selectedProduct.ImageOtherUrl,
+            VideoNumber: selectedProduct.VideoNumber,
+            ShippingNo: selectedProduct.ShippingNo,
+            AvailableDateValue: selectedProduct.AvailableDateValue,
+            DesiredShippingDate: selectedProduct.DesiredShippingDate,
+            Keyword: selectedProduct.Keyword,
+            OriginType: selectedProduct.ProductionPlaceType,
+            OriginRegionId: selectedProduct.ProductionPlaceType === '1' ? selectedProduct.ProductionPlace : '',
+            OriginCountryId: selectedProduct.ProductionPlaceType === '2' ? selectedProduct.ProductionPlace : '',
+            OriginOthers: selectedProduct.ProductionPlaceType === '3' ? selectedProduct.ProductionPlace : '',
+            Weight: selectedProduct.Weight,
             SellerAuthKey: selectedProduct.SellerAuthKey
           })
         })
 
-        const editContentsResult = await editContentsResponse.json()
-        console.log('[QOO10 적용] EditGoodsContents API 응답:', editContentsResult)
+        const updateMoveGoodsResult = await updateMoveGoodsResponse.json()
         results.push({
-          api: 'EditGoodsContents (상세설명)',
-          success: editContentsResult.ResultCode === 0,
-          message: editContentsResult.ResultMsg,
-          returnMessage: `상태코드: ${editContentsResult.ResultCode}, 메시지: ${editContentsResult.ResultMsg}`
+          api: 'UpdateMoveGoods (MOVE 상품 기본정보)',
+          success: updateMoveGoodsResult.ResultCode === 0,
+          message: updateMoveGoodsResult.ResultMsg,
+          returnMessage: `상태코드: ${updateMoveGoodsResult.ResultCode}, 메시지: ${updateMoveGoodsResult.ResultMsg}`
         })
-      }
 
-      // 5. ItemsContents.EditGoodsImage API
-      if (selectedProduct.ImageUrl) {
-        console.log('[QOO10 적용] EditGoodsImage API 호출 시작...')
-        const editImageResponse = await fetch(`/api/qoo10/products/image`, {
+        // 2. ItemsOrder.EditMoveGoodsPrice API 호출
+        console.log('[QOO10 적용] EditMoveGoodsPrice API 호출 시작...')
+        const editMovePriceResponse = await fetch(`/api/qoo10/products/move/price`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ItemCode: selectedProduct.ItemCode,
             SellerCode: selectedProduct.SellerCode,
-            StandardImage: selectedProduct.ImageUrl,
-            VideoURL: selectedProduct.VideoURL,
+            ItemPrice: selectedProduct.ItemPrice,
             SellerAuthKey: selectedProduct.SellerAuthKey
           })
         })
 
-        const editImageResult = await editImageResponse.json()
-        console.log('[QOO10 적용] EditGoodsImage API 응답:', editImageResult)
+        const editMovePriceResult = await editMovePriceResponse.json()
         results.push({
-          api: 'EditGoodsImage (이미지)',
-          success: editImageResult.ResultCode === 0,
-          message: editImageResult.ResultMsg,
-          returnMessage: `상태코드: ${editImageResult.ResultCode}, 메시지: ${editImageResult.ResultMsg}`
+          api: 'EditMoveGoodsPrice (MOVE 상품 가격)',
+          success: editMovePriceResult.ResultCode === 0,
+          message: editMovePriceResult.ResultMsg,
+          returnMessage: `상태코드: ${editMovePriceResult.ResultCode}, 메시지: ${editMovePriceResult.ResultMsg}`
         })
+
+        // 3. ItemsOptions.EditMoveGoodsInventory API 호출
+        console.log('[QOO10 적용] EditMoveGoodsInventory API 호출 시작...')
+        const editMoveInventoryResponse = await fetch(`/api/qoo10/products/move/inventory`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ItemCode: selectedProduct.ItemCode,
+            SellerCode: selectedProduct.SellerCode,
+            OptionQty: selectedProduct.OptionQty,
+            SellerAuthKey: selectedProduct.SellerAuthKey
+          })
+        })
+
+        const editMoveInventoryResult = await editMoveInventoryResponse.json()
+        results.push({
+          api: 'EditMoveGoodsInventory (MOVE 상품 재고)',
+          success: editMoveInventoryResult.ResultCode === 0,
+          message: editMoveInventoryResult.ResultMsg,
+          returnMessage: `상태코드: ${editMoveInventoryResult.ResultCode}, 메시지: ${editMoveInventoryResult.ResultMsg}`
+        })
+
+      } else {
+        // 일반 상품인 경우 기존 API 호출 유지
+        // 1. ItemsBasic.UpdateGoods API
+        console.log('[QOO10 적용] UpdateGoods API 호출 시작...')
+        const updateGoodsResponse = await fetch(`/api/qoo10/products/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ItemCode: selectedProduct.ItemCode,
+            SellerCode: selectedProduct.SellerCode,
+            SecondSubCat: selectedProduct.SecondSubCatCd,
+            ItemTitle: selectedProduct.ItemTitle,
+            PromotionName: selectedProduct.PromotionName,
+            IndustrialCodeType: selectedProduct.IndustrialCodeType,
+            IndustrialCode: selectedProduct.IndustrialCode,
+            BrandNo: selectedProduct.BrandNo,
+            ManufactureDate: selectedProduct.ManufacturerDate,
+            ModelNm: selectedProduct.ModelNM,
+            Material: selectedProduct.Material,
+            ProductionPlaceType: selectedProduct.ProductionPlaceType,
+            ProductionPlace: selectedProduct.ProductionPlace,
+            RetailPrice: selectedProduct.RetailPrice,
+            AdultYN: selectedProduct.AdultYN,
+            ContactInfo: selectedProduct.ContactInfo,
+            ShippingNo: selectedProduct.ShippingNo,
+            Weight: selectedProduct.Weight,
+            DesiredShippingDate: selectedProduct.DesiredShippingDate,
+            AvailableDateType: selectedProduct.AvailableDateType,
+            AvailableDateValue: selectedProduct.AvailableDateValue,
+            Keyword: selectedProduct.Keyword,
+            SellerAuthKey: selectedProduct.SellerAuthKey
+          })
+        })
+
+        const updateGoodsResult = await updateGoodsResponse.json()
+        console.log('[QOO10 적용] UpdateGoods API 응답:', updateGoodsResult)
+        results.push({
+          api: 'UpdateGoods (상품 기본정보)',
+          success: updateGoodsResult.ResultCode === 0,
+          message: updateGoodsResult.ResultMsg,
+          returnMessage: `상태코드: ${updateGoodsResult.ResultCode}, 메시지: ${updateGoodsResult.ResultMsg}`
+        })
+
+        // EditGoodsStatus API 호출
+        console.log('[QOO10 적용] EditGoodsStatus API 호출 시작...')
+        const editStatusResponse = await fetch(`/api/qoo10/products/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ItemCode: selectedProduct.ItemCode,
+            SellerCode: selectedProduct.SellerCode,
+            Status: selectedProduct.ItemStatus === 'S2' ? '2' : '1',
+            SellerAuthKey: selectedProduct.SellerAuthKey
+          })
+        })
+
+        const editStatusResult = await editStatusResponse.json()
+        console.log('[QOO10 적용] EditGoodsStatus API 응답:', editStatusResult)
+
+        // EditGoodsStatus 에러 메시지 매핑
+        const statusErrorMessages: { [key: string]: string } = {
+          '-10000': 'API 인증키를 확인해주세요.',
+          '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
+          '-10002': '검수 중인 상품은 수정할 수 없습니다.',
+          '-10003': '거래중지된 상품은 수정할 수 없습니다.',
+          '-10004': '거래한된 상품은 수정할 수 없습니다.',
+          '-10005': '승인거부된 상품은 수정할 수 없습니다.',
+          '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
+          '-10101': '처리 중 오류가 발생했습니다.'
+        }
+
+        results.push({
+          api: 'EditGoodsStatus (판매상태)',
+          success: editStatusResult.ResultCode === 0,
+          message: editStatusResult.ResultMsg,
+          returnMessage: `상태코드: ${editStatusResult.ResultCode}, 메시지: ${statusErrorMessages[editStatusResult.ResultCode] || editStatusResult.ResultMsg}`
+        })
+
+        // SetGoodsPriceQty API 호출
+        console.log('[QOO10 적용] SetGoodsPriceQty API 호출 시작...')
+        const setPriceQtyResponse = await fetch(`/api/qoo10/products/price-qty`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ItemCode: selectedProduct.ItemCode,
+            SellerCode: selectedProduct.SellerCode,
+            Price: selectedProduct.ItemPrice,
+            TaxRate: selectedProduct.TaxRate,
+            Qty: selectedProduct.ItemQty,
+            ExpireDate: selectedProduct.ExpireDate,
+            SellerAuthKey: selectedProduct.SellerAuthKey
+          })
+        })
+
+        const setPriceQtyResult = await setPriceQtyResponse.json()
+        console.log('[QOO10 적용] SetGoodsPriceQty API 응답:', setPriceQtyResult)
+
+        // SetGoodsPriceQty 에러 메시지 매핑
+        const priceQtyErrorMessages: { [key: string]: string } = {
+          '-10000': 'API 인증키를 확인해주세요.',
+          '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
+          '-10101': '처리 중 오류가 발생했습니다.',
+          '-90001': 'API가 존재하지 않습니다.',
+          '-90002': '권한이 없습니다.',
+          '-90003': '권한이 없습니다.',
+          '-90004': 'API 인증키가 만료되었습니다.',
+          '-90005': 'API 인증키가 만료되었습니다.'
+        }
+
+        results.push({
+          api: 'SetGoodsPriceQty (가격/수량)',
+          success: setPriceQtyResult.ResultCode === 0,
+          message: setPriceQtyResult.ResultMsg,
+          returnMessage: `상태코드: ${setPriceQtyResult.ResultCode}, 메시지: ${priceQtyErrorMessages[setPriceQtyResult.ResultCode] || setPriceQtyResult.ResultMsg}`
+        })
+
+        // 4. ItemsContents.EditGoodsContents API
+        if (selectedProduct.ItemDetail) {
+          console.log('[QOO10 적용] EditGoodsContents API 호출 시작...')
+          const editContentsResponse = await fetch(`/api/qoo10/products/contents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ItemCode: selectedProduct.ItemCode,
+              SellerCode: selectedProduct.SellerCode,
+              Contents: selectedProduct.ItemDetail,
+              SellerAuthKey: selectedProduct.SellerAuthKey
+            })
+          })
+
+          const editContentsResult = await editContentsResponse.json()
+          console.log('[QOO10 적용] EditGoodsContents API 응답:', editContentsResult)
+          results.push({
+            api: 'EditGoodsContents (상세설명)',
+            success: editContentsResult.ResultCode === 0,
+            message: editContentsResult.ResultMsg,
+            returnMessage: `상태코드: ${editContentsResult.ResultCode}, 메시지: ${editContentsResult.ResultMsg}`
+          })
+        }
+
+        // 5. ItemsContents.EditGoodsImage API
+        if (selectedProduct.ImageUrl) {
+          console.log('[QOO10 적용] EditGoodsImage API 호출 시작...')
+          const editImageResponse = await fetch(`/api/qoo10/products/image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ItemCode: selectedProduct.ItemCode,
+              SellerCode: selectedProduct.SellerCode,
+              StandardImage: selectedProduct.ImageUrl,
+              VideoURL: selectedProduct.VideoURL,
+              SellerAuthKey: selectedProduct.SellerAuthKey
+            })
+          })
+
+          const editImageResult = await editImageResponse.json()
+          console.log('[QOO10 적용] EditGoodsImage API 응답:', editImageResult)
+          results.push({
+            api: 'EditGoodsImage (이미지)',
+            success: editImageResult.ResultCode === 0,
+            message: editImageResult.ResultMsg,
+            returnMessage: `상태코드: ${editImageResult.ResultCode}, 메시지: ${editImageResult.ResultMsg}`
+          })
+        }
       }
 
       // 결과 메시지 생성
@@ -953,7 +1077,6 @@ export function CosmosManagementContent() {
         })
       }
 
-      // 모든 API가 성공한 경우
       if (failedResults.length === 0) {
         resultMessage += '\n✨ 모든 API 호출이 성공적으로 완료되었습니다.'
       }
@@ -961,28 +1084,8 @@ export function CosmosManagementContent() {
       alert(resultMessage)
 
     } catch (error: any) {
-      console.error('[QOO10 적용] 패:', error)
-      
-      // 에러 메시지 생성
-      let errorMessage = '== QOO10 적용 중 오류 발생 ==\n\n'
-      
-      // 성공한 API 목록
-      if (results.length > 0) {
-        const successResults = results.filter(r => r.success)
-        if (successResults.length > 0) {
-          errorMessage += '✅ 성공한 API:\n'
-          successResults.forEach(r => {
-            errorMessage += `- ${r.api}\n  ${r.returnMessage}\n`
-          })
-          errorMessage += '\n'
-        }
-      }
-
-      // 마지막 실패한 API
-      errorMessage += '❌ 실패한 API:\n'
-      errorMessage += `- ${error.message || '알 수 없는 오류가 발생했습니다.'}`
-
-      alert(errorMessage)
+      console.error('[QOO10 적용] 실패:', error)
+      alert(`QOO10 적용 실패: ${error.message || '알 수 없는 오류가 발생했습니다.'}`)
     }
   }
 
@@ -1023,6 +1126,24 @@ export function CosmosManagementContent() {
               {platforms.map((platform) => (
                 <SelectItem key={platform.Id} value={platform.Id}>
                   {platform.Platform} ({platform.SellerId})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-[300px]">
+          <Select
+            value={selectedStatus}
+            onValueChange={setSelectedStatus}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="거래상태 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              {SYNC_STATUS_OPTIONS.map(status => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1234,14 +1355,14 @@ export function CosmosManagementContent() {
                   />
                 </div>
                 <div>
-                  <Label>판매상태</Label>
+                  <Label>상품의 상태정보</Label>
                   {isEditing ? (
                     <Select
                       value={editedProduct?.ItemStatus || 'S2'}
                       onValueChange={(value) => handleFieldChange('ItemStatus', value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="판매상태 택" />
+                        <SelectValue placeholder="상품의 상태정보 선택" />
                       </SelectTrigger>
                       <SelectContent>
                         {ITEM_STATUS_OPTIONS.map(status => (
@@ -1511,7 +1632,7 @@ export function CosmosManagementContent() {
                           selected={editedProduct?.ExpireDate ? new Date(editedProduct.ExpireDate) : undefined}
                           onSelect={(date) => handleFieldChange('ExpireDate', date?.toISOString())}
                           initialFocus
-                          disabled={(date) => date < new Date()} // 오늘 이전 날짜 선택 불가
+                          disabled={(date) => date < new Date()} // 오늘 전 날짜 선택 불가
                         />
                       </PopoverContent>
                     </Popover>
@@ -1685,23 +1806,95 @@ export function CosmosManagementContent() {
               {/* 상세 설명 */}
               <div>
                 <Label>상품 상세설명</Label>
-                {isEditing ? (
-                  <div className="border rounded-lg">
-                    <ReactQuill
-                      theme="snow"
-                      value={editedProduct?.ItemDetail || ''}
-                      onChange={(content) => handleFieldChange('ItemDetail', content)}
-                      modules={quillModules}
-                      formats={quillFormats}
-                      className="min-h-[400px]"
-                    />
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-500">
+                    <p>텍스트 사용량: {editedProduct?.ItemDetail?.length || 0}B/1024KB (1MB)</p>
+                    <p>이미지 사용량: 0% 177KB/40960KB (40MB)</p>
+                    <p className="text-xs mt-1">
+                      [권장 이미지] 사이즈: 가로 최대 820px / 용량: 한 장당 1MB / 형식: JPG, JPEG, PNG, GIF
+                    </p>
                   </div>
-                ) : (
-                  <div 
-                    className="border rounded-lg p-4 min-h-[200px] bg-white"
-                    dangerouslySetInnerHTML={{ __html: selectedProduct?.ItemDetail || '' }}
-                  />
-                )}
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div className="border rounded-lg">
+                        <CKEditor
+                          editor={ClassicEditor}
+                          data={editedProduct?.ItemDetail || ''}
+                          config={{
+                            toolbar: [
+                              'heading',
+                              '|',
+                              'bold',
+                              'italic',
+                              'link',
+                              'bulletedList',
+                              'numberedList',
+                              '|',
+                              'outdent',
+                              'indent',
+                              '|',
+                              'imageUpload',
+                              'blockQuote',
+                              'insertTable',
+                              'mediaEmbed',
+                              'undo',
+                              'redo',
+                              '|',
+                              'alignment',
+                              'sourceEditing'
+                            ],
+                            language: 'ko',
+                            image: {
+                              toolbar: [
+                                'imageTextAlternative',
+                                'imageStyle:inline',
+                                'imageStyle:block',
+                                'imageStyle:side'
+                              ]
+                            }
+                          }}
+                          onChange={(event, editor) => {
+                            const data = editor.getData()
+                            handleFieldChange('ItemDetail', data)
+                          }}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (!editedProduct?.ItemDetail) return
+                            const convertedHtml = convertHtmlToQoo10Format(editedProduct.ItemDetail)
+                            handleFieldChange('ItemDetail', convertedHtml)
+                          }}
+                        >
+                          QOO10 형식으로 변환
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (!editedProduct?.ItemDetail) return
+                            const formattedHtml = editedProduct.ItemDetail
+                              .replace(/></g, '>\n<')
+                              .replace(/^[ \t]+/gm, '')
+                              .replace(/\n{2,}/g, '\n')
+                            setHtmlSource(formattedHtml)
+                            setIsHtmlSourceOpen(true)
+                          }}
+                        >
+                          HTML 소스 보기/편집
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="border rounded-lg p-4 min-h-[200px] bg-white"
+                      dangerouslySetInnerHTML={{ __html: selectedProduct?.ItemDetail || '' }}
+                    />
+                  )}
+                </div>
               </div>
 
               {/* 옵션 정보 테이블 */}
@@ -1784,6 +1977,34 @@ export function CosmosManagementContent() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* HTML 소스보기/편집 모달 */}
+      <Dialog open={isHtmlSourceOpen} onOpenChange={setIsHtmlSourceOpen}>
+        <DialogContent className="max-w-[800px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>HTML 소스 보기/편집</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <textarea
+              value={htmlSource}
+              onChange={(e) => setHtmlSource(e.target.value)}
+              className="w-full h-[500px] font-mono text-sm p-4 border rounded-lg"
+              spellCheck={false}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsHtmlSourceOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={() => {
+              handleFieldChange('ItemDetail', htmlSource)
+              setIsHtmlSourceOpen(false)
+            }}>
+              적용
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
