@@ -191,8 +191,29 @@ export function Sidebar() {
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
                     href="/qoo10/products"
                   >
-                    <ShoppingCart className="h-4 w-4" />
+                    <Package2 className="h-4 w-4" />
                     상품관리
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/cosmos"
+                  >
+                    <Globe className="h-4 w-4" />
+                    상품COSMOS
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/orders"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    주문관리
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/inquiries"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    문의관리
                   </Link>
                 </div>
               )}

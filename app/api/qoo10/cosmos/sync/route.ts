@@ -19,7 +19,7 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
       'v': '1.0',
       'method': 'ItemsLookup.GetAllGoodsInfo',
       'key': authKey,
-      'ItemStatus': 'S2',
+      'ItemStatus': 'S1,S2',
       'Page': page.toString()
     })
 
@@ -31,7 +31,8 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
       총상품수: data.ResultObject.TotalItems,
       총페이지수: data.ResultObject.TotalPages,
       현재페이지: data.ResultObject.PresentPage,
-      조회된상품수: data.ResultObject.Items.length
+      조회된상품수: data.ResultObject.Items.length,
+      상태값: 'S1(판매중지), S2(판매중)'
     })
 
     return data
@@ -110,7 +111,6 @@ async function fetchItemInventoryInfo(authKey: string, itemCode: string) {
 // Cosmos DB에 상품 데이터 저장 함수 수정
 async function saveToCosmosDB(item: any, companyId: string, platformId: string, flag: string, sellerId: string, sellerAuthKey: string, options: any[] = []) {
   try {
-    // 기존 상품 정보 조회
     const { resources: existingItems } = await container.items
       .query({
         query: "SELECT * FROM c WHERE c.ItemCode = @itemCode",
@@ -129,36 +129,44 @@ async function saveToCosmosDB(item: any, companyId: string, platformId: string, 
       SellerId: sellerId,
       SellerAuthKey: sellerAuthKey,
       Flag: flag,
-      OptionShippingNo1: item.OptionShippingNo1 || "",
-      OptionShippingNo2: item.OptionShippingNo2 || "",
-      TaxRate: item.TaxRate || "",
+      SellerCode: item.SellerCode || "",
+      ItemStatus: item.ItemStatus || "S2",
+      ItemTitle: item.ItemTitle || item.ItemSeriesName || "",
       PromotionName: item.PromotionName || "",
-      Drugtype: item.Drugtype || "",
+      MainCatCd: item.MainCatCd || "",
+      MainCatNm: item.MainCatNm || "",
+      FirstSubCatCd: item.FirstSubCatCd || "",
+      FirstSubCatNm: item.FirstSubCatNm || "",
+      SecondSubCatCd: item.SecondSubCatCd || "",
+      SecondSubCatNm: item.SecondSubCatNm || "",
+      DrugType: item.DrugType || "",
       ProductionPlaceType: item.ProductionPlaceType || "",
       ProductionPlace: item.ProductionPlace || "",
       IndustrialCodeType: item.IndustrialCodeType || "",
-      ItemPrice: parseFloat(item.ItemPrice) || 0,
+      IndustrialCode: item.IndustrialCode || "",
+      RetailPrice: item.RetailPrice ? parseFloat(item.RetailPrice) : 0,
+      ItemPrice: item.ItemPrice ? parseFloat(item.ItemPrice) : 0,
+      TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : 0,
+      SettlePrice: item.SettlePrice ? parseFloat(item.SettlePrice) : 0,
+      ItemQty: item.ItemQty ? parseInt(item.ItemQty) : 0,
+      ExpireDate: item.ExpireDate || null,
+      DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
+      AvailableDateType: item.AvailableDateType || "",
+      AvailableDateValue: item.AvailableDateValue || "",
+      ShippingNo: item.ShippingNo || "",
       ModelNM: item.ModelNM || "",
       ManufacturerDate: item.ManufactureDate || "",
       BrandNo: item.BrandNo || "",
       Material: item.Material || "",
-      DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
-      AvailableDateType: item.AvailableDateType || "",
-      AvailableDateValue: item.AvailableDateValue || "",
-      ContactInfo: item.ContactInfo || "",
-      VideoURL: item.VideoURL || "",
-      Keyword: item.Keyword || "",
-      ItemStatus: item.ItemStatus || "S2",
-      ItemTitle: item.ItemTitle || item.ItemSeriesName || "",
-      SellerCode: item.SellerCode || "",
-      IndustrialCode: item.IndustrialCode || "",
-      RetailPrice: parseFloat(item.RetailPrice) || 0,
-      ItemQty: parseInt(item.ItemQty) || 0,
-      ExpireDate: item.ExpireDate || null,
       AdultYN: item.AdultYN || "N",
-      ShippingNo: item.ShippingNo || "",
+      ContactInfo: item.ContactInfo || "",
       ItemDetail: item.ItemDetail || item.ItemDescription || "",
       ImageUrl: item.ImageUrl || "",
+      VideoURL: item.VideoURL || "",
+      Keyword: item.Keyword || "",
+      ListedDate: item.ListedDate || null,
+      ChangedDate: item.ChangedDate || null,
+      LastFetchDate: new Date().toISOString(),
       OptionType: item.OptionType || "",
       OptionMainimage: item.OptionMainimage || "",
       OptionSubimage: item.OptionSubimage || "",
@@ -175,9 +183,9 @@ async function saveToCosmosDB(item: any, companyId: string, platformId: string, 
       WashinginfoSeethrough: item.WashinginfoSeethrough || "",
       WashinginfoStretch: item.WashinginfoStretch || "",
       WashinginfoThickness: item.WashinginfoThickness || "",
-      WashinginfoWashing: item.washinginfoWashing || "",
+      WashinginfoWashing: item.WashinginfoWashing || "",
       Weight: parseFloat(item.Weight) || 0,
-      options: options.map(opt => ({
+      Options: options.map(opt => ({
         id: `${item.ItemCode}_${opt.Name1}_${opt.Value1}_${opt.Name2}_${opt.Value2}`.replace(/\s+/g, '_'),
         name1: opt.Name1,
         value1: opt.Value1,
@@ -196,11 +204,13 @@ async function saveToCosmosDB(item: any, companyId: string, platformId: string, 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })),
+      CreatedAt: existingItem?.createdAt || new Date().toISOString(),
+      UpdatedAt: new Date().toISOString(),
       LastSyncDate: new Date().toISOString()
     }
 
     await container.items.upsert(cosmosItem)
-    console.log(`상품 저장 완료: ${item.ItemCode} (${flag}) - 옵션 ${options.length}개`)
+    console.log(`상품 저장 완료: ${item.ItemCode} (${flag}) - 옵션 ${options.length}개, SettlePrice: ${cosmosItem.SettlePrice}`)
   } catch (error) {
     console.error(`Failed to save item to Cosmos DB (${item.ItemCode}):`, error)
     throw error
