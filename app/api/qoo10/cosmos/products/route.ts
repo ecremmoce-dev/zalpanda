@@ -18,6 +18,8 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '20')
     const flag = searchParams.get('flag')
+    const searchTerm = searchParams.get('search')
+    const searchField = searchParams.get('searchField') // itemCode, itemTitle, sellerCode
 
     if (!companyId || !platformId) {
       return NextResponse.json(
@@ -61,6 +63,15 @@ export async function GET(request: Request) {
       querySpec.parameters.push({
         name: "@flag",
         value: flag
+      })
+    }
+
+    // 검색 조건 추가
+    if (searchTerm && searchField) {
+      querySpec.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
+      querySpec.parameters.push({
+        name: "@searchTerm",
+        value: searchTerm
       })
     }
 
