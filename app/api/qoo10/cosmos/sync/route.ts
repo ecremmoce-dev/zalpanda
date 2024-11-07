@@ -9,18 +9,19 @@ const client = new CosmosClient({
 })
 
 const database = client.database("Zalpanda")
+// 컨테이너 구분
 const moveContainer = database.container("Temp_qoo10jp_move_product")
 const normalContainer = database.container("Temp_qoo10jp_nonemove_product")
 
 // 전체 상품 목록 조회
-async function fetchQoo10Products(authKey: string, page: number = 1) {
+async function fetchQoo10Products(authKey: string, itemStatus: string = 'S2', page: number = 1) {
   try {
     const baseUrl = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan.qapi'
     const params = new URLSearchParams({
       'v': '1.0',
       'method': 'ItemsLookup.GetAllGoodsInfo',
       'key': authKey,
-      'ItemStatus': 'S0,S1,S2,S3,S5,S8',
+      'ItemStatus': itemStatus,
       'Page': page.toString()
     })
 
@@ -33,7 +34,7 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
       총페이지수: data.ResultObject.TotalPages,
       현재페이지: data.ResultObject.PresentPage,
       조회된상품수: data.ResultObject.Items.length,
-      상태값: 'S0(검수대기), S1(거래대기), S2(거래가능), S3(거래중지), S5(거래제한), S8(승인거부)'
+      상태값: itemStatus
     })
 
     return data
@@ -46,19 +47,24 @@ async function fetchQoo10Products(authKey: string, page: number = 1) {
 // 상품 상세 정보 조회
 async function fetchItemDetail(authKey: string, itemCode: string) {
   try {
+    // 일반 상품 조회 시도
     const detail = await fetchDetailWithMethod(authKey, itemCode, false)
     if (detail) {
+      console.log(`[상품 타입 확인] ${itemCode}: 일반상품(NONE)`)
       return { ...detail, Flag: 'NONE' }
     }
 
+    // 무브 상품 조회 시도
     const moveDetail = await fetchDetailWithMethod(authKey, itemCode, true)
     if (moveDetail) {
+      console.log(`[상품 타입 확인] ${itemCode}: 무브상품(MOVE)`)
       return { ...moveDetail, Flag: 'MOVE' }
     }
 
+    console.log(`[상품 타입 확인] ${itemCode}: 상품 정보 없음`)
     return null
   } catch (error) {
-    console.error(`Failed to fetch item detail (${itemCode}):`, error)
+    console.error(`[상품 타입 확인] ${itemCode}: 조회 실패`, error)
     return null
   }
 }
@@ -109,82 +115,100 @@ async function fetchItemInventoryInfo(authKey: string, itemCode: string) {
   }
 }
 
-// 무브상품 데이터 변환 함수
+// 무브상품 데이터 변환 함수 수정
 async function convertMoveItemData(item: any, companyId: string, platformId: string, sellerId: string, sellerAuthKey: string) {
-  // 무브상품 옵션 파싱
-  const options = item.OptionQty ? item.OptionQty.split('$$').map((option: string) => {
-    const [color, size, qty, code] = option.split('||*')
-    return {
-      id: `${item.ItemCode}_${color}_${size}`.replace(/\s+/g, '_'),
-      name1: 'Color',
-      value1: color,
-      name2: 'Size',
-      value2: size,
-      qty: parseInt(qty) || 0,
-      price: parseFloat(item.ItemPrice) || 0,
-      itemTypeCode: code,
-      flag: 'MOVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  }) : []
+  try {
+    console.log('[무브상품 변환 시작]', item.ItemCode);
+    
+    // 기본 데이터 구조 생성
+    const moveData = {
+      Id: item.ItemCode,
+      CompanyId: companyId,
+      PlatformId: platformId,
+      SellerId: sellerId,
+      SellerAuthKey: sellerAuthKey,
+      Flag: 'MOVE',
+      AdultYN: item.AdultYN || 'N',
+      AttributeInfo: item.AttributeInfo || '',
+      AvailableDateValue: item.AvailableDateValue || '',
+      BrandNo: item.BrandNo || '',
+      BuyLimitType: item.BuyLimitType || '',
+      BuyLimitDate: item.BuyLimitDate || '',
+      BuyLimitQty: parseInt(item.BuyLimitQty) || 0,
+      ContactInfo: item.ContactInfo || '',
+      DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
+      ExpirationDateType: item.ExpirationDateType || '',
+      ExpirationDateMFD: item.ExpirationDateMFD || '',
+      ExpirationDatePAO: item.ExpirationDatePAO || '',
+      ExpirationDateEXP: item.ExpirationDateEXP || '',
+      ExpireDate: item.ExpireDate || '',
+      ImageOtherUrl: item.ImageOtherUrl || '',
+      IndustrialCode: item.IndustrialCode || '',
+      IndustrialCodeType: item.IndustrialCodeType || '',
+      ItemCode: item.ItemCode,
+      ItemDescription: item.ItemDescription || '',
+      ItemPrice: parseFloat(item.ItemPrice) || 0,
+      ItemSeriesName: item.ItemSeriesName || '',
+      Keyword: item.Keyword || '',
+      ManufactureDate: item.ManufactureDate || '',
+      MaterialInfo: item.MaterialInfo || '',
+      MaterialNumber: item.MaterialNumber || '',
+      ModelNM: item.ModelNM || '',
+      OptionMainimage: item.OptionMainimage || '',
+      OptionQty: item.OptionQty || '',
+      OptionSubimage: item.OptionSubimage || '',
+      OptionType: item.OptionType || '',
+      OriginCountryId: item.OriginCountryId || '',
+      OriginRegionId: item.OriginRegionId || '',
+      OriginOthers: item.OriginOthers || '',
+      OriginType: item.OriginType || '',
+      PromotionName: item.PromotionName || '',
+      RetailPrice: parseFloat(item.RetailPrice) || 0,
+      SeasonType: item.SeasonType || '',
+      SecondSubCat: item.SecondSubCat || '',
+      SellerCode: item.SellerCode || '',
+      ShippingNo: item.ShippingNo || '',
+      SizetableType1: item.SizetableType1 || '',
+      SizetableType1Value: item.SizetableType1Value || '',
+      SizetableType2: item.SizetableType2 || '',
+      SizetableType2Value: item.SizetableType2Value || '',
+      SizetableType3: item.SizetableType3 || '',
+      SizetableType3Value: item.SizetableType3Value || '',
+      StyleNumber: item.StyleNumber || '',
+      TpoNumber: item.TpoNumber || '',
+      VideoNumber: item.VideoNumber || '',
+      WashinginfoFit: item.WashinginfoFit || '',
+      WashinginfoLining: item.WashinginfoLining || '',
+      WashinginfoSeethrough: item.WashinginfoSeethrough || '',
+      WashinginfoStretch: item.WashinginfoStretch || '',
+      WashinginfoThickness: item.WashinginfoThickness || '',
+      WashinginfoWashing: item.WashinginfoWashing || '',
+      Weight: parseFloat(item.Weight) || 0,
+      TaxRate: item.TaxRate || '10',
+      CreatedAt: new Date().toISOString(),
+      UpdatedAt: new Date().toISOString()
+    };
 
-  return {
-    id: item.ItemCode,
-    ItemCode: item.ItemCode,
-    CompanyId: companyId,
-    PlatformId: platformId,
-    SellerId: sellerId,
-    SellerAuthKey: sellerAuthKey,
-    Flag: 'MOVE',
-    SellerCode: item.SellerCode || '',
-    ItemStatus: 'S2',
-    ItemTitle: item.ItemSeriesName || '',
-    PromotionName: item.PromotionName || '',
-    SecondSubCat: item.SecondSubCat || '',
-    BrandNo: item.BrandNo || '',
-    RetailPrice: parseFloat(item.RetailPrice) || 0,
-    ItemPrice: parseFloat(item.ItemPrice) || 0,
-    TaxRate: item.TaxRate ? parseFloat(item.TaxRate) : null,
-    ExpireDate: item.ExpireDate || null,
-    DesiredShippingDate: parseInt(item.DesiredShippingDate) || 0,
-    AvailableDateValue: item.AvailableDateValue || '',
-    ShippingNo: item.ShippingNo || '',
-    Weight: parseFloat(item.Weight) || 0,
-    AdultYN: item.AdultYN || 'N',
-    ContactInfo: item.ContactInfo || '',
-    ItemDetail: item.ItemDescription || '',
-    Keyword: item.Keyword || '',
-    AttributeInfo: item.AttributeInfo || '',
-    MaterialInfo: item.MaterialInfo || '',
-    MaterialNumber: item.MaterialNumber || '',
-    OptionType: item.OptionType || '',
-    OptionMainimage: item.OptionMainimage || '',
-    OptionSubimage: item.OptionSubimage || '',
-    OptionQty: item.OptionQty || '',
-    OriginType: item.OriginType || '',
-    OriginCountryId: item.OriginCountryId || '',
-    OriginRegionId: item.OriginRegionId || '',
-    OriginOthers: item.OriginOthers || '',
-    SeasonType: item.SeasonType || '',
-    StyleNumber: item.StyleNumber || '',
-    TpoNumber: item.TpoNumber || '',
-    VideoNumber: item.VideoNumber || '',
-    WashinginfoFit: item.WashinginfoFit || '',
-    WashinginfoLining: item.WashinginfoLining || '',
-    WashinginfoSeethrough: item.WashinginfoSeethrough || '',
-    WashinginfoStretch: item.WashinginfoStretch || '',
-    WashinginfoThickness: item.WashinginfoThickness || '',
-    WashinginfoWashing: item.washinginfoWashing || '',
-    Options: options,
-    LastFetchDate: new Date().toISOString(),
-    CreatedAt: new Date().toISOString(),
-    UpdatedAt: new Date().toISOString()
+    console.log('[무브상품 변환 완료]', {
+      ItemCode: item.ItemCode,
+      Flag: 'MOVE',
+      OptionQty: moveData.OptionQty ? moveData.OptionQty.substring(0, 50) + '...' : '없음'
+    });
+
+    return moveData;
+  } catch (error) {
+    console.error('[무브상품 변환 실패]', item.ItemCode, error);
+    throw error;
   }
 }
 
-// 일반상품 데이터 변환 함수
+// 일반상품 데이터 변환 함수 수정
 async function convertNormalItemData(item: any, companyId: string, platformId: string, sellerId: string, sellerAuthKey: string, inventoryInfo: any[] = []) {
+  // 발송 가능일 관련 기본값 설정
+  const availableDateType = item.AvailableDateType || '0'
+  const availableDateValue = item.AvailableDateValue || '3'
+  const desiredShippingDate = item.DesiredShippingDate || '0'
+
   // 일반상품 옵션 변환
   const options = inventoryInfo.map((opt: any) => ({
     id: `${item.ItemCode}_${opt.Name1}_${opt.Value1}_${opt.Name2}_${opt.Value2}`.replace(/\s+/g, '_'),
@@ -235,7 +259,13 @@ async function convertNormalItemData(item: any, companyId: string, platformId: s
     SettlePrice: parseFloat(item.SettlePrice) || 0,
     ItemQty: parseInt(item.ItemQty) || 0,
     ExpireDate: item.ExpireDate || null,
+    // 발송 관련 필드 추가
+    AvailableDateType: availableDateType,
+    AvailableDateValue: availableDateValue,
+    DesiredShippingDate: desiredShippingDate,
     ShippingNo: item.ShippingNo || '',
+    OptionShippingNo1: item.OptionShippingNo1 || '',
+    OptionShippingNo2: item.OptionShippingNo2 || '',
     ModelNM: item.ModelNM || '',
     ManufacturerDate: item.ManufacturerDate || '',
     BrandNo: item.BrandNo || '',
@@ -258,23 +288,166 @@ async function convertNormalItemData(item: any, companyId: string, platformId: s
 // 상품 저장 함수 수정
 async function saveToCosmosDB(item: any, companyId: string, platformId: string, flag: string, sellerId: string, sellerAuthKey: string, options: any[] = []) {
   try {
-    const container = flag === 'MOVE' ? moveContainer : normalContainer
+    console.log(`[상품 저장 시작] ${item.ItemCode} (타입: ${flag})`);
     const convertedItem = flag === 'MOVE' 
       ? await convertMoveItemData(item, companyId, platformId, sellerId, sellerAuthKey)
-      : await convertNormalItemData(item, companyId, platformId, sellerId, sellerAuthKey, options)
+      : await convertNormalItemData(item, companyId, platformId, sellerId, sellerAuthKey, options);
 
-    await container.items.upsert(convertedItem)
-    console.log(`상품 저장 완료: ${item.ItemCode} (${flag}) - 옵션 ${options.length}개`)
+    try {
+      const timestamp = new Date().getTime();
+      const documentId = `${item.ItemCode}_${timestamp}`;
+
+      const newItem = {
+        ...convertedItem,
+        id: documentId,
+        itemCode: item.ItemCode,
+        companyId: companyId,
+        flag: flag,
+        lastFetchDate: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // flag에 따라 컨테이너 선택
+      const container = flag === 'MOVE' ? moveContainer : normalContainer;
+
+      // 기존 문서 찾기
+      const querySpec = {
+        query: "SELECT * FROM c WHERE c.itemCode = @itemCode AND c.companyId = @companyId",
+        parameters: [
+          { name: "@itemCode", value: item.ItemCode },
+          { name: "@companyId", value: companyId }
+        ]
+      };
+
+      const { resources: existingItems } = await container.items.query(querySpec).fetchAll();
+
+      if (existingItems && existingItems.length > 0) {
+        // 기존 문서 삭제 - 파티션 키를 문자열로 전달
+        for (const existingItem of existingItems) {
+          try {
+            await container.item(existingItem.id, existingItem.itemCode).delete(); // itemCode를 파티션 키로 사용
+          } catch (deleteError) {
+            console.error(`[문서 삭제 실패] ${existingItem.id}:`, deleteError);
+          }
+        }
+      }
+
+      // 새 문서 생성 - 파티션 키를 문자열로 전달
+      console.log(`[상품 생성] ${item.ItemCode} (flag: ${flag}, id: ${documentId})`);
+      const { resource } = await container.items.create(newItem);
+      console.log(`[상품 생성 성공] ${item.ItemCode} (flag: ${flag}, id: ${resource?.id})`);
+      
+      return true;
+
+    } catch (error: any) {
+      if (error.code === 409) {
+        console.log(`[409 충돌 발생] ${item.ItemCode} - 잠시 후 재시도...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return await saveToCosmosDB(item, companyId, platformId, flag, sellerId, sellerAuthKey, options);
+      }
+      throw error;
+    }
   } catch (error) {
-    console.error(`Failed to save item to Cosmos DB (${item.ItemCode}):`, error)
-    throw error
+    console.error(`[상품 저장 실패] ${item.ItemCode} (flag: ${flag}):`, error);
+    return false;
+  }
+}
+
+// GET 엔드포인트 수정
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const companyId = searchParams.get('companyId')
+    const platformId = searchParams.get('platformId')
+    const page = parseInt(searchParams.get('page') || '1')
+    const pageSize = parseInt(searchParams.get('pageSize') || '20')
+    const flag = searchParams.get('flag')
+    const searchTerm = searchParams.get('search')
+    const searchField = searchParams.get('searchField')
+
+    if (!companyId || !platformId) {
+      return NextResponse.json(
+        { error: '필수 파라미터가 누락되었습니다.' },
+        { status: 400 }
+      )
+    }
+
+    const platform = await prisma.zal_CompanyPlatform.findFirst({
+      where: {
+        CompanyId: companyId,
+        DeletedAt: null,
+        Id: platformId
+      }
+    })
+
+    if (!platform?.SellerId) {
+      return NextResponse.json(
+        { error: '플랫폼 정보를 찾을 수 없습니다.' },
+        { status: 400 }
+      )
+    }
+
+    // 복합 파티션 키를 고려한 쿼리
+    const baseQuery = {
+      query: "SELECT * FROM c WHERE c.companyId = @companyId",
+      parameters: [
+        { name: "@companyId", value: companyId }
+      ]
+    };
+
+    if (searchTerm && searchField) {
+      baseQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`;
+      baseQuery.parameters.push({ name: "@searchTerm", value: searchTerm });
+    }
+
+    let items = [];
+
+    if (!flag || flag === 'all') {
+      const [moveItems, normalItems] = await Promise.all([
+        moveContainer.items.query(baseQuery).fetchAll(),
+        normalContainer.items.query(baseQuery).fetchAll()
+      ]);
+      items = [...moveItems.resources, ...normalItems.resources];
+    } else if (flag === 'MOVE') {
+      const { resources } = await moveContainer.items.query(baseQuery).fetchAll();
+      items = resources;
+    } else {
+      const { resources } = await normalContainer.items.query(baseQuery).fetchAll();
+      items = resources;
+    }
+
+    items.sort((a, b) => {
+      const dateA = new Date(b.lastFetchDate || b.updatedAt || 0).getTime();
+      const dateB = new Date(a.lastFetchDate || a.updatedAt || 0).getTime();
+      return dateA - dateB;
+    });
+
+    const startIndex = (page - 1) * pageSize;
+    const paginatedItems = items.slice(startIndex, startIndex + pageSize);
+    
+    return NextResponse.json({
+      items: paginatedItems,
+      total: items.length,
+      page,
+      pageSize,
+      totalPages: Math.ceil(items.length / pageSize),
+      moveCount: items.filter(item => item.flag === 'MOVE').length,
+      normalCount: items.filter(item => item.flag === 'NONE').length
+    });
+
+  } catch (error) {
+    console.error('Failed to fetch Cosmos products:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch products' },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { companyId, platformId } = body
+    const { companyId, platformId, itemStatus = 'S1,S2' } = body
 
     // API Key 조회
     const platform = await prisma.zal_CompanyPlatform.findFirst({
@@ -292,15 +465,32 @@ export async function POST(request: Request) {
       )
     }
 
+    // 거래상태 유효성 검사 - 거래대기, 거래가능만 허용
+    const validStatuses = ['S1', 'S2']
+    const selectedStatuses = itemStatus.split(',')
+    const invalidStatuses = selectedStatuses.filter(status => !validStatuses.includes(status))
+    
+    if (invalidStatuses.length > 0) {
+      return NextResponse.json(
+        { error: `유효하지 않은 거래상태: ${invalidStatuses.join(', ')}. 거래대기(S1)와 거래가능(S2) 상태만 동기화할 수 있습니다.` },
+        { status: 400 }
+      )
+    }
+
+    console.log('상품 동기화 시작...', {
+      companyId,
+      platformId,
+      itemStatus: selectedStatuses
+    })
+
     // 전체 상품 목록 조회
-    console.log('Qoo10 상품 목록 조회 시작...')
-    const firstPageResult = await fetchQoo10Products(platform.ApiKey)
+    const firstPageResult = await fetchQoo10Products(platform.ApiKey, itemStatus)
     const allItemCodes = firstPageResult.ResultObject.Items.map((item: any) => item.ItemCode)
     const totalPages = firstPageResult.ResultObject.TotalPages
 
     // 나머지 페이지 조회
     for (let page = 2; page <= totalPages; page++) {
-      const pageResult = await fetchQoo10Products(platform.ApiKey, page)
+      const pageResult = await fetchQoo10Products(platform.ApiKey, itemStatus, page)
       allItemCodes.push(...pageResult.ResultObject.Items.map((item: any) => item.ItemCode))
       await new Promise(resolve => setTimeout(resolve, 100))
     }
@@ -339,26 +529,37 @@ export async function POST(request: Request) {
             })
           }
 
-          await saveToCosmosDB(
+          const saved = await saveToCosmosDB(
             detail, 
             companyId,
             platformId,
             detail.Flag,
-            platform.SellerId,
+            platform.SellerId || '',
             platform.ApiKey,
             options
           )
-          successCount++
+
+          if (saved) {
+            successCount++
+            console.log(`상품 저장 성공: ${itemCode}`)
+          } else {
+            failCount++
+            console.log(`상품 저장 실패: ${itemCode}`)
+          }
         } else {
           failCount++
+          console.log(`상품 상세 정보 없음: ${itemCode}`)
         }
-        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // API 호출 간격 조절
+        await new Promise(resolve => setTimeout(resolve, 200))
       } catch (error) {
         console.error(`상품 처리 실패 (${itemCode}):`, error)
         failCount++
       }
 
-      if ((successCount + failCount) % 10 === 0) {
+      // 진행 상황 로깅
+      if ((successCount + failCount) % 5 === 0) {
         console.log(`진행 상황: ${successCount + failCount}/${allItemCodes.length} (성공: ${successCount}, 실패: ${failCount})`)
       }
     }
@@ -366,15 +567,14 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       totalProducts: allItemCodes.length,
-      successCount,
-      failCount,
-      syncDate: new Date()
+      syncDate: new Date(),
+      selectedStatuses: selectedStatuses
     })
 
   } catch (error) {
-    console.error('Cosmos DB 동기화 실패:', error)
+    console.error('상품 동기화 실패:', error)
     return NextResponse.json(
-      { error: 'Cosmos DB 동기화에 실패했습니다.' },
+      { error: '상품 동기화에 실패했습니다.' },
       { status: 500 }
     )
   }

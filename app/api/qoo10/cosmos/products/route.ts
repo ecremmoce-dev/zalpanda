@@ -45,54 +45,51 @@ export async function GET(request: Request) {
       )
     }
 
+    // 기본 쿼리 생성
+    const baseQuery = {
+      query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.PlatformId = @platformId",
+      parameters: [
+        { name: "@companyId", value: companyId },
+        { name: "@platformId", value: platformId }
+      ]
+    }
+
+    // 검색 조건 추가
+    if (searchTerm && searchField) {
+      baseQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
+      baseQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
+    }
+
     let items = []
+
+    // flag에 따른 조회 처리
     if (!flag || flag === 'all') {
       // 두 컨테이너에서 모두 조회
-      const moveQuery = {
-        query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.SellerId = @sellerId",
-        parameters: [
-          { name: "@companyId", value: companyId },
-          { name: "@sellerId", value: platform.SellerId }
-        ]
-      }
-      const normalQuery = { ...moveQuery }
-
-      // 검색 조건 추가
-      if (searchTerm && searchField) {
-        moveQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
-        normalQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
-        moveQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
-        normalQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
-      }
-
       const [moveItems, normalItems] = await Promise.all([
-        moveContainer.items.query(moveQuery).fetchAll(),
-        normalContainer.items.query(normalQuery).fetchAll()
+        moveContainer.items.query(baseQuery).fetchAll(),
+        normalContainer.items.query(baseQuery).fetchAll()
       ])
 
-      items = [...moveItems.resources, ...normalItems.resources]
+      items = [
+        ...moveItems.resources.map(item => ({ ...item, flag: 'MOVE' })),
+        ...normalItems.resources.map(item => ({ ...item, flag: 'NONE' }))
+      ]
+    } else if (flag === 'MOVE') {
+      // 무브상품만 조회
+      const { resources } = await moveContainer.items.query(baseQuery).fetchAll()
+      items = resources.map(item => ({ ...item, flag: 'MOVE' }))
     } else {
-      // flag에 따라 해당 컨테이너만 조회
-      const container = flag === 'MOVE' ? moveContainer : normalContainer
-      const query = {
-        query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.SellerId = @sellerId",
-        parameters: [
-          { name: "@companyId", value: companyId },
-          { name: "@sellerId", value: platform.SellerId }
-        ]
-      }
-
-      if (searchTerm && searchField) {
-        query.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
-        query.parameters.push({ name: "@searchTerm", value: searchTerm })
-      }
-
-      const { resources } = await container.items.query(query).fetchAll()
-      items = resources
+      // 일반상품만 조회
+      const { resources } = await normalContainer.items.query(baseQuery).fetchAll()
+      items = resources.map(item => ({ ...item, flag: 'NONE' }))
     }
 
     // 최신 동기화 순으로 정렬
-    items.sort((a, b) => new Date(b.LastSyncDate).getTime() - new Date(a.LastSyncDate).getTime())
+    items.sort((a, b) => {
+      const dateA = new Date(b.LastFetchDate || b.UpdatedAt || 0).getTime()
+      const dateB = new Date(a.LastFetchDate || a.UpdatedAt || 0).getTime()
+      return dateA - dateB
+    })
 
     // 페이지네이션 적용
     const startIndex = (page - 1) * pageSize
@@ -103,7 +100,9 @@ export async function GET(request: Request) {
       total: items.length,
       page,
       pageSize,
-      totalPages: Math.ceil(items.length / pageSize)
+      totalPages: Math.ceil(items.length / pageSize),
+      moveCount: items.filter(item => item.flag === 'MOVE').length,
+      normalCount: items.filter(item => item.flag === 'NONE').length
     })
 
   } catch (error) {
