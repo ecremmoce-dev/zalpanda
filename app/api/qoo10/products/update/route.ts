@@ -6,13 +6,20 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // POST 요청 설정
+    // Ensure SellerAuthKey is included
+    const apiKey = body.SellerAuthKey || process.env.QOO10_API_KEY || '';
+
+    if (!apiKey) {
+      throw new Error('SellerAuthKey is missing');
+    }
+
+    // POST request setup
     const response = await fetch(QOO10_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'QAPIVersion': '1.1',
-        'GiosisCertificationKey': process.env.QOO10_API_KEY || ''
+        'GiosisCertificationKey': apiKey
       },
       body: new URLSearchParams({
         returnType: 'json',
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
       data: data
     });
 
-    // 에러 코드 처리
+    // Handle error codes
     if (data.ResultCode !== 0) {
       return NextResponse.json({
         success: false,
@@ -77,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 에러 메시지 매핑
+// Error message mapping
 function getErrorMessage(code: number): string {
   const errorMessages: { [key: number]: string } = {
     0: 'SUCCESS',
@@ -96,4 +103,4 @@ function getErrorMessage(code: number): string {
   };
 
   return errorMessages[code] || 'Unknown error';
-} 
+}
