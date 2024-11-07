@@ -74,7 +74,7 @@ export async function updateMoveProduct(product: any) {
         Keyword: product.Keyword || '',
         OriginType: product.OriginType || '',
         OriginRegionId: product.OriginType === '1' ? product.ProductionPlace : '',
-        OriginCountryId: product.OriginType === '2' ? product.ProductionPlace : '',
+        OriginCountryId: product.OriginType === '2' ? product.OriginCountryId : '',
         OriginOthers: product.OriginType === '3' ? product.ProductionPlace : '',
         Weight: product.Weight?.toString() || '',
         ExpireDate: product.ExpireDate || '',

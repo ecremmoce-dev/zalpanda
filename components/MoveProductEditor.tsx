@@ -9,6 +9,7 @@ import { CKEditor } from '@ckeditor/ckeditor5-react'
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { updateMoveProduct } from '@/lib/api/qoo10'  // API 함수 import 추가
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog' // 다이얼로그 컴포넌트 추가
 
 interface MoveProductEditorProps {
   product: any // DetailProduct 타입 정의 필요
@@ -49,6 +50,8 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
   const [isEditing, setIsEditing] = useState(false)
   const [editedProduct, setEditedProduct] = useState(product)
   const [activeTab, setActiveTab] = useState("basic")
+  const [dialogOpen, setDialogOpen] = useState(false) // 다이얼로그 상태 추가
+  const [resultMessage, setResultMessage] = useState('') // 결과 메시지 상태 추가
 
   // 옵션 파싱 함수들
   const parseOptions = () => {
@@ -107,13 +110,13 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
       if (!confirm('QOO10에 상품 정보를 전송하시겠습니까?')) {
         return;
       }
-
+      
       // ExpireDate 필수값 체크
       if (!editedProduct.ExpireDate) {
         alert('판매종료일은 필수 입력값입니다.');
         return;
       }
-
+      console.log("editedProduct.OriginCountryId", editedProduct.OriginCountryId);
       const responses = await updateMoveProduct({
         ItemCode: editedProduct.ItemCode,
         SellerCode: editedProduct.SellerCode,
@@ -148,67 +151,65 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
         Keyword: editedProduct.Keyword,
         OriginType: editedProduct.OriginType,
         OriginRegionId: editedProduct.OriginType === '1' ? editedProduct.ProductionPlace : '',
-        OriginCountryId: editedProduct.OriginType === '2' ? editedProduct.ProductionPlace : '',
+        OriginCountryId: editedProduct.OriginType === '2' ? editedProduct.OriginCountryId : '',
         OriginOthers: editedProduct.OriginType === '3' ? editedProduct.ProductionPlace : '',
         Weight: editedProduct.Weight,
         SellerAuthKey: editedProduct.SellerAuthKey,
         ExpireDate: editedProduct.ExpireDate?.split('T')[0],
       });
-
+      console.log("responses", responses);
       // API 응답 처리
       const [updateBasicResult, updatePriceResult, updateInventoryResult] = await Promise.all(responses);
 
       // 결과 메시지 생성
-      let resultMessage = '== QOO10 전송 결과 ==\n\n';
+      let message = '== QOO10 전송 결과 ==\n\n';
 
       // 1. UpdateMoveGoods API 결과
-      resultMessage += '1. UpdateMoveGoods API (기본 정보 업데이트)\n';
-      resultMessage += `호출 URL: /GMKT.INC.Front.QAPIService/ebayjapan.qapi?method=ItemsBasic.UpdateMoveGoods\n`;
-      resultMessage += `결과: ${updateBasicResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
-      resultMessage += `응답코드: ${updateBasicResult.ResultCode}\n`;
-      resultMessage += `응답메시지: ${updateBasicResult.ResultMsg}\n`;
+      message += '1. UpdateMoveGoods API (기본 정보 업데이트)\n';
+      message += `결과: ${updateBasicResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
+      message += `응답코드: ${updateBasicResult.ResultCode}\n`;
+      message += `응답메시지: ${updateBasicResult.ResultMsg}\n`;
       if (updateBasicResult.ResultCode !== 0) {
-        resultMessage += `상세오류: ${ERROR_MESSAGES.UPDATE_MOVE_GOODS[updateBasicResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${ERROR_MESSAGES.UPDATE_MOVE_GOODS[updateBasicResult.ResultCode] || '알 수 없는 오류'}\n`;
       }
-      resultMessage += '\n';
+      message += '\n';
 
       // 2. EditMoveGoodsPrice API 결과
-      resultMessage += '2. EditMoveGoodsPrice API (가격 정보 업데이트)\n';
-      resultMessage += `호출 URL: /GMKT.INC.Front.QAPIService/ebayjapan.qapi?method=ItemsOrder.EditMoveGoodsPrice\n`;
-      resultMessage += `결과: ${updatePriceResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
-      resultMessage += `응답코드: ${updatePriceResult.ResultCode}\n`;
-      resultMessage += `응답메시지: ${updatePriceResult.ResultMsg}\n`;
+      message += '2. EditMoveGoodsPrice API (가격 정보 업데이트)\n';
+      message += `결과: ${updatePriceResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
+      message += `응답코드: ${updatePriceResult.ResultCode}\n`;
+      message += `응답메시지: ${updatePriceResult.ResultMsg}\n`;
       if (updatePriceResult.ResultCode !== 0) {
-        resultMessage += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_PRICE[updatePriceResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_PRICE[updatePriceResult.ResultCode] || '알 수 없는 오류'}\n`;
       }
-      resultMessage += '\n';
+      message += '\n';
 
       // 3. EditMoveGoodsInventory API 결과
-      resultMessage += '3. EditMoveGoodsInventory API (재고 정보 업데이트)\n';
-      resultMessage += `호출 URL: /GMKT.INC.Front.QAPIService/ebayjapan.qapi?method=ItemsOptions.EditMoveGoodsInventory\n`;
-      resultMessage += `결과: ${updateInventoryResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
-      resultMessage += `응답코드: ${updateInventoryResult.ResultCode}\n`;
-      resultMessage += `응답메시지: ${updateInventoryResult.ResultMsg}\n`;
+      message += '3. EditMoveGoodsInventory API (재고 정보 업데이트)\n';
+      message += `결과: ${updateInventoryResult.ResultCode === 0 ? '✅ 성공' : '❌ 실패'}\n`;
+      message += `응답코드: ${updateInventoryResult.ResultCode}\n`;
+      message += `응답메시지: ${updateInventoryResult.ResultMsg}\n`;
       if (updateInventoryResult.ResultCode !== 0) {
-        resultMessage += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_INVENTORY[updateInventoryResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_INVENTORY[updateInventoryResult.ResultCode] || '알 수 없는 오류'}\n`;
       }
 
       // 전체 결과 요약
       const isAllSuccess = [updateBasicResult, updatePriceResult, updateInventoryResult]
         .every(result => result.ResultCode === 0);
 
-      resultMessage += '\n=== 전송 결과 요약 ===\n';
+      message += '\n=== 전송 결과 요약 ===\n';
       if (isAllSuccess) {
-        resultMessage += '✨ 모든 API 호출이 성공적으로 완료되었습니다.';
+        message += '✨ 모든 API 호출이 성공적으로 완료되었습니다.';
       } else {
-        resultMessage += '⚠️ 일부 API 호출이 실패했습니다.\n';
-        resultMessage += '실패한 API:\n';
-        if (updateBasicResult.ResultCode !== 0) resultMessage += '- UpdateMoveGoods (기본 정보)\n';
-        if (updatePriceResult.ResultCode !== 0) resultMessage += '- EditMoveGoodsPrice (가격 정보)\n';
-        if (updateInventoryResult.ResultCode !== 0) resultMessage += '- EditMoveGoodsInventory (재고 정보)\n';
+        message += '⚠️ 일부 API 호출이 실패했습니다.\n';
+        message += '실패한 API:\n';
+        if (updateBasicResult.ResultCode !== 0) message += '- UpdateMoveGoods (기본 정보)\n';
+        if (updatePriceResult.ResultCode !== 0) message += '- EditMoveGoodsPrice (가격 정보)\n';
+        if (updateInventoryResult.ResultCode !== 0) message += '- EditMoveGoodsInventory (재고 정보)\n';
       }
 
-      alert(resultMessage);
+      setResultMessage(message);
+      setDialogOpen(true); // 다이얼로그 열기
 
     } catch (error) {
       console.error('Failed to apply to QOO10:', error);
@@ -224,7 +225,8 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
         errorMessage += '알 수 없는 오류가 발생했습니다.';
       }
       
-      alert(errorMessage);
+      setResultMessage(errorMessage);
+      setDialogOpen(true); // 다이얼로그 열기
     }
   };
 
@@ -267,6 +269,21 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
           )}
         </div>
       </div>
+
+      {/* 다이얼로그 */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>QOO10 전송 결과</DialogTitle>
+            <DialogDescription>
+              <pre>{resultMessage}</pre>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setDialogOpen(false)}>닫기</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 탭 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

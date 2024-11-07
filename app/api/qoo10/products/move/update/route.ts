@@ -5,13 +5,51 @@ const QOO10_API_URL = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
+    const apiKey = body.SellerAuthKey || process.env.QOO10_API_KEY || '';
+    if (!apiKey) {
+      throw new Error('SellerAuthKey is missing');
+    }
+    // URL 파라미터 구성
     const params = new URLSearchParams({
       v: '1.0',
       method: 'ItemsBasic.UpdateMoveGoods',
-      key: process.env.QOO10_API_KEY || '',
+      key: apiKey,
       returnType: 'json',
-      ...body
+      ItemCode: body.ItemCode,
+      SellerCode: body.SellerCode || '',
+      SecondSubCat: body.SecondSubCat,
+      ItemSeriesName: body.ItemSeriesName || '',
+      PromotionName: body.PromotionName || '',
+      ItemPrice: body.ItemPrice?.toString() || '0',
+      RetailPrice: body.RetailPrice?.toString() || '0',
+      TaxRate: body.TaxRate || '',
+      OptionType: body.OptionType || '',
+      OptionMainimage: body.OptionMainimage || '',
+      OptionSubimage: body.OptionSubimage || '',
+      OptionQty: body.OptionQty || '',
+      StyleNumber: body.StyleNumber || '',
+      TpoNumber: body.TpoNumber || '',
+      SeasonType: body.SeasonType || '',
+      MaterialInfo: body.MaterialInfo || '',
+      MaterialNumber: body.MaterialNumber || '',
+      AttributeInfo: body.AttributeInfo || '',
+      ItemDescription: body.ItemDescription || '',
+      WashinginfoWashing: body.WashinginfoWashing || '',
+      WashinginfoStretch: body.WashinginfoStretch || '',
+      WashinginfoFit: body.WashinginfoFit || '',
+      WashinginfoThickness: body.WashinginfoThickness || '',
+      WashinginfoLining: body.WashinginfoLining || '',
+      WashinginfoSeethrough: body.WashinginfoSeethrough || '',
+      ImageOtherUrl: body.ImageOtherUrl || '',
+      VideoNumber: body.VideoNumber || '',
+      ShippingNo: body.ShippingNo?.toString() || '',
+      AvailableDateValue: body.AvailableDateValue || '',
+      DesiredShippingDate: body.DesiredShippingDate?.toString() || '',
+      Keyword: body.Keyword || '',
+      OriginType: body.OriginType || '',
+      OriginCountryId: body.OriginCountryId || '',
+      Weight: body.Weight?.toString() || '',
+      ExpireDate: body.ExpireDate || ''
     });
 
     const response = await fetch(`${QOO10_API_URL}?${params.toString()}`, {
@@ -42,4 +80,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
