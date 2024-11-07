@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Globe } from 'lucide-react'
+import { Edit, Globe, ExternalLink } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,8 @@ import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CKEditor } from '@ckeditor/ckeditor5-react'
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
+import MoveProductEditor from './MoveProductEditor'
+import NormalProductEditor from './NormalProductEditor'
 
 interface Company {
   Id: string
@@ -49,6 +51,7 @@ interface CosmosProduct {
   ItemStatus: string
   SellerCode: string
   LastSyncDate: string
+  LastFetchDate: string
 }
 
 interface Option {
@@ -139,6 +142,10 @@ interface DetailProduct {
   CreatedAt: string;
   UpdatedAt: string;
   LastSyncDate: string;
+  MaterialInfo: string;
+  MaterialNumber: string;
+  AttributeInfo: string;
+  ImageOtherUrl: string;
 }
 
 // Quill 에디터 설정 수정
@@ -280,7 +287,7 @@ const ITEM_STATUS_OPTIONS = [
   { value: 'S2', label: '거래가능' },
   { value: 'S3', label: '거래중지(Qoo10)' },
   { value: 'S5', label: '거래제한(Qoo10)' },
-  { value: 'S8', label: '승인거부' }
+  { value: 'S8', label: '���거부' }
 ]
 
 // 상태별 배지 색상 함수 수정
@@ -326,7 +333,7 @@ const getAvailableDatePlaceholder = (type: string) => {
     case '2':
       return '출시일 입력 (예: 2024/03/20)'
     case '3':
-      return '발송 시간 입력 (예: 14:30)'
+      return '발 시간 입력 (예: 14:30)'
     default:
       return ''
   }
@@ -376,13 +383,57 @@ const convertHtmlToQoo10Format = (html: string) => {
 
 // 상품 상태 옵션 추가
 const SYNC_STATUS_OPTIONS = [
-  { value: 'S0', label: '검수대기' },
   { value: 'S1', label: '거래대기' },
-  { value: 'S2', label: '거래가능' },
-  { value: 'S3', label: '거래중지(Qoo10)' },
-  { value: 'S5', label: '거래제한(Qoo10)' },
-  { value: 'S8', label: '승인거부' }
+  { value: 'S2', label: '거래가능' }
 ]
+
+interface ProductPreviewProps {
+  itemCode: string
+  isMoveProduct: boolean
+}
+
+const ProductPreview = ({ itemCode, isMoveProduct }: ProductPreviewProps) => {
+  const baseUrl = isMoveProduct 
+    ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
+    : "https://www.qoo10.jp/g/"
+
+  return (
+    <a
+      href={`${baseUrl}${itemCode}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+    >
+      <ExternalLink className="w-4 h-4 mr-1" />
+      {isMoveProduct ? 'MOVE 상품 보기' : '상품 보기'}
+    </a>
+  )
+}
+
+// 테이블 컬럼 정의 부분 수정
+const columns = [
+  // 기존 컬럼들...
+  {
+    id: 'preview',
+    header: '미리보기',
+    cell: ({ row }: { row: any }) => (
+      <ProductPreview 
+        itemCode={row.original.itemCode} 
+        isMoveProduct={row.original.productType === 'MOVE'}
+      />
+    )
+  }
+]
+
+// 상단에 인터페이스 추가
+interface SyncProgress {
+  total: number;
+  current: number;
+  normalCount: number;
+  moveCount: number;
+  successCount: number;
+  failCount: number;
+}
 
 export function CosmosManagementContent() {
   const [companies, setCompanies] = useState<Company[]>([])
@@ -413,6 +464,9 @@ export function CosmosManagementContent() {
   // HTML 소스보기 모달 상태 추가
   const [isHtmlSourceOpen, setIsHtmlSourceOpen] = useState(false)
   const [htmlSource, setHtmlSource] = useState('')
+
+  // 동기화 진행 상태를 위한 state 추가
+  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
 
   useEffect(() => {
     fetchCompanies()
@@ -499,13 +553,16 @@ export function CosmosManagementContent() {
     }
   }
 
+  // handleSyncToCosmos 함수 수정
   const handleSyncToCosmos = async () => {
     if (!selectedCompany || !selectedPlatform) {
-      alert('업체와 플랫폼을 선택해주세요.')
+      alert('업체 플랫폼을 택주세요.')
       return
     }
 
     setIsSyncing(true)
+    setSyncProgress(null)
+
     try {
       const response = await fetch('/api/qoo10/cosmos/sync', {
         method: 'POST',
@@ -515,7 +572,7 @@ export function CosmosManagementContent() {
         body: JSON.stringify({
           companyId: selectedCompany,
           platformId: selectedPlatform,
-          itemStatus: selectedStatus // 단일 상태값만 전달
+          itemStatus: selectedStatus
         }),
       })
 
@@ -523,14 +580,28 @@ export function CosmosManagementContent() {
         throw new Error('Failed to sync with Cosmos DB')
       }
 
-      const result = await response.json()
-      alert(`Cosmos DB 동기화가 완료되었습니다.\n총 ${result.totalProducts}개의 상품이 동기화되었습니다.\n선택된 상태: ${
-        SYNC_STATUS_OPTIONS.find(s => s.value === selectedStatus)?.label
-      }`)
+      // EventSource를 사용하여 실시간 진행 상황 수신
+      const eventSource = new EventSource(`/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`);
+      
+      eventSource.onmessage = (event) => {
+        const progress = JSON.parse(event.data);
+        setSyncProgress(progress);
+        
+        // 동기화가 완료되면 EventSource 종료
+        if (progress.current === progress.total) {
+          eventSource.close();
+          setIsSyncing(false);
+        }
+      };
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        setIsSyncing(false);
+      };
+
     } catch (error) {
       console.error('Failed to sync with Cosmos DB:', error)
       alert('Cosmos DB 동기화에 실패했습니다.')
-    } finally {
       setIsSyncing(false)
     }
   }
@@ -649,7 +720,7 @@ export function CosmosManagementContent() {
       setSelectedProduct(result)
       setIsEditing(false)
       setEditedProduct(null)
-      fetchProducts() // 목록 새로고침
+      fetchProducts() // 목록 새고침
 
       // 저장 성공 메시지
       alert('상품 정보가 저장되었습니다.')
@@ -660,7 +731,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 수정 취소
+  // 수정 소
   const handleCancel = () => {
     setEditedProduct(null)
     setIsEditing(false)
@@ -751,7 +822,7 @@ export function CosmosManagementContent() {
     if (!editedProduct) return
 
     try {
-      // AI 요청 데이터 준비
+      // AI 요청 데이터 준
       const requestData = {
         itemTitle: editedProduct.ItemTitle,
         itemDetail: editedProduct.ItemDetail,
@@ -891,9 +962,35 @@ export function CosmosManagementContent() {
         })
 
       } else {
-        // 일반 상품인 경우 기존 API 호출 유지
-        // 1. ItemsBasic.UpdateGoods API
+        // 일반 상품인 경우
         console.log('[QOO10 적용] UpdateGoods API 호출 시작...')
+        
+        // 발송 가능일 처리
+        let availableDateValue = '3'  // 기본값
+        let desiredShippingDate = 3   // 기본값
+        
+        switch (selectedProduct.AvailableDateType) {
+          case '0': // 일반발송
+            availableDateValue = '3'
+            desiredShippingDate = 3
+            break
+          case '1': // 상품준비일
+            availableDateValue = selectedProduct.AvailableDateValue || '4'
+            desiredShippingDate = parseInt(availableDateValue)
+            break
+          case '2': // 출시일
+            availableDateValue = selectedProduct.AvailableDateValue || ''
+            desiredShippingDate = 0
+            break
+          case '3': // 당일발송
+            availableDateValue = selectedProduct.AvailableDateValue || '14:00'
+            desiredShippingDate = 0
+            break
+          default:
+            availableDateValue = '3'
+            desiredShippingDate = 3
+        }
+
         const updateGoodsResponse = await fetch(`/api/qoo10/products/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -916,9 +1013,9 @@ export function CosmosManagementContent() {
             ContactInfo: selectedProduct.ContactInfo,
             ShippingNo: selectedProduct.ShippingNo,
             Weight: selectedProduct.Weight,
-            DesiredShippingDate: selectedProduct.DesiredShippingDate,
             AvailableDateType: selectedProduct.AvailableDateType,
-            AvailableDateValue: selectedProduct.AvailableDateValue,
+            AvailableDateValue: availableDateValue,
+            DesiredShippingDate: desiredShippingDate,
             Keyword: selectedProduct.Keyword,
             SellerAuthKey: selectedProduct.SellerAuthKey
           })
@@ -926,6 +1023,7 @@ export function CosmosManagementContent() {
 
         const updateGoodsResult = await updateGoodsResponse.json()
         console.log('[QOO10 적용] UpdateGoods API 응답:', updateGoodsResult)
+        
         results.push({
           api: 'UpdateGoods (상품 기본정보)',
           success: updateGoodsResult.ResultCode === 0,
@@ -1032,7 +1130,7 @@ export function CosmosManagementContent() {
 
         // 5. ItemsContents.EditGoodsImage API
         if (selectedProduct.ImageUrl) {
-          console.log('[QOO10 적용] EditGoodsImage API 호출 시작...')
+          console.log('[QOO10 적] EditGoodsImage API 호출 시작...')
           const editImageResponse = await fetch(`/api/qoo10/products/image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1088,6 +1186,112 @@ export function CosmosManagementContent() {
       alert(`QOO10 적용 실패: ${error.message || '알 수 없는 오류가 발생했습니다.'}`)
     }
   }
+
+  // 프로그레스바 컴포넌트 추가
+  const SyncProgressBar = () => {
+    if (!syncProgress) return null;
+
+    const percentage = (syncProgress.current / syncProgress.total) * 100;
+    const remaining = syncProgress.total - syncProgress.current;
+
+    return (
+      <div className="fixed top-4 right-4 w-80 bg-white p-4 rounded-lg shadow-lg border">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold">QOO10 상품 동기화 중...</h3>
+            <span className="text-sm text-gray-500">
+              {syncProgress.current}/{syncProgress.total}
+            </span>
+          </div>
+          
+          {/* 프로그레스바 */}
+          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+
+          {/* 상세 정보 */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>일반상품:</span>
+                <span className="font-medium">{syncProgress.normalCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>무브상품:</span>
+                <span className="font-medium">{syncProgress.moveCount}</span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span>성공:</span>
+                <span className="text-green-600 font-medium">{syncProgress.successCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>실패:</span>
+                <span className="text-red-600 font-medium">{syncProgress.failCount}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 남은 상품 수 */}
+          <div className="text-sm text-gray-600 text-center">
+            남은 상품: {remaining}개
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 테이블 내의 날짜 포맷팅 함수 추가
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // 상품 저장 핸들러 추가
+  const handleSaveProduct = async (updatedProduct: DetailProduct) => {
+    try {
+      const response = await fetch(`/api/qoo10/cosmos/products/${updatedProduct.ItemCode}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...updatedProduct,
+          CompanyId: selectedCompany,
+          PlatformId: selectedPlatform,
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update product');
+      }
+
+      const savedProduct = await response.json();
+      
+      // 저장된 상품으로 상태 업데이트
+      setSelectedProduct(savedProduct);
+      
+      // 목록 새로고침
+      fetchProducts();
+      
+      // 성공 메시지 표시
+      alert('상품이 성공적으로 저장되었습니다.');
+
+    } catch (error) {
+      console.error('Failed to save product:', error);
+      alert('상품 저장에 실패했습니다.');
+    }
+  };
 
   return (
     <div className="p-6">
@@ -1153,21 +1357,38 @@ export function CosmosManagementContent() {
         <Button
           onClick={handleSyncToCosmos}
           disabled={!selectedCompany || !selectedPlatform || isSyncing}
-          className="ml-2"
+          className="ml-2 min-w-[300px]" // 버튼 너비 조정
         >
           {isSyncing ? (
-            <>
-              <span className="animate-spin mr-2">⟳</span>
-              QOO10 상품 동기화 중...
-            </>
+            <div className="flex flex-col items-center w-full">
+              <div className="flex items-center mb-1">
+                <span className="animate-spin mr-2">⟳</span>
+                QOO10 상품 동기화 중...
+              </div>
+              {syncProgress && (
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between gap-4">
+                    <span>진행: {syncProgress.current}/{syncProgress.total}</span>
+                    <span>남은 상품: {syncProgress.total - syncProgress.current}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span>일반: {syncProgress.normalCount}</span>
+                    <span>무브: {syncProgress.moveCount}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-            <>
+            <div className="flex items-center">
               <span className="mr-2">↻</span>
-              QOO10 상품 동기화
-            </>
+              QOO10 상 동기화
+            </div>
           )}
         </Button>
       </div>
+
+      {/* 프로그레스바 추가 */}
+      {isSyncing && <SyncProgressBar />}
 
       {selectedCompany && selectedPlatform && (
         <>
@@ -1218,10 +1439,11 @@ export function CosmosManagementContent() {
                     <TableHead>상품명</TableHead>
                     <TableHead className="text-right">판매가</TableHead>
                     <TableHead className="text-right">재고</TableHead>
-                    <TableHead>상</TableHead>
-                    <TableHead>구분</TableHead>
+                    <TableHead>판매상태</TableHead>
+                    <TableHead>분</TableHead>
                     <TableHead>최종 동기화</TableHead>
-                    <TableHead>리</TableHead>
+                    <TableHead>관리</TableHead>
+                    <TableHead>미리보기</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1265,7 +1487,7 @@ export function CosmosManagementContent() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {new Date(product.LastSyncDate).toLocaleString()}
+                          {formatDate(product.LastFetchDate)}
                         </TableCell>
                         <TableCell>
                           <Button 
@@ -1276,6 +1498,12 @@ export function CosmosManagementContent() {
                             <Edit className="w-4 h-4 mr-2" />
                             수정
                           </Button>
+                        </TableCell>
+                        <TableCell>
+                          <ProductPreview 
+                            itemCode={product.ItemCode} 
+                            isMoveProduct={product.Flag === 'MOVE'}
+                          />
                         </TableCell>
                       </TableRow>
                     ))
@@ -1309,676 +1537,33 @@ export function CosmosManagementContent() {
       )}
 
       {/* 상품 보 다이얼로그 */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={handleDialogClose}>
-        <DialogContent className="max-w-[70vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex justify-between items-center">
-              <DialogTitle>
-                상품 상세 정보 ({selectedProduct?.Flag === 'MOVE' ? '무브 상품' : '일반 상품'})
-              </DialogTitle>
-              <div className="flex gap-2">
-                {!isEditing && (
-                  <>
-                    <Button onClick={handleEditMode}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      수정하기
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
-                      onClick={handleApplyToQoo10}
-                      disabled={!selectedProduct}
-                    >
-                      <Globe className="w-4 h-4 mr-2" />
-                      QOO10 적용
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </DialogHeader>
-          {selectedProduct && (
-            <div className="space-y-6">
-              {/* 기본 정보 섹션 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>상품코드</Label>
-                  <Input value={selectedProduct?.ItemCode} disabled />
-                </div>
-                <div>
-                  <Label>판매상품코드</Label>
-                  <Input 
-                    value={isEditing ? editedProduct?.SellerCode : selectedProduct?.SellerCode || '-'}
-                    onChange={e => handleFieldChange('SellerCode', e.target.value)}
-                    readOnly={!isEditing}
-                    placeholder="판매상품코드 입력"
-                  />
-                </div>
-                <div>
-                  <Label>상품의 상태정보</Label>
-                  {isEditing ? (
-                    <Select
-                      value={editedProduct?.ItemStatus || 'S2'}
-                      onValueChange={(value) => handleFieldChange('ItemStatus', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="상품의 상태정보 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ITEM_STATUS_OPTIONS.map(status => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className={`px-3 py-2 rounded-md ${getStatusBadgeColor(selectedProduct?.ItemStatus || 'S2')}`}>
-                      {ITEM_STATUS_OPTIONS.find(s => s.value === selectedProduct?.ItemStatus)?.label || '-'}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <Label>상품명</Label>
-                  <Input 
-                    value={isEditing ? editedProduct?.ItemTitle : selectedProduct?.ItemTitle}
-                    onChange={e => handleFieldChange('ItemTitle', e.target.value)}
-                    readOnly={!isEditing}
-                  />
-                </div>
-              </div>
-
-              {/* 카테고리 정보 */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>메인 테고리</Label>
-                  <div className="flex gap-2">
-                    <Input value={selectedProduct.MainCatCd || '-'} readOnly />
-                    <Input value={selectedProduct.MainCatNm || '-'} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label>서 카테고리</Label>
-                  <div className="flex gap-2">
-                    <Input value={selectedProduct.FirstSubCatCd || '-'} readOnly />
-                    <Input value={selectedProduct.FirstSubCatNm || '-'} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label>세컨 카테고리</Label>
-                  <div className="flex gap-2">
-                    <Input value={selectedProduct.SecondSubCatCd || '-'} readOnly />
-                    <Input value={selectedProduct.SecondSubCatNm || '-'} readOnly />
-                  </div>
-                </div>
-              </div>
-
-              {/* 원산지 및 산업 코드 정보 */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>원산지 유형</Label>
-                  {isEditing ? (
-                    <Select
-                      value={editedProduct?.ProductionPlaceType || '1'}
-                      onValueChange={handleProductionPlaceTypeChange}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="원산지 유형 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRODUCTION_PLACE_TYPES.map(type => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input 
-                      value={PRODUCTION_PLACE_TYPES.find(t => t.value === selectedProduct?.ProductionPlaceType)?.label || '-'} 
-                      readOnly 
-                    />
-                  )}
-                </div>
-
-                {/* 원산지 유형에 따른 조건부 렌더링 */}
-                {(isEditing ? editedProduct?.ProductionPlaceType : selectedProduct?.ProductionPlaceType) === '1' && (
-                  // 국내(일본)인 경우 지역 선택
-                  <div>
-                    <Label>지역</Label>
-                    {isEditing ? (
-                      <Select
-                        value={editedProduct?.ProductionPlace || ''}
-                        onValueChange={(value) => handleFieldChange('ProductionPlace', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="지역 선택" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px] overflow-y-auto">
-                          {JAPAN_REGIONS.map(region => (
-                            <SelectItem key={region.value} value={region.value}>
-                              {region.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input 
-                        value={JAPAN_REGIONS.find(r => r.value === selectedProduct?.ProductionPlace)?.label || '-'} 
-                        readOnly 
-                      />
-                    )}
-                  </div>
-                )}
-
-                {(isEditing ? editedProduct?.ProductionPlaceType : selectedProduct?.ProductionPlaceType) === '2' && (
-                  // 해외인 경우 국가 선택
-                  <div>
-                    <Label>원산지 국가</Label>
-                    {isEditing ? (
-                      <Select
-                        value={editedProduct?.ProductionPlace || ''}
-                        onValueChange={(value) => handleFieldChange('ProductionPlace', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="국가 선택" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px] overflow-y-auto">
-                          {COUNTRY_OPTIONS.map(country => (
-                            <SelectItem key={country.value} value={country.value}>
-                              {country.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input 
-                        value={COUNTRY_OPTIONS.find(c => c.value === selectedProduct?.ProductionPlace)?.label || '-'} 
-                        readOnly 
-                      />
-                    )}
-                  </div>
-                )}
-
-                {(isEditing ? editedProduct?.ProductionPlaceType : selectedProduct?.ProductionPlaceType) === '3' && (
-                  // 기타인 경우 직접 입력
-                  <div>
-                    <Label>기타 정보</Label>
-                    {isEditing ? (
-                      <Input
-                        value={editedProduct?.ProductionPlace || ''}
-                        onChange={(e) => handleFieldChange('ProductionPlace', e.target.value)}
-                        placeholder="기타 원산지 정보 입력"
-                      />
-                    ) : (
-                      <Input 
-                        value={selectedProduct?.ProductionPlace || '-'} 
-                        readOnly 
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* 배송 관련 정보 */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>배송비 코드</Label>
-                  <Input 
-                    value={isEditing ? editedProduct?.ShippingNo : selectedProduct?.ShippingNo || '-'}
-                    onChange={e => handleFieldChange('ShippingNo', e.target.value)}
-                    readOnly={!isEditing}
-                  />
-                </div>
-                <div>
-                  <Label>무게 (kg)</Label>
-                  <Input 
-                    type="number"
-                    step="0.1"
-                    value={isEditing ? editedProduct?.Weight : selectedProduct?.Weight || '0'}
-                    onChange={e => handleFieldChange('Weight', parseFloat(e.target.value))}
-                    readOnly={!isEditing}
-                    placeholder="예: 0.5"
-                  />
-                </div>
-                <div>
-                  <Label>발송 가능일 유형</Label>
-                  {isEditing ? (
-                    <Select
-                      value={editedProduct?.AvailableDateType || '0'}
-                      onValueChange={(value) => {
-                        handleFieldChange('AvailableDateType', value)
-                        handleFieldChange('AvailableDateValue', '')
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="발송 가능일 유형 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AVAILABLE_DATE_TYPES.map(type => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input 
-                      value={AVAILABLE_DATE_TYPES.find(t => t.value === selectedProduct?.AvailableDateType)?.label || '-'} 
-                      readOnly 
-                    />
-                  )}
-                </div>
-                <div>
-                  <Label>발송 가능일 값</Label>
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <Input
-                        value={editedProduct?.AvailableDateValue || ''}
-                        onChange={e => {
-                          const newValue = e.target.value
-                          if (validateAvailableDateValue(editedProduct?.AvailableDateType || '0', newValue)) {
-                            handleFieldChange('AvailableDateValue', newValue)
-                          }
-                        }}
-                        placeholder={getAvailableDatePlaceholder(editedProduct?.AvailableDateType || '0')}
-                      />
-                      <p className="text-xs text-gray-500">
-                        {getAvailableDatePlaceholder(editedProduct?.AvailableDateType || '0')}
-                      </p>
-                    </div>
-                  ) : (
-                    <Input 
-                      value={selectedProduct?.AvailableDateValue || '-'} 
-                      readOnly 
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* 상품 상태 정보 */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>재고수량</Label>
-                  <Input 
-                    type="number"
-                    value={isEditing ? editedProduct?.ItemQty : selectedProduct?.ItemQty}
-                    onChange={e => handleFieldChange('ItemQty', e.target.value)}
-                    readOnly={!isEditing}
-                  />
-                </div>
-                <div>
-                  <Label>판매종료일</Label>
-                  {isEditing ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !editedProduct?.ExpireDate && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {editedProduct?.ExpireDate ? 
-                            format(new Date(editedProduct.ExpireDate), 'yyyy-MM-dd') : 
-                            "날짜 선택"
-                          }
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={editedProduct?.ExpireDate ? new Date(editedProduct.ExpireDate) : undefined}
-                          onSelect={(date) => handleFieldChange('ExpireDate', date?.toISOString())}
-                          initialFocus
-                          disabled={(date) => date < new Date()} // 오늘 전 날짜 선택 불가
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  ) : (
-                    <Input 
-                      value={selectedProduct?.ExpireDate ? 
-                        format(new Date(selectedProduct.ExpireDate), 'yyyy-MM-dd') : 
-                        '-'
-                      } 
-                      readOnly 
-                    />
-                  )}
-                </div>
-                <div>
-                  <Label>성인상품 여부</Label>
-                  <Input value={selectedProduct?.AdultYN === 'Y' ? '성인상품' : '일반상품'} readOnly />
-                </div>
-              </div>
-
-              {/* 추가 정보 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>제품번호</Label>
-                  <Input value={selectedProduct.ModelNM || '-'} readOnly />
-                </div>
-                <div>
-                  <Label>제조사</Label>
-                  <Input value={selectedProduct.ManufacturerDate || '-'} readOnly />
-                </div>
-                <div>
-                  <Label>소재</Label>
-                  <Input value={selectedProduct.Material || '-'} readOnly />
-                </div>
-                <div>
-                  <Label>연락처</Label>
-                  <Input value={selectedProduct.ContactInfo || '-'} readOnly />
-                </div>
-              </div>
-
-              {/* 키워드 및 날짜 정보 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>검색 키워드</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProduct.Keyword?.split(',').map((keyword, index) => (
-                      <span key={index} className="px-2 py-1 bg-gray-100 rounded-full text-sm">
-                        {keyword.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>등록/수정일</Label>
-                  <div className="flex gap-2">
-                    <Input value={formatDate(selectedProduct.ListedDate)} readOnly />
-                    <Input value={formatDate(selectedProduct.ChangedDate)} readOnly />
-                  </div>
-                </div>
-              </div>
-
-              {/* 이미지 섹션 */}
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <h3 className="text-lg font-semibold mb-4">대표 이미지</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>메인 이미지</Label>
-                    {isEditing ? (
-                      <div className="space-y-4">
-                        {/* 이미지 업로드 */}
-                        <div className="space-y-2">
-                          <Label>로컬 이미지 업로드</Label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="cursor-pointer"
-                          />
-                        </div>
-
-                        {/* 외부 URL 입력 */}
-                        <div className="space-y-2">
-                          <Label>또는 이미지 URL 입력</Label>
-                          <Input
-                            type="text"
-                            placeholder="https://"
-                            value={editedProduct?.ImageUrl || ''}
-                            onChange={handleExternalUrlInput}
-                          />
-                        </div>
-
-                        {/* 이미지 미리보기 */}
-                        {editedProduct?.ImageUrl && (
-                          <div className="relative">
-                            <img
-                              src={editedProduct.ImageUrl}
-                              alt="상품 이미지"
-                              className="mt-2 max-h-[300px] object-contain mx-auto border rounded-lg"
-                            />
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={() => setEditedProduct({
-                                ...editedProduct,
-                                ImageUrl: ''
-                              })}
-                            >
-                              삭제
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      selectedProduct?.ImageUrl && (
-                        <div className="relative">
-                          <img
-                            src={selectedProduct.ImageUrl}
-                            alt="상품 이미지"
-                            className="mt-2 max-h-[300px] object-contain mx-auto border rounded-lg"
-                          />
-                        </div>
-                      )
-                    )}
-                  </div>
-                  <div>
-                    <Label>옵션 이미지</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-2 max-h-[400px] overflow-y-auto">
-                      {selectedProduct?.OptionMainimage?.split('$$').map((img: string, index: number) => {
-                        const imageUrl = img.split('||*')[1]
-                        return imageUrl ? (
-                          <div key={index} className="relative aspect-square">
-                            <img 
-                              src={imageUrl}
-                              alt={`옵션 이미지 ${index + 1}`}
-                              className="w-full h-full object-cover border rounded"
-                            />
-                          </div>
-                        ) : null
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 옵션 정보 섹션 */}
-              {selectedProduct.OptionType && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">옵션 정보</h3>
-                  <div className="border rounded-lg p-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      {selectedProduct.OptionType.split('$$').map((option: string, index: number) => {
-                        const [name, color, isDefault] = option.split('||*')
-                        return (
-                          <div key={index} className="flex items-center space-x-2 p-2 border rounded">
-                            <div 
-                              className="w-6 h-6 rounded border"
-                              style={{ backgroundColor: color }}
-                            />
-                            <span>{name}</span>
-                            {isDefault === 'Y' && (
-                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">기본</span>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 상세 설명 */}
-              <div>
-                <Label>상품 상세설명</Label>
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-500">
-                    <p>텍스트 사용량: {editedProduct?.ItemDetail?.length || 0}B/1024KB (1MB)</p>
-                    <p>이미지 사용량: 0% 177KB/40960KB (40MB)</p>
-                    <p className="text-xs mt-1">
-                      [권장 이미지] 사이즈: 가로 최대 820px / 용량: 한 장당 1MB / 형식: JPG, JPEG, PNG, GIF
-                    </p>
-                  </div>
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <div className="border rounded-lg">
-                        <CKEditor
-                          editor={ClassicEditor}
-                          data={editedProduct?.ItemDetail || ''}
-                          config={{
-                            toolbar: [
-                              'heading',
-                              '|',
-                              'bold',
-                              'italic',
-                              'link',
-                              'bulletedList',
-                              'numberedList',
-                              '|',
-                              'outdent',
-                              'indent',
-                              '|',
-                              'imageUpload',
-                              'blockQuote',
-                              'insertTable',
-                              'mediaEmbed',
-                              'undo',
-                              'redo',
-                              '|',
-                              'alignment',
-                              'sourceEditing'
-                            ],
-                            language: 'ko',
-                            image: {
-                              toolbar: [
-                                'imageTextAlternative',
-                                'imageStyle:inline',
-                                'imageStyle:block',
-                                'imageStyle:side'
-                              ]
-                            }
-                          }}
-                          onChange={(event, editor) => {
-                            const data = editor.getData()
-                            handleFieldChange('ItemDetail', data)
-                          }}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (!editedProduct?.ItemDetail) return
-                            const convertedHtml = convertHtmlToQoo10Format(editedProduct.ItemDetail)
-                            handleFieldChange('ItemDetail', convertedHtml)
-                          }}
-                        >
-                          QOO10 형식으로 변환
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (!editedProduct?.ItemDetail) return
-                            const formattedHtml = editedProduct.ItemDetail
-                              .replace(/></g, '>\n<')
-                              .replace(/^[ \t]+/gm, '')
-                              .replace(/\n{2,}/g, '\n')
-                            setHtmlSource(formattedHtml)
-                            setIsHtmlSourceOpen(true)
-                          }}
-                        >
-                          HTML 소스 보기/편집
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div 
-                      className="border rounded-lg p-4 min-h-[200px] bg-white"
-                      dangerouslySetInnerHTML={{ __html: selectedProduct?.ItemDetail || '' }}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* 옵션 정보 테이블 */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">옵션 정보</h3>
-                <div className="border rounded-lg p-4 overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="px-4 py-2 text-left">옵션1</th>
-                        <th className="px-4 py-2 text-left">값1</th>
-                        <th className="px-4 py-2 text-left">옵션2</th>
-                        <th className="px-4 py-2 text-left">값2</th>
-                        <th className="px-4 py-2 text-right">가격</th>
-                        <th className="px-4 py-2 text-right">수량</th>
-                        <th className="px-4 py-2 text-left">코드</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(isEditing ? editedProduct : selectedProduct)?.Options?.map((option, index) => (
-                        <tr key={option.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-4 py-2">{option.name1 || '-'}</td>
-                          <td className="px-4 py-2">{option.value1 || '-'}</td>
-                          <td className="px-4 py-2">{option.name2 || '-'}</td>
-                          <td className="px-4 py-2">{option.value2 || '-'}</td>
-                          <td className="px-4 py-2 text-right">
-                            {isEditing ? (
-                              <Input
-                                type="number"
-                                value={option.price}
-                                onChange={e => handleOptionChange(option.id, 'price', e.target.value)}
-                                className="w-24 text-right"
-                              />
-                            ) : (
-                              <span>{option.price?.toLocaleString() || 0}원</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2 text-right">
-                            {isEditing ? (
-                              <Input
-                                type="number"
-                                value={option.qty}
-                                onChange={e => handleOptionChange(option.id, 'qty', e.target.value)}
-                                className="w-24 text-right"
-                              />
-                            ) : (
-                              <span>{option.qty?.toLocaleString() || 0}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-2">{option.itemTypeCode || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                
-                {/* 옵션 요약 정보 */}
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="border rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">총 옵션 수</h4>
-                    <p className="text-2xl">{selectedProduct.Options?.length || 0}개</p>
-                  </div>
-                  <div className="border rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">옵션 유형</h4>
-                    <p className="text-2xl">{selectedProduct.Flag === 'MOVE' ? '무브' : '일반'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 수정 모드일 때만 표시되는 버튼 */}
-              {isEditing && (
-                <DialogFooter>
-                  <Button variant="outline" onClick={handleCancel}>
-                    취소
-                  </Button>
-                  <Button onClick={handleSave}>
-                    저장
-                  </Button>
-                </DialogFooter>
+      {isDetailDialogOpen && selectedProduct && (
+        <Dialog 
+          open={isDetailDialogOpen} 
+          onOpenChange={(open) => {
+            if (!open) setIsDetailDialogOpen(false)
+          }}
+        >
+          <DialogContent className="w-full max-w-[95vw] h-[95vh] p-0">
+            <div className="h-full overflow-y-auto p-6">
+              {selectedProduct.Flag === 'MOVE' ? (
+                <MoveProductEditor
+                  product={selectedProduct}
+                  onSave={handleSaveProduct}
+                  onCancel={() => setIsDetailDialogOpen(false)}
+                />
+              ) : (
+                <NormalProductEditor
+                  product={selectedProduct}
+                  onSave={handleSaveProduct}  // 저장 핸들러 연결
+                  onCancel={() => setIsDetailDialogOpen(false)}
+                  onApplyToQoo10={() => handleApplyToQoo10()}
+                />
               )}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* HTML 소스보기/편집 모달 */}
       <Dialog open={isHtmlSourceOpen} onOpenChange={setIsHtmlSourceOpen}>
