@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         IndustrialCode: body.IndustrialCode || '',
         BrandNo: body.BrandNo || '',
         ManufactureDate: body.ManufactureDate || '',
-        ModelNm: body.ModelNm || '',
+        ModelNm: body.ModelNM || '',
         Material: body.Material || '',
         ProductionPlaceType: body.ProductionPlaceType || '',
         ProductionPlace: body.ProductionPlace || '',
@@ -53,6 +53,16 @@ export async function POST(request: NextRequest) {
       data: data
     });
 
+    // 에러 코드 처리
+    if (data.ResultCode !== 0) {
+      return NextResponse.json({
+        success: false,
+        error: data.ResultMsg,
+        code: data.ResultCode,
+        details: getErrorMessage(data.ResultCode)
+      });
+    }
+
     return NextResponse.json(data);
     
   } catch (error) {
@@ -65,4 +75,25 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// 에러 메시지 매핑
+function getErrorMessage(code: number): string {
+  const errorMessages: { [key: number]: string } = {
+    0: 'SUCCESS',
+    '-10000': 'Please check the Seller Authorization Key.',
+    '-10001': 'Fail to find Item information with ItemCode,SellerCode.',
+    '-10002': 'The product information does not exist.',
+    '-10003': 'Failed to find about Seller\'s free delivery Info.',
+    '-10004': 'Delivery information is wrong. please input another ShippingNo.',
+    '-10005': 'Please check the AvailableDateValue.',
+    '-10101': 'Processing Error',
+    '-90001': 'The API does not exist',
+    '-90002': 'You are not authorized for this.',
+    '-90003': 'You are not authorized for this.',
+    '-90004': 'Seller authorization key is expired. Use a new key.',
+    '-90005': 'Seller authorization key is expired. Use a new key.'
+  };
+
+  return errorMessages[code] || 'Unknown error';
 } 
