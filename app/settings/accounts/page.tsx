@@ -30,7 +30,7 @@ export default function AccountsPage() {
             <Menu className="h-6 w-6" />
             <span className="sr-only">Toggle navigation</span>
           </Button>
-          <h1 className="font-semibold">QOO10 업체계정관리</h1>
+          <h1 className="font-semibold">업체계정관리</h1>
         </header>
         <main className="flex flex-1 flex-col">
           <CompanyInfoContent />

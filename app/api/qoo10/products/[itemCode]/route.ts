@@ -1,25 +1,37 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// BigInt를 JSON으로 직렬화하기 위한 헬퍼 함수
-function serializeData(data: any): any {
-  return JSON.parse(JSON.stringify(data, (_, value) =>
-    typeof value === 'bigint' ? value.toString() : value
-  ))
-}
-
 export async function GET(
   request: Request,
   { params }: { params: { itemCode: string } }
 ) {
   try {
-    const { searchParams } = new URL(request.url)
-    const flag = searchParams.get('flag')
-
-    // 상품 상세 정보 조회
+    // 상품 상세 정보와 옵션 정보를 함께 조회
     const product = await prisma.zal_Qoo10ItemDetails.findUnique({
       where: {
-        ItemCode: params.itemCode
+        ItemCode: params.itemCode,
+      },
+      include: {
+        // zal_Qoo10ItemOptions 대신 Zal_Qoo10ItemOptions 사용
+        Zal_Qoo10ItemOptions: {
+          select: {
+            Id: true,
+            Name1: true,
+            Value1: true,
+            Name2: true,
+            Value2: true,
+            Name3: true,
+            Value3: true,
+            Name4: true,
+            Value4: true,
+            Name5: true,
+            Value5: true,
+            Price: true,
+            Qty: true,
+            ItemTypeCode: true,
+            Flag: true
+          }
+        }
       }
     })
 
@@ -30,25 +42,11 @@ export async function GET(
       )
     }
 
-    // 상품 옵션 정보 조회
-    const options = await prisma.zal_Qoo10ItemOptions.findMany({
-      where: {
-        ItemCode: params.itemCode
-      }
-    })
-
-    // BigInt 직렬화 처리
-    const serializedData = serializeData({
-      ...product,
-      options
-    })
-
-    return NextResponse.json(serializedData)
-
+    return NextResponse.json(product)
   } catch (error) {
-    console.error('상품 상세 정보 조회 실패:', error)
+    console.error('상품 조회 실패:', error)
     return NextResponse.json(
-      { error: '상품 상세 정보 조회에 실패했습니다.' },
+      { error: '상품 조회에 실패했습니다.' },
       { status: 500 }
     )
   }

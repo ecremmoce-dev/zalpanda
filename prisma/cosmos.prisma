@@ -1,0 +1,184 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("COSMOS_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/cosmos-client"
+}
+
+// 일반 상품 모델
+model Qoo10NormalProduct {
+  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  itemCode              String    @unique
+  companyId             String
+  platformId            String
+  sellerId              String?
+  sellerAuthKey         String?
+  flag                  String    @default("NONE")
+  sellerCode            String?
+  itemStatus            String?
+  itemTitle             String?
+  promotionName         String?
+  mainCatCd            String?
+  mainCatNm            String?
+  firstSubCatCd        String?
+  firstSubCatNm        String?
+  secondSubCatCd       String?
+  secondSubCatNm       String?
+  drugType             String?
+  productionPlaceType  String?
+  productionPlace      String?
+  industrialCodeType   String?
+  industrialCode       String?
+  retailPrice          Float?
+  itemPrice            Float?
+  taxRate              Float?
+  settlePrice          Float?
+  itemQty              Int?
+  expireDate           DateTime?
+  shippingNo           String?
+  modelNM              String?
+  manufacturerDate     String?
+  brandNo              String?
+  material             String?
+  adultYN              String?
+  contactInfo          String?
+  itemDetail           String?   @db.String
+  imageUrl             String?
+  videoURL             String?
+  keyword              String?
+  listedDate           DateTime?
+  changedDate          DateTime?
+  lastFetchDate        DateTime?
+  options              NormalOption[]
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // 발송 관련 필드 추가
+  availableDateType     String?   // 발송 가능일 유형 (0: 일반발송, 1: 상품준비일, 2: 출시일, 3: 당일발송)
+  availableDateValue    String?   // 발송 가능일 값
+  desiredShippingDate   Int?      // 희망배송일 (0: 사용안함)
+  weight                Float?     // 무게 (kg)
+
+  // 배송비 코드 필드 추가
+  shippingNo           String?    // 기본 배송비 코드
+  optionShippingNo1    String?    // 추가 배송비 코드 1
+  optionShippingNo2    String?    // 추가 배송비 코드 2
+
+  @@map("qoo10_normal_products")
+}
+
+// 무브 상품 모델
+model Qoo10MoveProduct {
+  id                    String    @id @default(auto()) @map("_id") @db.ObjectId
+  itemCode             String    @unique
+  companyId             String
+  platformId            String
+  sellerId              String?
+  sellerAuthKey         String?
+  flag                  String    @default("MOVE")
+  adultYN               String?
+  attributeInfo         String?
+  availableDateValue    String?
+  brandNo               String?
+  buyLimitType          String?
+  buyLimitDate          String?
+  buyLimitQty          Int?
+  contactInfo          String?
+  desiredShippingDate  Int?
+  expirationDateType   String?
+  expirationDateMFD    String?
+  expirationDatePAO    String?
+  expirationDateEXP    String?
+  expireDate           String?
+  imageOtherUrl        String?
+  industrialCode       String?
+  industrialCodeType   String?
+ 
+  itemDescription      String?   @db.Text
+  itemPrice            Float?
+  itemSeriesName       String?
+  keyword              String?
+  manufactureDate      String?
+  materialInfo         String?
+  materialNumber       String?
+  modelNM              String?
+  optionMainimage      String?   @db.Text
+  optionQty            String?   @db.Text
+  optionSubimage       String?
+  optionType           String?
+  originCountryId      String?
+  originRegionId       String?
+  originOthers         String?
+  originType           String?
+  promotionName        String?
+  retailPrice          Float?
+  seasonType           String?
+  secondSubCat         String?
+  sellerCode           String?
+  shippingNo           String?
+  sizetableType1       String?
+  sizetableType1Value  String?
+  sizetableType2       String?
+  sizetableType2Value  String?
+  sizetableType3       String?
+  sizetableType3Value  String?
+  styleNumber          String?
+  tpoNumber            String?
+  videoNumber          String?
+  washinginfoFit       String?
+  washinginfoLining    String?
+  washinginfoSeethrough String?
+  washinginfoStretch   String?
+  washinginfoThickness String?
+  washinginfoWashing   String?
+  weight               Float?
+  taxRate              String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  lastFetchDate        DateTime?
+
+  @@map("qoo10_move_products")
+}
+
+// 일반 상품 옵션 모델
+model NormalOption {
+  id            String             @id @default(auto()) @map("_id") @db.ObjectId
+  productId     String             @db.ObjectId
+  name1         String?
+  value1        String?
+  name2         String?
+  value2        String?
+  name3         String?
+  value3        String?
+  name4         String?
+  value4        String?
+  name5         String?
+  value5        String?
+  price         Float?
+  qty           Int?
+  itemTypeCode  String?
+  product       Qoo10NormalProduct @relation(fields: [productId], references: [id])
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@map("qoo10_normal_options")
+}
+
+// 무브 상품 옵션 모델
+model MoveOption {
+  id            String           @id @default(auto()) @map("_id") @db.ObjectId
+  productId     String           @db.ObjectId
+  color         String
+  size          String
+  qty           Int
+  itemTypeCode  String?
+  price         Float?
+  product       Qoo10MoveProduct @relation(fields: [productId], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("qoo10_move_options")
+} 
