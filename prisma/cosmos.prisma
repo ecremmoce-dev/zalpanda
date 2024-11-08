@@ -138,6 +138,7 @@ model Qoo10MoveProduct {
   taxRate              String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+  lastFetchDate        DateTime?
 
   @@map("qoo10_move_products")
 }

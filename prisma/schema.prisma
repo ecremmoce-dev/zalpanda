@@ -2443,6 +2443,7 @@ model VoyageSlaInfo {
 
 model Zal_CompanyInfo {
   Id                  String                @id(map: "PK__Zal_Comp__3214EC071DF830D0") @db.UniqueIdentifier
+  ParentCompanyId     String?               @db.UniqueIdentifier
   Name                String?               @db.NVarChar(100)
   NameEn              String?               @db.NVarChar(100)
   BizNum              String?               @db.NVarChar(100)
