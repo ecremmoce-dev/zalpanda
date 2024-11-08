@@ -19,6 +19,11 @@ import { Image } from 'lucide-react'
 import { Globe } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, X, Upload } from 'lucide-react'
+import { Code } from 'lucide-react'
+import { Eye } from 'lucide-react'
+import { FileText } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 interface NormalProductEditorProps {
   product: DetailProduct
@@ -31,6 +36,9 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
   const [isEditing, setIsEditing] = useState(false)
   const [editedProduct, setEditedProduct] = useState(product)
   const [activeTab, setActiveTab] = useState("basic")
+  const [htmlDialogOpen, setHtmlDialogOpen] = useState(false);
+  const [htmlSource, setHtmlSource] = useState('');
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const handleFieldChange = (field: keyof DetailProduct, value: any) => {
     setEditedProduct(prev => ({
@@ -165,6 +173,21 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
       alert(`QOO10 적용 실패: ${error.message || '알 수 없는 오류가 발생했습니다.'}`)
     }
   }
+
+  const formatHtml = (html: string): string => {
+    try {
+      return html
+        .replace(/>\s+</g, '>\n<')
+        .replace(/(<[^>]+>)/g, match => `\n${match}\n`)
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => '  ' + line.trim())
+        .join('\n');
+    } catch (error) {
+      console.error('HTML 포맷팅 실패:', error);
+      return html;
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -775,98 +798,217 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
 
         {activeTab === "description" && (
           <div className="mt-6 space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">상품 상세 설명</h3>
-              {isEditing && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      // HTML 소스 보기/편집 모달 열기
-                      // TODO: HTML 소스 편집 기능 구현
-                    }}
-                  >
-                    HTML 소스
-                  </Button>
+            <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-6 bg-blue-500 rounded"></div>
+                  <h3 className="text-lg font-semibold">상품 상세 설명</h3>
+                </div>
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        setHtmlSource(editedProduct.ItemDetail || '');
+                        setHtmlDialogOpen(true);
+                      }}
+                    >
+                      <Code className="w-4 h-4" />
+                      HTML 소스
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => {
+                        setPreviewDialogOpen(true);
+                      }}
+                    >
+                      <Eye className="w-4 h-4" />
+                      미리보기
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="border rounded-lg">
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={editedProduct.ItemDetail || ''}
+                  disabled={!isEditing}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    handleFieldChange('ItemDetail', data);
+                  }}
+                  config={{
+                    toolbar: {
+                      items: [
+                        'heading',
+                        '|',
+                        'bold',
+                        'italic',
+                        'link',
+                        'bulletedList',
+                        'numberedList',
+                        '|',
+                        'outdent',
+                        'indent',
+                        '|',
+                        'imageUpload',
+                        'blockQuote',
+                        'insertTable',
+                        'mediaEmbed',
+                        'undo',
+                        'redo',
+                        '|',
+                        'alignment',
+                        'fontSize',
+                        'fontColor',
+                        'fontBackgroundColor'
+                      ]
+                    }
+                  }}
+                />
+              </div>
+
+              {!isEditing && editedProduct.ItemDetail && (
+                <div className="mt-6">
+                  <h4 className="text-md font-semibold mb-4">미리보기</h4>
+                  <div 
+                    className="border rounded-lg p-4 prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: editedProduct.ItemDetail }}
+                  />
                 </div>
               )}
             </div>
 
-            <div className="border rounded-lg">
-              <CKEditor
-                editor={ClassicEditor}
-                data={editedProduct.ItemDetail || ''}
-                disabled={!isEditing}
-                onChange={(event, editor) => {
-                  const data = editor.getData();
-                  handleFieldChange('ItemDetail', data);
-                }}
-                config={{
-                  toolbar: {
-                    items: [
-                      'heading',
-                      '|',
-                      'bold',
-                      'italic',
-                      'link',
-                      'bulletedList',
-                      'numberedList',
-                      '|',
-                      'outdent',
-                      'indent',
-                      '|',
-                      'imageUpload',
-                      'blockQuote',
-                      'insertTable',
-                      'mediaEmbed',
-                      'undo',
-                      'redo',
-                      '|',
-                      'alignment',
-                      'fontSize',
-                      'fontColor',
-                      'fontBackgroundColor'
-                    ]
-                  },
-                  image: {
-                    toolbar: [
-                      'imageTextAlternative',
-                      'imageStyle:full',
-                      'imageStyle:side'
-                    ]
-                  },
-                  alignment: {
-                    options: ['left', 'center', 'right', 'justify']
-                  },
-                  table: {
-                    contentToolbar: [
-                      'tableColumn',
-                      'tableRow',
-                      'mergeTableCells'
-                    ]
-                  },
-                  heading: {
-                    options: [
-                      { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
-                      { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
-                      { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
-                      { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' }
-                    ]
-                  }
-                }}
-              />
-            </div>
+            {/* HTML 소스 편집 다이얼로그 */}
+            <Dialog open={htmlDialogOpen} onOpenChange={setHtmlDialogOpen}>
+              <DialogContent className="max-w-4xl h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Code className="w-5 h-5" />
+                    HTML 소스 편집
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="flex flex-col h-[calc(90vh-8rem)]">
+                  {/* 툴바 */}
+                  <div className="flex items-center gap-2 p-2 border-b">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        try {
+                          const formatted = formatHtml(htmlSource);
+                          setHtmlSource(formatted);
+                        } catch (error) {
+                          console.error('HTML 포맷팅 실패:', error);
+                          alert('HTML 포맷팅에 실패했습니다.');
+                        }
+                      }}
+                      className="flex items-center gap-1"
+                    >
+                      <FileText className="w-4 h-4" />
+                      포맷
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewDialogOpen(true)}
+                      className="flex items-center gap-1"
+                    >
+                      <Eye className="w-4 h-4" />
+                      미리보기
+                    </Button>
+                    <div className="flex-1" />
+                    <span className="text-sm text-gray-500">
+                      * Ctrl + S로 저장, Esc로 취소할 수 있습니다.
+                    </span>
+                  </div>
 
-            {!isEditing && editedProduct.ItemDetail && (
-              <div className="mt-6">
-                <h4 className="text-md font-semibold mb-4">미리보기</h4>
+                  {/* 에디터 영역 */}
+                  <div className="flex-1 min-h-0 p-4">
+                    <textarea
+                      value={htmlSource}
+                      onChange={(e) => setHtmlSource(e.target.value)}
+                      className="w-full h-full p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ 
+                        resize: 'none',
+                        lineHeight: '1.5',
+                        tabSize: 2
+                      }}
+                      onKeyDown={(e) => {
+                        // Ctrl + S로 저장
+                        if (e.ctrlKey && e.key === 's') {
+                          e.preventDefault();
+                          handleFieldChange('ItemDetail', htmlSource);
+                          setHtmlDialogOpen(false);
+                        }
+                        // Esc로 취소
+                        if (e.key === 'Escape') {
+                          setHtmlDialogOpen(false);
+                        }
+                        // Tab 키 처리
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          const start = e.currentTarget.selectionStart;
+                          const end = e.currentTarget.selectionEnd;
+                          const newValue = htmlSource.substring(0, start) + '  ' + htmlSource.substring(end);
+                          setHtmlSource(newValue);
+                          e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2;
+                        }
+                      }}
+                      spellCheck={false}
+                      placeholder="HTML 코드를 입력하세요..."
+                    />
+                  </div>
+
+                  {/* 하단 버튼 */}
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => setHtmlDialogOpen(false)}
+                      className="flex items-center gap-1"
+                    >
+                      취소
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        handleFieldChange('ItemDetail', htmlSource);
+                        setHtmlDialogOpen(false);
+                      }}
+                      className="flex items-center gap-1"
+                    >
+                      <Check className="w-4 h-4" />
+                      적용
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* HTML 미리보기 다이얼로그 */}
+            <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+              <DialogContent className="max-w-4xl h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>HTML 미리보기</DialogTitle>
+                </DialogHeader>
                 <div 
-                  className="border rounded-lg p-4"
-                  dangerouslySetInnerHTML={{ __html: editedProduct.ItemDetail }}
+                  className="flex-1 min-h-0 p-4 border rounded-md overflow-auto prose max-w-none"
+                  dangerouslySetInnerHTML={{ 
+                    __html: htmlDialogOpen ? htmlSource : editedProduct.ItemDetail || '' 
+                  }}
                 />
-              </div>
-            )}
+                <DialogFooter>
+                  <Button onClick={() => setPreviewDialogOpen(false)}>
+                    닫기
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </Tabs>
