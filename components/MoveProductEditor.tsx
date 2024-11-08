@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Globe, Image, Plus, Upload, X, Code, FileText, Eye } from 'lucide-react'
+import { Edit, Globe, Image, Plus, Upload, X, Code, FileText, Eye, Check } from 'lucide-react'
 import { CKEditor } from '@ckeditor/ckeditor5-react'
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -555,6 +555,57 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                     </Button>
                   </>
                 )}
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={async () => {
+                    try {
+                      // InventoryInfo 문자열 생성
+                      const inventoryInfo = options.flatMap(opt => 
+                        opt.sizes.map(size => 
+                          `${opt.color}||*${size.size}||*0||*${size.qty}||*${size.itemTypeCode || ''}`
+                        )
+                      ).join('$$');
+
+                      const response = await fetch('/api/qoo10/products/inventory/common', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          SellerCode: editedProduct.SellerCode,
+                          InventoryInfo: inventoryInfo,
+                          SellerAuthKey: editedProduct.SellerAuthKey,
+         
+                        }),
+                      });
+
+                      const result = await response.json();
+
+                      // 결과 메시지 생성
+                      let message = '== QOO10 옵션정보 전송 결과 ==\n\n';
+                      
+                      if (result.ResultCode === 0) {
+                        message += '✅ 옵션정보 전송 성공\n';
+                        message += '상품 페이지 반영까지 최대 10분이 소요될 수 있습니다.';
+                      } else {
+                        message += '❌ 옵션정보 전송 실패\n';
+                        message += `오류 코드: ${result.ResultCode}\n`;
+                        message += `오류 메시지: ${result.details || result.ResultMsg}`;
+                      }
+
+                      alert(message);
+
+                    } catch (error) {
+                      console.error('Failed to send inventory info:', error);
+                      alert('옵션정보 전송 중 오류가 발생했습니다.');
+                    }
+                  }}
+                >
+                  <Upload className="w-4 h-4" />
+                  QOO10 옵션정보 전송
+                </Button>
               </div>
             </div>
 
@@ -749,7 +800,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                             onClick={() => {
                               // 새로운 사이즈 옵션 추가
                               const newSizes = [...colorOption.sizes, {
-                                size: '',  // 새로운 사이즈
+                                size: '',  // 새로운 사즈
                                 qty: 0,    // 초기 수량
                                 itemTypeCode: ''  // 판매자옵션코드
                               }];
@@ -963,73 +1014,93 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
 
             {/* HTML 소스 편집 다이얼로그 */}
             <Dialog open={htmlDialogOpen} onOpenChange={setHtmlDialogOpen}>
-              <DialogContent className="max-w-4xl h-[80vh]">
+              <DialogContent className="max-w-4xl h-[90vh]">
                 <DialogHeader>
-                  <DialogTitle>HTML 소스 편집</DialogTitle>
-                  <DialogDescription>
-                    HTML 태그를 직접 편집할 수 있습니다.
-                  </DialogDescription>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Code className="w-5 h-5" />
+                    HTML 소스 편집
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="flex-1 min-h-0">
-                  <textarea
-                    value={htmlSource}
-                    onChange={(e) => setHtmlSource(e.target.value)}
-                    className="w-full h-[calc(100vh-300px)] p-4 font-mono text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    style={{ 
-                      whiteSpace: 'pre',
-                      overflowWrap: 'normal',
-                      overflowX: 'auto'
-                    }}
-                  />
-                </div>
-                <div className="mt-4 flex justify-between">
-                  <div className="flex items-center gap-2">
+                
+                <div className="flex flex-col h-[calc(90vh-8rem)]">
+                  {/* 툴바 */}
+                  <div className="flex items-center gap-2 p-2 border-b">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        // HTML 포맷팅
                         try {
-                          const formatted = prettier.format(htmlSource, {
-                            parser: 'html',
-                            plugins: [prettierHtml],
-                            printWidth: 80,
-                            tabWidth: 2,
-                            useTabs: false,
-                            semi: true,
-                            singleQuote: true,
-                            trailingComma: 'none',
-                            bracketSpacing: true,
-                            jsxBracketSameLine: false,
-                            arrowParens: 'avoid',
-                            proseWrap: 'preserve'
-                          });
+                          // 간단한 HTML 포맷팅
+                          const formatted = formatHtml(htmlSource);
                           setHtmlSource(formatted);
                         } catch (error) {
-                          console.error('Failed to format HTML:', error);
+                          console.error('HTML 포맷팅 실패:', error);
                           alert('HTML 포맷팅에 실패했습니다.');
                         }
                       }}
+                      className="flex items-center gap-1"
                     >
-                      <FileText className="w-4 h-4 mr-1" />
+                      <FileText className="w-4 h-4" />
                       포맷
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        // HTML 미리보기
-                        setPreviewDialogOpen(true);
-                      }}
+                      onClick={() => setPreviewDialogOpen(true)}
+                      className="flex items-center gap-1"
                     >
-                      <Eye className="w-4 h-4 mr-1" />
+                      <Eye className="w-4 h-4" />
                       미리보기
                     </Button>
+                    <div className="flex-1" />
+                    <span className="text-sm text-gray-500">
+                      * Ctrl + S로 저장, Esc로 취소할 수 있습니다.
+                    </span>
                   </div>
-                  <div className="flex gap-2">
+
+                  {/* 에디터 영역 */}
+                  <div className="flex-1 min-h-0 p-4">
+                    <textarea
+                      value={htmlSource}
+                      onChange={(e) => setHtmlSource(e.target.value)}
+                      className="w-full h-full p-4 font-mono text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      style={{ 
+                        resize: 'none',
+                        lineHeight: '1.5',
+                        tabSize: 2
+                      }}
+                      onKeyDown={(e) => {
+                        // Ctrl + S로 저장
+                        if (e.ctrlKey && e.key === 's') {
+                          e.preventDefault();
+                          handleFieldChange('ItemDescription', htmlSource);
+                          setHtmlDialogOpen(false);
+                        }
+                        // Esc로 취소
+                        if (e.key === 'Escape') {
+                          setHtmlDialogOpen(false);
+                        }
+                        // Tab 키 처리
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          const start = e.currentTarget.selectionStart;
+                          const end = e.currentTarget.selectionEnd;
+                          const newValue = htmlSource.substring(0, start) + '  ' + htmlSource.substring(end);
+                          setHtmlSource(newValue);
+                          e.currentTarget.selectionStart = e.currentTarget.selectionEnd = start + 2;
+                        }
+                      }}
+                      spellCheck={false}
+                      placeholder="HTML 코드를 입력하세요..."
+                    />
+                  </div>
+
+                  {/* 하단 버튼 */}
+                  <div className="flex justify-end gap-2 pt-4 border-t">
                     <Button
                       variant="outline"
                       onClick={() => setHtmlDialogOpen(false)}
+                      className="flex items-center gap-1"
                     >
                       취소
                     </Button>
@@ -1038,7 +1109,9 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                         handleFieldChange('ItemDescription', htmlSource);
                         setHtmlDialogOpen(false);
                       }}
+                      className="flex items-center gap-1"
                     >
+                      <Check className="w-4 h-4" />
                       적용
                     </Button>
                   </div>
