@@ -124,6 +124,24 @@ interface QuantityOption {
   code: string;
 }
 
+// 파일 상단의 import 문 아래에 formatHtml 함수 추가
+const formatHtml = async (html: string): Promise<string> => {
+  try {
+    return await prettier.format(html, {
+      parser: 'html',
+      plugins: [prettierHtml],
+      printWidth: 80,
+      tabWidth: 2,
+      useTabs: false,
+      singleQuote: true,
+      bracketSameLine: true,
+    });
+  } catch (error) {
+    console.error('HTML 포맷팅 오류:', error);
+    return html; // 포맷팅 실패 시 원본 반환
+  }
+};
+
 export default function MoveProductEditor({ product, onSave, onCancel, onApplyToQoo10 }: MoveProductEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedProduct, setEditedProduct] = useState<DetailProduct>(product)
@@ -238,50 +256,50 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
         alert('판매종료일은 필수 입력값입니다.');
         return;
       }
-      console.log("editedProduct.OriginCountryId", editedProduct.OriginCountryId);
-      const responses = await updateMoveProduct({
-        ItemCode: editedProduct.ItemCode,
-        SellerCode: editedProduct.SellerCode,
-        SecondSubCat: editedProduct.SecondSubCat,
-        ItemSeriesName: editedProduct.ItemSeriesName,
-        PromotionName: editedProduct.PromotionName,
-        ItemPrice: editedProduct.ItemPrice,
-        RetailPrice: editedProduct.RetailPrice,
-        TaxRate: editedProduct.TaxRate,
-        OptionType: editedProduct.OptionType,
-        OptionMainimage: editedProduct.OptionMainimage,
-        OptionSubimage: editedProduct.OptionSubimage,
-        OptionQty: editedProduct.OptionQty,
-        StyleNumber: editedProduct.StyleNumber,
-        TpoNumber: editedProduct.TpoNumber,
-        SeasonType: editedProduct.SeasonType,
-        MaterialInfo: editedProduct.MaterialInfo,
-        MaterialNumber: editedProduct.MaterialNumber,
-        AttributeInfo: editedProduct.AttributeInfo,
-        ItemDescription: editedProduct.ItemDescription,
-        WashinginfoWashing: editedProduct.WashinginfoWashing,
-        WashinginfoStretch: editedProduct.WashinginfoStretch,
-        WashinginfoFit: editedProduct.WashinginfoFit,
-        WashinginfoThickness: editedProduct.WashinginfoThickness,
-        WashinginfoLining: editedProduct.WashinginfoLining,
-        WashinginfoSeethrough: editedProduct.WashinginfoSeethrough,
-        ImageOtherUrl: editedProduct.ImageOtherUrl,
-        VideoNumber: editedProduct.VideoNumber,
-        ShippingNo: editedProduct.ShippingNo,
-        AvailableDateValue: editedProduct.AvailableDateValue,
-        DesiredShippingDate: editedProduct.DesiredShippingDate,
-        Keyword: editedProduct.Keyword,
-        OriginType: editedProduct.OriginType,
-        OriginRegionId: editedProduct.OriginType === '1' ? editedProduct.ProductionPlace : '',
-        OriginCountryId: editedProduct.OriginType === '2' ? editedProduct.OriginCountryId : '',
-        OriginOthers: editedProduct.OriginType === '3' ? editedProduct.ProductionPlace : '',
-        Weight: editedProduct.Weight,
-        SellerAuthKey: editedProduct.SellerAuthKey,
-        ExpireDate: editedProduct.ExpireDate?.split('T')[0],
-      });
-      console.log("responses", responses);
-      // API 응답 처리
-      const [updateBasicResult, updatePriceResult, updateInventoryResult] = await Promise.all(responses);
+
+      // API 호출 및 응답 대기
+      const [updateBasicResult, updatePriceResult, updateInventoryResult] = await Promise.all(
+        await updateMoveProduct({
+          ItemCode: editedProduct.ItemCode,
+          SellerCode: editedProduct.SellerCode,
+          SecondSubCat: editedProduct.SecondSubCat,
+          ItemSeriesName: editedProduct.ItemSeriesName,
+          PromotionName: editedProduct.PromotionName,
+          ItemPrice: editedProduct.ItemPrice,
+          RetailPrice: editedProduct.RetailPrice,
+          TaxRate: editedProduct.TaxRate,
+          OptionType: editedProduct.OptionType,
+          OptionMainimage: editedProduct.OptionMainimage,
+          OptionSubimage: editedProduct.OptionSubimage,
+          OptionQty: editedProduct.OptionQty,
+          StyleNumber: editedProduct.StyleNumber,
+          TpoNumber: editedProduct.TpoNumber,
+          SeasonType: editedProduct.SeasonType,
+          MaterialInfo: editedProduct.MaterialInfo,
+          MaterialNumber: editedProduct.MaterialNumber,
+          AttributeInfo: editedProduct.AttributeInfo,
+          ItemDescription: editedProduct.ItemDescription,
+          WashinginfoWashing: editedProduct.WashinginfoWashing,
+          WashinginfoStretch: editedProduct.WashinginfoStretch,
+          WashinginfoFit: editedProduct.WashinginfoFit,
+          WashinginfoThickness: editedProduct.WashinginfoThickness,
+          WashinginfoLining: editedProduct.WashinginfoLining,
+          WashinginfoSeethrough: editedProduct.WashinginfoSeethrough,
+          ImageOtherUrl: editedProduct.ImageOtherUrl,
+          VideoNumber: editedProduct.VideoNumber,
+          ShippingNo: editedProduct.ShippingNo,
+          AvailableDateValue: editedProduct.AvailableDateValue,
+          DesiredShippingDate: editedProduct.DesiredShippingDate,
+          Keyword: editedProduct.Keyword,
+          OriginType: editedProduct.OriginType,
+          OriginRegionId: editedProduct.OriginType === '1' ? editedProduct.ProductionPlace : '',
+          OriginCountryId: editedProduct.OriginType === '2' ? editedProduct.OriginCountryId : '',
+          OriginOthers: editedProduct.OriginType === '3' ? editedProduct.ProductionPlace : '',
+          Weight: editedProduct.Weight,
+          SellerAuthKey: editedProduct.SellerAuthKey,
+          ExpireDate: editedProduct.ExpireDate?.split('T')[0],
+        })
+      );
 
       // 결과 메시지 생성
       let message = '== QOO10 전송 결과 ==\n\n';
@@ -609,7 +627,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                         if (confirm('모든 옵션을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
                           // 옵션 전체 삭제
                           setOptions([]);
-                          // 관련된 모든 옵션 문자열 초기화
+                          // 관련된 모든 옵션 ���자열 초기화
                           setEditedProduct(prev => ({
                             ...prev,
                             OptionType: '',
@@ -1098,10 +1116,10 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         try {
                           // 간단한 HTML 포맷팅
-                          const formatted = formatHtml(htmlSource);
+                          const formatted = await formatHtml(htmlSource);
                           setHtmlSource(formatted);
                         } catch (error) {
                           console.error('HTML 포맷팅 실패:', error);
