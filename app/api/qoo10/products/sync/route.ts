@@ -25,6 +25,65 @@ const sqlConfig = {
   }
 }
 
+// 인터페이스 정의 수정
+interface Qoo10ItemDetail {
+  ItemCode: string;
+  CompanyId?: string;
+  Flag: string;
+  ItemStatus: string;
+  ItemTitle: string;
+  PromotionName: string;
+  RetailPrice: number | null;
+  ItemPrice: number | null;
+  TaxRate: number | null;
+  ItemQty: number | null;
+  ExpireDate: Date | null;
+  DesiredShippingDate: number | null;
+  AvailableDateValue: string;
+  ShippingNo: string;
+  ModelNM: string;
+  ManufacturerDate: string;
+  BrandNo: string;
+  AdultYN: string;
+  ContactInfo: string;
+  ItemDetail: string;
+  ImageUrl: string;
+  Keyword: string;
+  // 추가
+  OptionQty?: string;  // optional로 추가
+  AttributeInfo?: string;
+  BuyLimitType?: string;
+  BuyLimitDate?: Date | null;
+  BuyLimitQty?: number | null;
+  ExpirationDateType?: string;
+  ExpirationDateMFD?: Date | null;
+  ExpirationDatePAO?: Date | null;
+  ExpirationDateEXP?: Date | null;
+  ImageOtherUrl?: string;
+  MaterialInfo?: string;
+  MaterialNumber?: string;
+  OptionMainimage?: string;
+  OptionSubimage?: string;
+  OptionType?: string;
+  OriginCountryId?: string;
+  OriginRegionId?: string;
+  OriginOthers?: string;
+  SeasonType?: string;
+  StyleNumber?: string;
+  TpoNumber?: string;
+  VideoNumber?: string;
+  WashinginfoFit?: string;
+  WashinginfoLining?: string;
+  WashinginfoSeethrough?: string;
+  WashinginfoStretch?: string;
+  WashinginfoThickness?: string;
+  WashinginfoWashing?: string;
+  Weight?: number | null;
+  LastFetchDate: Date;
+  CreatedAt: Date;
+  UpdatedAt: Date;
+}
+
 // 전체 상품 목록 조회
 async function fetchQoo10Products(authKey: string, page: number = 1) {
   try {
@@ -70,7 +129,7 @@ async function fetchItemDetail(authKey: string, itemCode: string) {
 }
 
 // 실제 API 호출을 담당하는 내부 함수
-async function fetchDetailWithMethod(authKey: string, itemCode: string, isMoveItem: boolean) {
+async function fetchDetailWithMethod(authKey: string, itemCode: string, isMoveItem: boolean): Promise<Qoo10ItemDetail | null> {
   const baseUrl = 'https://api.qoo10.jp/GMKT.INC.Front.QAPIService/ebayjapan.qapi'
   const method = isMoveItem ? 'ItemsLookup.GetMoveItemDetailInfo' : 'ItemsLookup.GetItemDetailInfo'
   
@@ -144,7 +203,7 @@ async function fetchDetailWithMethod(authKey: string, itemCode: string, isMoveIt
     LastFetchDate: new Date(),
     CreatedAt: new Date(),
     UpdatedAt: new Date()
-  }
+  } as Qoo10ItemDetail
 }
 
 // MS SQL 벌크 삽입
@@ -381,21 +440,23 @@ export async function POST(request: Request) {
         const detail = await fetchItemDetail(platform.ApiKey, itemCode)
         
         if (detail) {
-          detail.CompanyId = companyId
-          itemDetails.push(detail)
+          const detailWithCompany = {
+            ...detail,
+            CompanyId: companyId
+          }
+          
+          itemDetails.push(detailWithCompany)
 
           // 상품 정보 저장
           await prisma.zal_Qoo10ItemDetails.upsert({
             where: { ItemCode: itemCode },
             create: {
-              ...detail,
-              CompanyId: companyId,
+              ...detailWithCompany,
               SellerAuthKey: platform.ApiKey,
               SellerId: platform.SellerId
             },
             update: {
-              ...detail,
-              CompanyId: companyId,
+              ...detailWithCompany,
               SellerAuthKey: platform.ApiKey,
               SellerId: platform.SellerId
             }

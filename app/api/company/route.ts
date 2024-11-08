@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { randomUUID } from 'crypto'
 
 // GET: 모든 회사 정보 조회
 export async function GET() {

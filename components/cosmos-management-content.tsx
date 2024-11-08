@@ -55,23 +55,21 @@ interface CosmosProduct {
 }
 
 interface Option {
-  id: string;
-  name1: string | null;
-  value1: string | null;
-  name2: string | null;
-  value2: string | null;
-  name3: string | null;
-  value3: string | null;
-  name4: string | null;
-  value4: string | null;
-  name5: string | null;
-  value5: string | null;
-  price: number;
-  qty: number;
-  itemTypeCode: string | null;
-  flag: string;
-  createdAt: string;
-  updatedAt: string;
+  Id: string;
+  Name1: string | null;
+  Value1: string | null;
+  Name2: string | null;
+  Value2: string | null;
+  Name3: string | null;
+  Value3: string | null;
+  Name4: string | null;
+  Value4: string | null;
+  Name5: string | null;
+  Value5: string | null;
+  Price: number;
+  Qty: number;
+  ItemTypeCode: string | null;
+  Flag: string;
 }
 
 interface DetailProduct {
@@ -85,67 +83,62 @@ interface DetailProduct {
   SellerCode: string;
   ItemStatus: string;
   ItemTitle: string;
-  PromotionName: string;
-  MainCatCd: string;
-  MainCatNm: string;
-  FirstSubCatCd: string;
-  FirstSubCatNm: string;
-  SecondSubCatCd: string;
-  SecondSubCatNm: string;
-  DrugType: string;
-  ProductionPlaceType: string;
-  ProductionPlace: string;
-  IndustrialCodeType: string;
-  IndustrialCode: string;
-  RetailPrice: number;
   ItemPrice: number;
-  TaxRate: number;
-  SettlePrice: number;
   ItemQty: number;
-  ExpireDate: string;
-  DesiredShippingDate: number;
-  AvailableDateType: string;
-  AvailableDateValue: string;
-  ShippingNo: string;
-  ModelNM: string;
-  ManufacturerDate: string;
-  BrandNo: string;
-  Material: string;
-  AdultYN: string;
-  ContactInfo: string;
+  ItemSeriesName: string;
+  Weight: number;
+  AttributeInfo: string;
   ItemDetail: string;
+  ItemDescription: string;
   ImageUrl: string;
-  VideoURL: string;
-  Keyword: string;
-  ListedDate: string;
-  ChangedDate: string;
-  LastFetchDate: string;
   OptionType: string;
   OptionMainimage: string;
+  RetailPrice: number;
+  TaxRate: number;
+  SettlePrice: number;
+  ExpireDate: string;
   OptionSubimage: string;
   OptionQty: string;
-  OriginCountryId: string;
-  OriginRegionId: string;
-  OriginOthers: string;
-  SeasonType: string;
-  StyleNumber: string;
-  TpoNumber: string;
-  VideoNumber: string;
-  WashinginfoFit: string;
-  WashinginfoLining: string;
-  WashinginfoSeethrough: string;
-  WashinginfoStretch: string;
-  WashinginfoThickness: string;
-  WashinginfoWashing: string;
-  Weight: number;
-  Options: Option[];
-  CreatedAt: string;
-  UpdatedAt: string;
-  LastSyncDate: string;
-  MaterialInfo: string;
-  MaterialNumber: string;
-  AttributeInfo: string;
-  ImageOtherUrl: string;
+  Options?: Option[];
+  OriginType?: string;
+  OriginCountryId?: string;
+  OriginRegionId?: string;
+  OriginOthers?: string;
+  SeasonType?: string;
+  LastSyncDate?: string;
+  LastFetchDate?: string;
+  CreatedAt?: string;
+  PromotionName?: string;
+  MainCatCd?: string;
+  MainCatNm?: string;
+  FirstSubCatCd?: string;
+  FirstSubCatNm?: string;
+  SecondSubCatCd?: string;
+  SecondSubCatNm?: string;
+  DrugType?: string;
+  ProductionPlaceType?: string;
+  ProductionPlace?: string;
+  IndustrialCodeType?: string;
+  IndustrialCode?: string;
+  DesiredShippingDate?: number;
+  AvailableDateType?: string;
+  AvailableDateValue?: string;
+  ShippingNo?: string;
+  ModelNM?: string;
+  ManufacturerDate?: string;
+  BrandNo?: string;
+  Material?: string;
+  AdultYN?: string;
+  ContactInfo?: string;
+  VideoURL?: string;
+  Keyword?: string;
+  ListedDate?: string;
+  ChangedDate?: string;
+  StyleNumber?: string;
+  TpoNumber?: string;
+  VideoNumber?: string;
+  WashinginfoFit?: string;
+  [key: string]: any;
 }
 
 // Quill 에디터 설정 수정
@@ -221,7 +214,7 @@ const formatDate = (dateStr: string | null | undefined) => {
   }
 }
 
-// 산 코드 타입 옵션 추가
+// 산 드 타입 옵션 추가
 const INDUSTRIAL_CODE_TYPES = [
   { value: 'J', label: 'JAN' },
   { value: 'K', label: 'KAN' },
@@ -253,8 +246,8 @@ const JAPAN_REGIONS = [
   { value: 'GUMMA', label: '群馬県(GUMMA)' },
   { value: 'SAITAMA', label: '埼玉県(SAITAMA)' },
   { value: 'CHIBA', label: '千葉県(CHIBA)' },
-  { value: 'TOKYO', label: '東京都(TOKYO)' },
-  { value: 'KANAGAWA', label: '神奈川県(KANAGAWA)' },
+  { value: 'TOKYO', label: '東��都(TOKYO)' },
+  { value: 'KANAGAWA', label: '神奈川(KANAGAWA)' },
   // ... 나머지 일본 지역들
   { value: 'OKINAWA', label: '沖縄県(OKINAWA)' }
 ]
@@ -427,8 +420,8 @@ const columns = [
 
 // 상단에 인터페이스 추가
 interface SyncProgress {
-  total: number;
   current: number;
+  total: number;
   normalCount: number;
   moveCount: number;
   successCount: number;
@@ -612,7 +605,7 @@ export function CosmosManagementContent() {
             
             alert(completionMessage);
             
-            // 목록 새로고침
+            // 록 새로고침
             fetchProducts();
           }
         } catch (error) {
@@ -776,12 +769,12 @@ export function CosmosManagementContent() {
   }
 
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!editedProduct) return
+    if (!editedProduct) return;
     setEditedProduct({
       ...editedProduct,
       ImageUrl: e.target.value
-    })
-  }
+    });
+  };
 
   const ImagePreview = ({ url }: { url: string }) => {
     if (!url) return null
@@ -1082,7 +1075,7 @@ export function CosmosManagementContent() {
         const statusErrorMessages: { [key: string]: string } = {
           '-10000': 'API 인증키를 확인해주세요.',
           '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
-          '-10002': '검수 중인 상품은 수정할 수 없습니다.',
+          '-10002': '검수 중인 상품은 수정할 수 없습다.',
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
           '-10005': '승인거부된 상품은 수정할 수 없습니다.',
@@ -1289,18 +1282,21 @@ export function CosmosManagementContent() {
   };
 
   // 상품 저장 핸들러 추가
-  const handleSaveProduct = async (updatedProduct: DetailProduct) => {
+  const handleSaveProduct = async (updatedProduct: DetailProduct): Promise<void> => {
     try {
-      const response = await fetch(`/api/qoo10/cosmos/products/${updatedProduct.ItemCode}`, {
+      const completeProduct: DetailProduct = {
+        ...selectedProduct,
+        ...updatedProduct,
+        CompanyId: selectedCompany,
+        PlatformId: selectedPlatform,
+      };
+
+      const response = await fetch(`/api/qoo10/cosmos/products/${completeProduct.ItemCode}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...updatedProduct,
-          CompanyId: selectedCompany,
-          PlatformId: selectedPlatform,
-        })
+        body: JSON.stringify(completeProduct)
       });
 
       if (!response.ok) {
@@ -1308,19 +1304,14 @@ export function CosmosManagementContent() {
       }
 
       const savedProduct = await response.json();
-      
-      // 저장된 상품으로 상태 업데이트
       setSelectedProduct(savedProduct);
-      
-      // 목록 새로고침
       fetchProducts();
-      
-      // 성공 메시지 표시
       alert('상품이 성공적으로 저장되었습니다.');
 
     } catch (error) {
       console.error('Failed to save product:', error);
       alert('상품 저장에 실패했습니다.');
+      throw error;
     }
   };
 
@@ -1428,7 +1419,7 @@ export function CosmosManagementContent() {
           </Select>
         </div>
 
-        {/* 접 동기화 입력 필드와 버튼 추가 */}
+        {/* 접 동기화 입력 필드와 버튼 가 */}
         <div className="flex gap-2">
           <Input
             value={directItemCode}
@@ -1545,7 +1536,7 @@ export function CosmosManagementContent() {
                         <TableCell colSpan={10} className="h-32">
                           <div className="flex flex-col items-center justify-center text-gray-500">
                             <div className="animate-spin mb-2">⟳</div>
-                            <div>데이터를 불러오는 중...</div>
+                            <div>데이터를 불러오 중...</div>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1622,7 +1613,7 @@ export function CosmosManagementContent() {
                 </Table>
               </div>
 
-              {/* 페이지네이션 개선 */}
+              {/* 페이지네션 선 */}
               {totalPages > 1 && (
                 <div className="mt-6 flex justify-center items-center gap-4">
                   <Button
@@ -1668,16 +1659,93 @@ export function CosmosManagementContent() {
             <div className="h-full overflow-y-auto p-6">
               {selectedProduct.Flag === 'MOVE' ? (
                 <MoveProductEditor
-                  product={selectedProduct}
-                  onSave={handleSaveProduct}
+                  product={{
+                    ...selectedProduct,
+                    ItemDescription: selectedProduct.ItemDetail || '',
+                    PromotionName: selectedProduct.PromotionName || '',
+                    TaxRate: selectedProduct.TaxRate || 0,
+                    SettlePrice: selectedProduct.SettlePrice || 0,
+                    RetailPrice: selectedProduct.RetailPrice || 0,
+                    Weight: selectedProduct.Weight || 0,
+                    DesiredShippingDate: selectedProduct.DesiredShippingDate || 0,
+                    ItemSeriesName: selectedProduct.ItemSeriesName || '',
+                    AttributeInfo: selectedProduct.AttributeInfo || '',
+                    ExpireDate: selectedProduct.ExpireDate || '',
+                    OptionSubimage: selectedProduct.OptionSubimage || '',
+                    OptionQty: selectedProduct.OptionQty || '',
+                  }}
+                  onSave={async (product) => {
+                    await handleSaveProduct({
+                      ...selectedProduct,
+                      ...product,
+                      ItemDetail: product.ItemDescription || '',
+                      CompanyId: selectedCompany,
+                      PlatformId: selectedPlatform,
+                    });
+                  }}
                   onCancel={() => setIsDetailDialogOpen(false)}
                 />
               ) : (
                 <NormalProductEditor
-                  product={selectedProduct}
-                  onSave={handleSaveProduct}  // 저장 핸들러 연결
+                  product={{
+                    id: "...",
+                    ItemCode: "...",
+                    CompanyId: "...",
+                    PlatformId: "...",
+                    SellerId: "...",
+                    SellerAuthKey: "...",
+                    Flag: "NONE",
+                    SellerCode: "...",
+                    ItemStatus: "...",
+                    ItemTitle: "...",
+                    ItemSeriesName: "...",
+                    Weight: 0,
+                    AttributeInfo: "...",
+                    RetailPrice: 0,
+                    TaxRate: 0,
+                    SettlePrice: 0,
+                    OptionMainimage: "...",
+                    OptionType: "...",
+                    ItemDescription: "...",
+                    MainCatCd: "...",
+                    MainCatNm: "...",
+                    FirstSubCatCd: "...",
+                    FirstSubCatNm: "...",
+                    SecondSubCatCd: "...",
+                    SecondSubCatNm: "...",
+                    ImageUrl: "...",
+                    BrandNo: "...",
+                    ItemPrice: 0,
+                    ShippingNo: "...",
+                    OriginType: "...",
+                    OriginCountryId: "...",
+                    SeasonType: "...",
+                    Keyword: "...",
+                    Options: [],
+                    ItemQty: 0,
+                    ItemDetail: "...",
+                    ExpireDate: "...",
+                    OptionSubimage: "...",
+                    OptionQty: "...",
+                    PromotionName: "...",
+                    IndustrialCodeType: "...",
+                    IndustrialCode: "...",
+                    ManufacturerDate: "...",
+                    ModelNM: "...",
+                    Material: "...",
+                    ProductionPlaceType: "...",
+                    ProductionPlace: "...",
+                    AdultYN: "...",
+                    ContactInfo: "...",
+                    AvailableDateType: "...",
+                    AvailableDateValue: "...",
+                    DesiredShippingDate: 0,
+                    CreatedAt: "...",
+                    LastFetchDate: "..."
+                  }}
+                  onSave={handleSaveProduct}
                   onCancel={() => setIsDetailDialogOpen(false)}
-                  onApplyToQoo10={() => handleApplyToQoo10()}
+                  onApplyToQoo10={handleApplyToQoo10}
                 />
               )}
             </div>

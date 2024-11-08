@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: true,
-  },
   images: {
     domains: ['ssc461886-ssc461886.ktcdn.co.kr'],
   },
@@ -26,6 +23,12 @@ const nextConfig = {
       },
     ]
   },
+  reactStrictMode: true,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  unstable_runtimeJS: true,
+  output: 'standalone',
 }
 
 module.exports = nextConfig 

@@ -10,16 +10,49 @@ import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { updateMoveProduct } from '@/lib/api/qoo10'  // API 함수 import 추가
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog' // 다이얼로그 컴포넌트 추가
+// prettier 관련 import 추가
+import prettier from 'prettier/standalone'
+import prettierHtml from 'prettier/parser-html'
 
+// DetailProduct 인터페이스 추가
+interface DetailProduct {
+  ItemCode: string;
+  SellerCode: string;
+  PromotionName: string;
+  ItemPrice: number;
+  TaxRate: number;
+  ExpireDate: string;
+  OptionMainimage: string;
+  OptionSubimage: string;
+  OptionType: string;
+  OptionQty: string;
+  ItemDescription: string;
+  [key: string]: any; // 다른 필드들을 위한 인덱스 시그니처
+}
+
+// MoveProductEditorProps 수정
 interface MoveProductEditorProps {
-  product: any // DetailProduct 타입 정의 필요
-  onSave: (product: any) => void
-  onCancel: () => void
-  onApplyToQoo10?: () => void
+  product: DetailProduct;
+  onSave: (product: DetailProduct) => void;
+  onCancel: () => void;
+  onApplyToQoo10?: () => void;
+}
+
+// 에러 메시지 타입 정의
+interface ErrorMessages {
+  UPDATE_MOVE_GOODS: {
+    [key: string]: string;  // 문자열 키를 가진 문자열 값
+  };
+  EDIT_MOVE_PRICE: {
+    [key: string]: string;
+  };
+  EDIT_MOVE_INVENTORY: {
+    [key: string]: string;
+  };
 }
 
 // API 별 에러 메시지 매핑 수정
-const ERROR_MESSAGES = {
+const ERROR_MESSAGES: ErrorMessages = {
   // UpdateMoveGoods API 에러
   UPDATE_MOVE_GOODS: {
     '-10000': 'API 인증키가 유효하지 않습니다.',
@@ -46,6 +79,11 @@ const ERROR_MESSAGES = {
   }
 };
 
+// 에러 메시지를 가져오는 함수
+const getErrorMessage = (category: keyof ErrorMessages, code: string): string => {
+  return ERROR_MESSAGES[category][code] || '알 수 없는 오류가 발생했습니다.';
+};
+
 // 타입 정의 추가
 interface Size {
   size: string;
@@ -62,9 +100,33 @@ interface ColorOption {
   sizes: Size[];
 }
 
+// 인터페이스 추가
+interface MainImage {
+  color: string;
+  imageUrl: string;
+}
+
+interface SubImage {
+  color: string;
+  urls: string[];
+}
+
+interface TypeOption {
+  color: string;
+  colorCode: string;
+  isMain: boolean;
+}
+
+interface QuantityOption {
+  color: string;
+  size: string;
+  qty: number;
+  code: string;
+}
+
 export default function MoveProductEditor({ product, onSave, onCancel, onApplyToQoo10 }: MoveProductEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editedProduct, setEditedProduct] = useState(product)
+  const [editedProduct, setEditedProduct] = useState<DetailProduct>(product)
   const [activeTab, setActiveTab] = useState("basic")
   const [dialogOpen, setDialogOpen] = useState(false) // 다이얼로그 상태 추가
   const [resultMessage, setResultMessage] = useState('') // 결과 메시지 상태 추가
@@ -76,34 +138,42 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
   const parseOptions = () => {
     try {
       // 메인 이미지 파싱
-      const mainImages = (editedProduct.OptionMainimage || '').split('$$').map(opt => {
+      const mainImages = (editedProduct.OptionMainimage || '').split('$$').map((opt: string) => {
         const [color, imageUrl] = opt.split('||*');
-        return { color, imageUrl };
+        return { color, imageUrl } as MainImage;
       });
 
       // 서브 이미지 파싱
-      const subImages = (editedProduct.OptionSubimage || '').split('$$').map(opt => {
+      const subImages = (editedProduct.OptionSubimage || '').split('$$').map((opt: string) => {
         const [color, ...urls] = opt.split('||*');
-        return { color, urls };
+        return { color, urls } as SubImage;
       });
 
-      const types = (editedProduct.OptionType || '').split('$$').map(opt => {
+      // 타입 파싱
+      const types = (editedProduct.OptionType || '').split('$$').map((opt: string) => {
         const [color, colorCode, isMain] = opt.split('||*');
-        return { color, colorCode, isMain: isMain === 'Y' };
+        return { color, colorCode, isMain: isMain === 'Y' } as TypeOption;
       });
 
-      const quantities = (editedProduct.OptionQty || '').split('$$').map(opt => {
+      // 수량 파싱
+      const quantities = (editedProduct.OptionQty || '').split('$$').map((opt: string) => {
         const [color, size, qty, code] = opt.split('||*');
-        return { color, size, qty: parseInt(qty) || 0, code };
+        return { 
+          color, 
+          size, 
+          qty: parseInt(qty) || 0, 
+          code 
+        } as QuantityOption;
       });
 
       // 컬러별로 데이터 병합
-      const colorGroups = mainImages.map(main => {
-        const type = types.find(t => t.color === main.color) || { colorCode: '', isMain: false };
-        const subImageGroup = subImages.find(s => s.color === main.color);
+      const colorGroups = mainImages.map((main: MainImage) => {
+        const type = types.find((t: TypeOption) => t.color === main.color) || 
+          { colorCode: '', isMain: false };
+        const subImageGroup = subImages.find((s: SubImage) => s.color === main.color);
         const sizes = quantities
-          .filter(q => q.color === main.color)
-          .map(q => ({
+          .filter((q: QuantityOption) => q.color === main.color)
+          .map((q: QuantityOption) => ({
             size: q.size,
             qty: q.qty,
             itemTypeCode: q.code
@@ -112,11 +182,11 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
         return {
           color: main.color,
           imageUrl: main.imageUrl,
-          subImages: subImageGroup ? subImageGroup.urls.filter(url => url) : [], // 빈 값 필터링
+          subImages: subImageGroup ? subImageGroup.urls.filter((url: string) => url) : [],
           colorCode: type.colorCode,
           isMain: type.isMain,
           sizes
-        };
+        } as ColorOption;
       });
 
       return colorGroups;
@@ -222,7 +292,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
       message += `응답코드: ${updateBasicResult.ResultCode}\n`;
       message += `응답메시지: ${updateBasicResult.ResultMsg}\n`;
       if (updateBasicResult.ResultCode !== 0) {
-        message += `상세오류: ${ERROR_MESSAGES.UPDATE_MOVE_GOODS[updateBasicResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${getErrorMessage('UPDATE_MOVE_GOODS', updateBasicResult.ResultCode)}\n`;
       }
       message += '\n';
 
@@ -232,7 +302,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
       message += `응답코드: ${updatePriceResult.ResultCode}\n`;
       message += `응답메시지: ${updatePriceResult.ResultMsg}\n`;
       if (updatePriceResult.ResultCode !== 0) {
-        message += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_PRICE[updatePriceResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${getErrorMessage('EDIT_MOVE_PRICE', updatePriceResult.ResultCode)}\n`;
       }
       message += '\n';
 
@@ -242,7 +312,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
       message += `응답코드: ${updateInventoryResult.ResultCode}\n`;
       message += `응답메시지: ${updateInventoryResult.ResultMsg}\n`;
       if (updateInventoryResult.ResultCode !== 0) {
-        message += `상세오류: ${ERROR_MESSAGES.EDIT_MOVE_INVENTORY[updateInventoryResult.ResultCode] || '알 수 없는 오류'}\n`;
+        message += `상세오류: ${getErrorMessage('EDIT_MOVE_INVENTORY', updateInventoryResult.ResultCode)}\n`;
       }
 
       // 전체 결과 요약
@@ -464,7 +534,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">산지 국가</Label>
+                      <Label className="text-sm font-medium text-gray-700">산지 가</Label>
                       <Input 
                         value={editedProduct.OriginCountryId} 
                         onChange={(e) => handleFieldChange('OriginCountryId', e.target.value)}
@@ -608,7 +678,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                               ).join('$$');
 
                               // 상태 업데이트
-                              setEditedProduct(prev => ({
+                              setEditedProduct((prev: DetailProduct) => ({
                                 ...prev,
                                 OptionType: newOptionType,
                                 OptionMainimage: newOptionMainimage,
@@ -684,7 +754,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                           />
                         </div>
                         <div>
-                          <Label>컬러코드</Label>
+                          <Label>컬러코</Label>
                           <Input 
                             value={colorOption.colorCode}
                             placeholder="#000000"
@@ -710,7 +780,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                                 ).join('$$');
 
                                 // editedProduct의 OptionType 업데이트
-                                setEditedProduct(prev => ({
+                                setEditedProduct((prev: DetailProduct) => ({
                                   ...prev,
                                   OptionType: newOptionType
                                 }));
@@ -762,14 +832,14 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                               );
 
                               // OptionQty 문자열 업데이트
-                              const newQuantities = newOptions.flatMap(opt => 
-                                opt.sizes.map(s => 
+                              const newQuantities = newOptions.flatMap((opt: ColorOption) => 
+                                opt.sizes.map((s: Size) => 
                                   `${opt.color}||*${s.size}||*${s.qty}||*${s.itemTypeCode || ''}`
                                 )
                               ).join('$$');
 
                               // 상태 업데이트
-                              setEditedProduct(prev => ({
+                              setEditedProduct((prev: DetailProduct) => ({
                                 ...prev,
                                 OptionQty: newQuantities
                               }));
@@ -811,13 +881,13 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                                         );
 
                                         // OptionQty 문자열 업데이트
-                                        const newQuantities = newOptions.flatMap(opt => 
-                                          opt.sizes.map(s => 
+                                        const newQuantities = options.flatMap((opt: ColorOption) => 
+                                          opt.sizes.map((s: Size) => 
                                             `${opt.color}||*${s.size}||*${s.qty}||*${s.itemTypeCode || ''}`
                                           )
                                         ).join('$$');
 
-                                        setEditedProduct(prev => ({
+                                        setEditedProduct((prev: DetailProduct) => ({
                                           ...prev,
                                           OptionQty: newQuantities
                                         }));
@@ -843,14 +913,14 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                                         newSizes[sizeIndex].qty = newQty;
 
                                         // OptionQty 문자열 업데이트
-                                        const newQuantities = options.flatMap(opt => 
-                                          opt.sizes.map(s => 
+                                        const newQuantities = options.flatMap((opt: ColorOption) => 
+                                          opt.sizes.map((s: Size) => 
                                             `${opt.color}||*${s.size}||*${s.qty}||*${s.itemTypeCode || ''}`
                                           )
                                         ).join('$$');
 
                                         // 상태 업데이트
-                                        setEditedProduct(prev => ({
+                                        setEditedProduct((prev: DetailProduct) => ({
                                           ...prev,
                                           OptionQty: newQuantities
                                         }));
@@ -874,14 +944,14 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                                         newSizes[sizeIndex].itemTypeCode = newCode;
 
                                         // OptionQty 문자열 업데이트
-                                        const newQuantities = options.flatMap(opt => 
-                                          opt.sizes.map(s => 
+                                        const newQuantities = options.flatMap((opt: ColorOption) => 
+                                          opt.sizes.map((s: Size) => 
                                             `${opt.color}||*${s.size}||*${s.qty}||*${s.itemTypeCode || ''}`
                                           )
                                         ).join('$$');
 
                                         // 상태 업데이트
-                                        setEditedProduct(prev => ({
+                                        setEditedProduct((prev: DetailProduct) => ({
                                           ...prev,
                                           OptionQty: newQuantities
                                         }));
@@ -908,13 +978,13 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                                             : opt
                                         );
 
-                                        const newQuantities = newOptions.flatMap(opt => 
-                                          opt.sizes.map(s => 
+                                        const newQuantities = newOptions.flatMap((opt: ColorOption) => 
+                                          opt.sizes.map((s: Size) => 
                                             `${opt.color}||*${s.size}||*${s.qty}||*${s.itemTypeCode || ''}`
                                           )
                                         ).join('$$');
 
-                                        setEditedProduct(prev => ({
+                                        setEditedProduct((prev: DetailProduct) => ({
                                           ...prev,
                                           OptionQty: newQuantities
                                         }));
@@ -987,10 +1057,9 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        // HTML 포맷팅
+                      onClick={async () => {
                         try {
-                          const formatted = prettier.format(htmlSource, {
+                          const formatted = await prettier.format(htmlSource, {
                             parser: 'html',
                             plugins: [prettierHtml],
                             printWidth: 80,
@@ -1046,7 +1115,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
               </DialogContent>
             </Dialog>
 
-            {/* HTML 미리보기 다이얼로그 */}
+            {/* HTML 리보기 다이얼로그 */}
             <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
               <DialogContent className="max-w-4xl h-[80vh]">
                 <DialogHeader>

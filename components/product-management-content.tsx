@@ -13,9 +13,10 @@ import { Button } from '@/components/ui/button'
 import { RefreshCw, Edit } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ProductState, DetailProduct } from '@/types/product'
 
 interface Company {
   Id: string
@@ -44,28 +45,12 @@ interface Product {
 }
 
 interface Option {
-  Id: string;
-  Name1: string | null;
-  Value1: string | null;
-  Name2: string | null;
-  Value2: string | null;
-  Name3: string | null;
-  Value3: string | null;
-  Name4: string | null;
-  Value4: string | null;
-  Name5: string | null;
-  Value5: string | null;
-  Price: number;
-  Qty: number;
-  ItemTypeCode: string | null;
-  Flag: string;
-}
-
-interface ProductDetail {
-  ItemCode: string;
-  ItemTitle: string;
-  // ... 기존 상품 필드들
-  Options: Option[];
+  id: string;
+  name: string;
+  color: string;
+  isDefault: boolean;
+  price: number;
+  qty: number;
 }
 
 export function ProductManagementContent() {
@@ -75,10 +60,17 @@ export function ProductManagementContent() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductState>({
+    items: [],
+    isDetailDialogOpen: false,
+    isEditDialogOpen: false,
+    selectedTab: 'all',
+    isSyncing: false,
+    selectedProduct: null
+  })
   const [selectedTab, setSelectedTab] = useState('all')
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<ProductDetail | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<DetailProduct | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -178,11 +170,11 @@ export function ProductManagementContent() {
   const getFilteredProducts = () => {
     switch (selectedTab) {
       case 'none':
-        return products.filter(p => p.Flag === 'NONE')
+        return products.items.filter(p => p.Flag === 'NONE')
       case 'move':
-        return products.filter(p => p.Flag === 'MOVE')
+        return products.items.filter(p => p.Flag === 'MOVE')
       default:
-        return products
+        return products.items
     }
   }
 
@@ -230,6 +222,14 @@ export function ProductManagementContent() {
       console.error('상품 조회 실패:', error)
       // 에러 처리 로직
     }
+  }
+
+  const handleSelectProduct = (product: DetailProduct) => {
+    setSelectedProduct(product)
+    setProducts(prev => ({
+      ...prev,
+      isDetailDialogOpen: true
+    }))
   }
 
   return (
@@ -288,13 +288,13 @@ export function ProductManagementContent() {
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList>
           <TabsTrigger value="all">
-            전체 ({products.length})
+            전체 ({products.items.length})
           </TabsTrigger>
           <TabsTrigger value="none">
-            일반 상품 ({products.filter(p => p.Flag === 'NONE').length})
+            일반 상품 ({products.items.filter(p => p.Flag === 'NONE').length})
           </TabsTrigger>
           <TabsTrigger value="move">
-            무브 상품 ({products.filter(p => p.Flag === 'MOVE').length})
+            무브 상품 ({products.items.filter(p => p.Flag === 'MOVE').length})
           </TabsTrigger>
         </TabsList>
 
@@ -363,11 +363,20 @@ export function ProductManagementContent() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+      <Dialog 
+        open={products.isDetailDialogOpen} 
+        onOpenChange={(open) => {
+          setProducts(prev => ({ ...prev, isDetailDialogOpen: open }))
+          if (!open) setSelectedProduct(null)
+        }}
+      >
         <DialogContent className="max-w-[70vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>상품 상세 정보 ({selectedProduct?.Flag === 'MOVE' ? '무브 상품' : '일반 상품'})</DialogTitle>
+            <DialogTitle>
+              상품 상세 정보 ({selectedProduct?.Flag === 'MOVE' ? '무브 상품' : '일반 상품'})
+            </DialogTitle>
           </DialogHeader>
+          
           {selectedProduct && (
             <div className="space-y-6">
               <div className="border rounded-lg p-4 bg-gray-50">
@@ -541,34 +550,21 @@ export function ProductManagementContent() {
               <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-2">옵션 정보</h3>
                 <div className="border rounded-md p-4">
-                  {selectedProduct.Options.length > 0 ? (
-                    <table className="w-full">
-                      <thead>
-                        <tr>
-                          <th className="text-left">옵션명1</th>
-                          <th className="text-left">옵션값1</th>
-                          <th className="text-left">옵션명2</th>
-                          <th className="text-left">옵션값2</th>
-                          <th className="text-right">가격</th>
-                          <th className="text-right">수량</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedProduct.Options.map((option) => (
-                          <tr key={option.Id}>
-                            <td>{option.Name1}</td>
-                            <td>{option.Value1}</td>
-                            <td>{option.Name2}</td>
-                            <td>{option.Value2}</td>
-                            <td className="text-right">{option.Price.toLocaleString()}</td>
-                            <td className="text-right">{option.Qty}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p className="text-center text-gray-500">등록된 옵션이 없습니다.</p>
-                  )}
+                  {selectedProduct.Options?.map((option) => (
+                    <div key={option.Id} className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border">
+                        {option.Name1}: {option.Value1}
+                      </div>
+                      <div>
+                        {option.Price?.toLocaleString()}원 ({option.Qty}개)
+                      </div>
+                      {option.ItemTypeCode && (
+                        <div className="text-sm text-gray-500">
+                          코드: {option.ItemTypeCode}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 

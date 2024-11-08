@@ -21,6 +21,7 @@ interface ImageItem {
 export function ImageSplitConverter() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [isDragging, setIsDragging] = useState<{imageId: string; lineId: number} | null>(null);
+  const [dragStartY, setDragStartY] = useState<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

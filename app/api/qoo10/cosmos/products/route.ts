@@ -11,6 +11,8 @@ const database = client.database("Zalpanda")
 const moveContainer = database.container("Temp_qoo10jp_move_product")
 const normalContainer = database.container("Temp_qoo10jp_nonemove_product")
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)

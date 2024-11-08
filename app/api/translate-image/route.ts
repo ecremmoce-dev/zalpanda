@@ -1,10 +1,25 @@
 import { NextResponse } from 'next/server'
 
-const NAVER_API_URL = "https://naveropenapi.apigw.ntruss.com/image-to-image/v1/translate"
+export const runtime = 'edge'
+export const dynamic = 'force-dynamic'
+
+// Naver API URL 상수 추가
+const NAVER_API_URL = 'https://naveropenapi.apigw.ntruss.com/image-to-image/v1/translate'
 
 export async function POST(request: Request) {
   try {
-    const { image, source, target } = await request.json()
+    const formData = await request.formData()
+    const image = formData.get('image')
+    const source = formData.get('source')
+    const target = formData.get('target')
+
+    // image가 없는 경우 처리
+    if (!image) {
+      return NextResponse.json(
+        { error: 'Image is required' },
+        { status: 400 }
+      )
+    }
 
     // API 키 확인
     if (!process.env.NCP_API_KEY_ID || !process.env.NCP_API_KEY) {
@@ -15,12 +30,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const formData = new FormData()
-    formData.append('source', source)
-    formData.append('target', target)
-    
     try {
-      const imageBlob = await fetch(image).then(res => res.blob())
+      const imageBlob = await fetch(image.toString()).then(res => res.blob())
       formData.append('image', imageBlob, 'image.jpg')
     } catch (error) {
       console.error('Failed to fetch image:', error)
@@ -79,11 +90,3 @@ export async function POST(request: Request) {
     )
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb'
-    }
-  }
-} as const;

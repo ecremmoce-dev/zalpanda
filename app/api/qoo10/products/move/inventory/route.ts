@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     // 옵션 정보 문자열 형식 검증
     const inventoryInfoArray = body.InventoryInfo.split('$$');
-    const validInventoryInfo = inventoryInfoArray.map(info => {
+    const validInventoryInfo = inventoryInfoArray.map((info: string) => {
       const [color, size, price, qty, code] = info.split('||*');
       return `${color}||*${size}||*${price}||*${qty}||*${code}`;
     }).join('$$');

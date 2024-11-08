@@ -6,7 +6,7 @@
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "prisma generate && next build",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate --schema=./prisma/cosmos.prisma && prisma generate --schema=./prisma/schema.prisma"
   },
   "dependencies": {
     "@azure/cosmos": "^4.1.1",
@@ -40,6 +40,7 @@
     "mssql": "^11.0.1",
     "next": "^14.2.16",
     "openai": "^4.71.0",
+    "prettier": "^3.3.3",
     "react": "^18.3.1",
     "react-day-picker": "^9.3.0",
     "react-dom": "^18.3.1",

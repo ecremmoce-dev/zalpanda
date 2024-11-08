@@ -54,6 +54,9 @@ export async function POST(request: Request) {
     const response = completion.choices[0].message.content
     let result
     try {
+      if (!response) {
+        throw new Error('Response is null')
+      }
       result = JSON.parse(response)
     } catch (error) {
       console.error('Failed to parse AI response:', error)

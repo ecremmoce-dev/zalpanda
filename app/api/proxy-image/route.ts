@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 
-export async function POST(req: Request) {
+export const runtime = 'edge'
+export const dynamic = 'force-dynamic'
+
+export async function POST(request: Request) {
   try {
-    const { url } = await req.json()
+    const formData = await request.formData()
+    const url = formData.get('url') as string
     
     const response = await fetch(url, {
       headers: {
@@ -19,20 +23,18 @@ export async function POST(req: Request) {
     const base64 = Buffer.from(arrayBuffer).toString('base64')
     const dataUrl = `data:${contentType};base64,${base64}`
 
-    return NextResponse.json({ image: dataUrl })
+    return NextResponse.json({ success: true, data: dataUrl })
   } catch (error) {
-    console.error('Image proxy error:', error)
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to proxy image' }, 
+      { success: false, error: 'An unknown error occurred' },
       { status: 500 }
     )
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-} 

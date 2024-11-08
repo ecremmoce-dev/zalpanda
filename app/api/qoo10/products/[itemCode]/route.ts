@@ -12,8 +12,8 @@ export async function GET(
         ItemCode: params.itemCode,
       },
       include: {
-        // 옵션 정보 조인
-        Options: {
+        // zal_Qoo10ItemOptions 대신 Zal_Qoo10ItemOptions 사용
+        Zal_Qoo10ItemOptions: {
           select: {
             Id: true,
             Name1: true,
