@@ -7,6 +7,7 @@ import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ImageUrlModal } from "@/components/image-url-modal"
 
 interface ImageInfo {
   original: string;
@@ -49,6 +50,7 @@ export default function ImageTranslationContent() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const leftColumnRef = useRef<HTMLDivElement>(null)
   const rightColumnRef = useRef<HTMLDivElement>(null)
+  const [isUrlModalOpen, setIsUrlModalOpen] = useState(false)
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -211,6 +213,96 @@ export default function ImageTranslationContent() {
     })
   }
 
+  const handleUrlUpload = async (urls: string[]) => {
+    try {
+      const newImages = await Promise.all(
+        urls.map(async (url) => {
+          try {
+            // 프록시 API를 통해 이미지 가져오기
+            const proxyResponse = await fetch('/api/proxy-image', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ url }),
+            })
+
+            if (!proxyResponse.ok) {
+              throw new Error('Failed to proxy image')
+            }
+
+            const { image: dataUrl } = await proxyResponse.json()
+            
+            // dataUrl을 Blob으로 변환
+            const response = await fetch(dataUrl)
+            const blob = await response.blob()
+            const file = new File([blob], url.split('/').pop() || 'image.png', { type: blob.type })
+
+            return {
+              original: dataUrl,
+              originalFile: file,
+              name: url.split('/').pop() || 'image.png',
+              width: 0,
+              height: 0,
+              selected: false
+            }
+          } catch (error) {
+            console.error('이미지 URL 처리 실패:', url, error)
+            toast({
+              variant: "destructive",
+              description: `이미지 로드 실패: ${url}`
+            })
+            return null
+          }
+        })
+      )
+      
+      const validImages = newImages.filter((img): img is ImageInfo => img !== null)
+      
+      if (validImages.length > 0) {
+        setImages(prev => [...prev, ...validImages])
+        toast({
+          description: `${validImages.length}개의 이미지가 추가되었습니다.`
+        })
+      } else {
+        toast({
+          variant: "destructive",
+          description: "유효한 이미지를 찾을 수 없습니다."
+        })
+      }
+    } catch (error) {
+      console.error('URL 이미지 로딩 실패:', error)
+      toast({
+        variant: "destructive",
+        description: "이미지 URL 처리 중 오류가 발생했습니다."
+      })
+    }
+  }
+
+  useEffect(() => {
+    const leftColumn = leftColumnRef.current
+    const rightColumn = rightColumnRef.current
+
+    if (!leftColumn || !rightColumn) return
+
+    const handleScroll = (event: Event) => {
+      const target = event.target as HTMLDivElement
+      if (target === leftColumn) {
+        rightColumn.scrollTop = leftColumn.scrollTop
+      } else if (target === rightColumn) {
+        leftColumn.scrollTop = rightColumn.scrollTop
+      }
+    }
+
+    leftColumn.addEventListener('scroll', handleScroll)
+    rightColumn.addEventListener('scroll', handleScroll)
+
+    return () => {
+      leftColumn.removeEventListener('scroll', handleScroll)
+      rightColumn.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
   return (
     <div className="p-6 flex flex-col h-screen">
       <div className="mb-6 space-y-4">
@@ -256,6 +348,7 @@ export default function ImageTranslationContent() {
             ref={fileInputRef}
           />
           <Button onClick={handleUploadClick}>이미지 업로드</Button>
+          <Button onClick={() => setIsUrlModalOpen(true)}>링크 업로드</Button>
           <Button 
             onClick={translateSelectedImages} 
             disabled={loading || !images.some(img => img.selected && !img.translated)}
@@ -274,7 +367,11 @@ export default function ImageTranslationContent() {
       </div>
 
       <div className="flex flex-grow overflow-hidden">
-        <div ref={leftColumnRef} className="w-1/2 overflow-y-auto pr-2">
+        <div 
+          ref={leftColumnRef} 
+          className="w-1/2 overflow-y-auto pr-2"
+          style={{ scrollbarGutter: 'stable' }}
+        >
           {images.map((image, index) => (
             <div key={`original-${index}`} className="mb-4">
               <div 
@@ -302,7 +399,11 @@ export default function ImageTranslationContent() {
             </div>
           ))}
         </div>
-        <div ref={rightColumnRef} className="w-1/2 overflow-y-auto pl-2">
+        <div 
+          ref={rightColumnRef} 
+          className="w-1/2 overflow-y-auto pl-2"
+          style={{ scrollbarGutter: 'stable' }}
+        >
           {images.map((image, index) => (
             <div key={`translated-${index}`} className="mb-4">
               {image.selected && (
@@ -335,6 +436,12 @@ export default function ImageTranslationContent() {
           )}
         </div>
       </div>
+
+      <ImageUrlModal 
+        isOpen={isUrlModalOpen}
+        onClose={() => setIsUrlModalOpen(false)}
+        onUpload={handleUrlUpload}
+      />
     </div>
   )
 }
