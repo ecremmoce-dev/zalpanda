@@ -13,6 +13,50 @@ export async function POST(request: NextRequest) {
       throw new Error('SellerAuthKey is missing');
     }
 
+    // 날짜 형식 변환 함수 추가
+    const formatDate = (dateStr: string | undefined | null): string => {
+      if (!dateStr) return '';
+      try {
+        const date = new Date(dateStr);
+        // 날짜 형식이 올바르지 않을 경우, RangeError 예외가 발생합니다.
+        // 이를 방지하기 위해, 날짜 형식이 올바르지 않으면 예외를 catch하여 빈 문자열을 반환합니다.
+        if (isNaN(date.getTime())) {
+          console.error('Invalid date format:', dateStr);
+          return '';
+        }
+        return date.toISOString().split('T')[0].replace(/-/g, '/');
+      } catch (error) {
+        console.error('Date format error:', error);
+        return '';
+      }
+    };
+
+    // 발송 가능일 처리
+    let availableDateValue = '3';  // 기본값
+    let desiredShippingDate = '3'; // 기본값
+
+    switch (body.AvailableDateType) {
+      case '0': // 일반발송
+        availableDateValue = '3';
+        desiredShippingDate = '3';
+        break;
+      case '1': // 상품준비일
+        availableDateValue = body.AvailableDateValue || '4';
+        desiredShippingDate = availableDateValue;
+        break;
+      case '2': // 출시일
+        availableDateValue = formatDate(body.AvailableDateValue);
+        desiredShippingDate = '0';
+        break;
+      case '3': // 당일발송
+        availableDateValue = body.AvailableDateValue || '14:30';
+        desiredShippingDate = '0';
+        break;
+      default:
+        availableDateValue = '3';
+        desiredShippingDate = '3';
+    }
+
     // POST request setup
     const response = await fetch(QOO10_API_URL, {
       method: 'POST',
@@ -31,7 +75,7 @@ export async function POST(request: NextRequest) {
         IndustrialCodeType: body.IndustrialCodeType || '',
         IndustrialCode: body.IndustrialCode || '',
         BrandNo: body.BrandNo || '',
-        ManufactureDate: body.ManufactureDate || '',
+        ManufactureDate: formatDate(body.ManufactureDate) || '',
         ModelNm: body.ModelNM || '',
         Material: body.Material || '',
         ProductionPlaceType: body.ProductionPlaceType || '',
@@ -41,9 +85,9 @@ export async function POST(request: NextRequest) {
         ContactInfo: body.ContactInfo || '',
         ShippingNo: body.ShippingNo?.toString() || '',
         Weight: body.Weight?.toString() || '',
-        DesiredShippingDate: body.DesiredShippingDate?.toString() || '',
+        DesiredShippingDate: desiredShippingDate,
         AvailableDateType: body.AvailableDateType || '',
-        AvailableDateValue: body.AvailableDateValue || '',
+        AvailableDateValue: availableDateValue,
         Keyword: body.Keyword || ''
       }).toString()
     });
@@ -64,8 +108,9 @@ export async function POST(request: NextRequest) {
     if (data.ResultCode !== 0) {
       return NextResponse.json({
         success: false,
+        ResultCode: data.ResultCode,
+        ResultMsg: data.ResultMsg,
         error: data.ResultMsg,
-        code: data.ResultCode,
         details: getErrorMessage(data.ResultCode)
       });
     }
@@ -88,19 +133,20 @@ export async function POST(request: NextRequest) {
 function getErrorMessage(code: number): string {
   const errorMessages: { [key: number]: string } = {
     0: 'SUCCESS',
-    '-10000': 'Please check the Seller Authorization Key.',
-    '-10001': 'Fail to find Item information with ItemCode,SellerCode.',
-    '-10002': 'The product information does not exist.',
-    '-10003': 'Failed to find about Seller\'s free delivery Info.',
-    '-10004': 'Delivery information is wrong. please input another ShippingNo.',
-    '-10005': 'Please check the AvailableDateValue.',
-    '-10101': 'Processing Error',
-    '-90001': 'The API does not exist',
-    '-90002': 'You are not authorized for this.',
-    '-90003': 'You are not authorized for this.',
-    '-90004': 'Seller authorization key is expired. Use a new key.',
-    '-90005': 'Seller authorization key is expired. Use a new key.'
+    '-999': '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD 형식으로 입력해주세요)',
+    '-10000': 'API 인증키를 확인해주세요.',
+    '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
+    '-10002': '상품 정보가 존재하지 않습니다.',
+    '-10003': '판매자의 무료배송 정보를 찾을 수 없습니다.',
+    '-10004': '배송 정보가 잘못되었습니다. 다른 배송비코드를 입력해주세요.',
+    '-10005': '발송가능일 값을 확인해주세요.',
+    '-10101': '처리 중 오류가 발생했습니다.',
+    '-90001': 'API가 존재하지 않습니다.',
+    '-90002': '권한이 없습니다.',
+    '-90003': '권한이 없습니다.',
+    '-90004': 'API 인증키가 만료되었습니다.',
+    '-90005': 'API 인증키가 만료되었습니다.'
   };
 
-  return errorMessages[code] || 'Unknown error';
+  return errorMessages[code] || `알 수 없는 오류가 발생했습니다. (오류 코드: ${code})`;
 }
