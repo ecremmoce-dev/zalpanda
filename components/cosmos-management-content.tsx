@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Globe, ExternalLink } from 'lucide-react'
+import { Edit, Globe, ExternalLink, Upload } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -287,7 +287,7 @@ const ITEM_STATUS_OPTIONS = [
   { value: 'S2', label: '거래가능' },
   { value: 'S3', label: '거래중지(Qoo10)' },
   { value: 'S5', label: '거래제한(Qoo10)' },
-  { value: 'S8', label: '���거부' }
+  { value: 'S8', label: '거부' }
 ]
 
 // 상태별 배지 색상 함수 수정
@@ -465,8 +465,11 @@ export function CosmosManagementContent() {
   const [isHtmlSourceOpen, setIsHtmlSourceOpen] = useState(false)
   const [htmlSource, setHtmlSource] = useState('')
 
-  // 동기화 진행 상태를 위한 state 추가
+  // 기화 진행 상태를 위한 state 추가
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+
+  // 상단에 상태 추가
+  const [directItemCode, setDirectItemCode] = useState('');
 
   useEffect(() => {
     fetchCompanies()
@@ -556,7 +559,7 @@ export function CosmosManagementContent() {
   // handleSyncToCosmos 함수 수정
   const handleSyncToCosmos = async () => {
     if (!selectedCompany || !selectedPlatform) {
-      alert('업체 플랫폼을 택주세요.')
+      alert('체와 플랫폼을 선택해주세요.')
       return
     }
 
@@ -584,19 +587,47 @@ export function CosmosManagementContent() {
       const eventSource = new EventSource(`/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`);
       
       eventSource.onmessage = (event) => {
-        const progress = JSON.parse(event.data);
-        setSyncProgress(progress);
-        
-        // 동기화가 완료되면 EventSource 종료
-        if (progress.current === progress.total) {
+        try {
+          const progress = JSON.parse(event.data);
+          setSyncProgress(progress);
+          
+          // 동기화가 완료되면
+          if (progress.current === progress.total) {
+            eventSource.close();
+            setIsSyncing(false);
+            
+            // 동기화 완료 메시지 생성
+            const completionMessage = `
+              동기화가 완료되었습니다.
+
+              처리 결과:
+              - 총 처리 상품: ${progress.total}개
+              - 성공: ${progress.successCount}개
+              - 실패: ${progress.failCount}개
+
+              상품 유형:
+              - 일반상품: ${progress.normalCount}개
+              - 무브상품: ${progress.moveCount}개
+            `;
+            
+            alert(completionMessage);
+            
+            // 목록 새로고침
+            fetchProducts();
+          }
+        } catch (error) {
+          console.error('Progress data parsing error:', error);
           eventSource.close();
           setIsSyncing(false);
+          alert('동기화 중 오류가 발생했습니다.');
         }
       };
 
-      eventSource.onerror = () => {
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
         eventSource.close();
         setIsSyncing(false);
+        alert('동기화 중 오류가 발생했습니다.');
       };
 
     } catch (error) {
@@ -1293,6 +1324,49 @@ export function CosmosManagementContent() {
     }
   };
 
+  // 직접 동기화 핸들러 추가
+  const handleDirectSync = async () => {
+    if (!selectedCompany || !selectedPlatform) {
+      alert('업체와 플랫폼을 선택해주세요.');
+      return;
+    }
+
+    if (!directItemCode.trim()) {
+      alert('상품코드를 입력해주세요.');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const response = await fetch('/api/qoo10/cosmos/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyId: selectedCompany,
+          platformId: selectedPlatform,
+          itemCode: directItemCode.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('동기화에 실패했습니다.');
+      }
+
+      const result = await response.json();
+      alert('동기화가 완료되었습니다.');
+      setDirectItemCode(''); // 입력 필드 초기화
+      fetchProducts(); // 목록 새로고침
+
+    } catch (error) {
+      console.error('Failed to sync specific item:', error);
+      alert('동기화에 실패했습니다.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex gap-4 mb-6">
@@ -1354,10 +1428,28 @@ export function CosmosManagementContent() {
           </Select>
         </div>
 
+        {/* 접 동기화 입력 필드와 버튼 추가 */}
+        <div className="flex gap-2">
+          <Input
+            value={directItemCode}
+            onChange={(e) => setDirectItemCode(e.target.value)}
+            placeholder="상품코드 직접 입력"
+            className="w-[200px]"
+          />
+          <Button
+            onClick={handleDirectSync}
+            disabled={!selectedCompany || !selectedPlatform || isSyncing || !directItemCode.trim()}
+            variant="outline"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            직접 동기화
+          </Button>
+        </div>
+
         <Button
           onClick={handleSyncToCosmos}
           disabled={!selectedCompany || !selectedPlatform || isSyncing}
-          className="ml-2 min-w-[300px]" // 버튼 너비 조정
+          className="ml-2 min-w-[300px]"
         >
           {isSyncing ? (
             <div className="flex flex-col items-center w-full">
@@ -1381,7 +1473,7 @@ export function CosmosManagementContent() {
           ) : (
             <div className="flex items-center">
               <span className="mr-2">↻</span>
-              QOO10 상 동기화
+              QOO10 상품 동기화
             </div>
           )}
         </Button>
@@ -1430,107 +1522,135 @@ export function CosmosManagementContent() {
               </TabsTrigger>
             </TabsList>
 
-            <div className="mt-4 border rounded-lg">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>상품코드</TableHead>
-                    <TableHead>셀러코드</TableHead>
-                    <TableHead>상품명</TableHead>
-                    <TableHead className="text-right">판매가</TableHead>
-                    <TableHead className="text-right">재고</TableHead>
-                    <TableHead>판매상태</TableHead>
-                    <TableHead>분</TableHead>
-                    <TableHead>최종 동기화</TableHead>
-                    <TableHead>관리</TableHead>
-                    <TableHead>미리보기</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-4">
-                        <div className="flex justify-center items-center">
-                          <span className="animate-spin mr-2">⟳</span>
-                          데이터를 불러오 중...
-                        </div>
-                      </TableCell>
+            <div className="mt-4">
+              <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="font-semibold">상품코드</TableHead>
+                      <TableHead className="font-semibold">셀러코드</TableHead>
+                      <TableHead className="font-semibold w-[300px]">상품명</TableHead>
+                      <TableHead className="font-semibold text-right">판매가</TableHead>
+                      <TableHead className="font-semibold text-right">재고</TableHead>
+                      <TableHead className="font-semibold text-center">판매상태</TableHead>
+                      <TableHead className="font-semibold text-center">상품유형</TableHead>
+                      <TableHead className="font-semibold">최종 동기화</TableHead>
+                      <TableHead className="font-semibold text-center">관리</TableHead>
+                      <TableHead className="font-semibold text-center">미리보기</TableHead>
                     </TableRow>
-                  ) : !products || products.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-4">
-                        데이터가 없습니다.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    products.map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell>{product.ItemCode}</TableCell>
-                        <TableCell>{product.SellerCode || '-'}</TableCell>
-                        <TableCell>{product.ItemTitle}</TableCell>
-                        <TableCell className="text-right">
-                          {product.ItemPrice?.toLocaleString() || 0}원
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {product.ItemQty?.toLocaleString() || 0}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
-                            {getStatusLabel(product.ItemStatus)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            product.Flag === 'MOVE' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {product.Flag === 'MOVE' ? '무브' : '일반'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {formatDate(product.LastFetchDate)}
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleEditClick(product.ItemCode)}
-                          >
-                            <Edit className="w-4 h-4 mr-2" />
-                            수정
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <ProductPreview 
-                            itemCode={product.ItemCode} 
-                            isMoveProduct={product.Flag === 'MOVE'}
-                          />
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="h-32">
+                          <div className="flex flex-col items-center justify-center text-gray-500">
+                            <div className="animate-spin mb-2">⟳</div>
+                            <div>데이터를 불러오는 중...</div>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : !products || products.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="h-32">
+                          <div className="flex flex-col items-center justify-center text-gray-500">
+                            <div className="mb-2">📭</div>
+                            <div>등록된 상품이 없습니다.</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      products.map((product) => (
+                        <TableRow 
+                          key={product.id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <TableCell className="font-mono text-sm">{product.ItemCode}</TableCell>
+                          <TableCell className="font-mono text-sm">{product.SellerCode || '-'}</TableCell>
+                          <TableCell className="max-w-[300px]">
+                            <div className="truncate" title={product.ItemTitle}>
+                              {product.ItemTitle}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {product.ItemPrice?.toLocaleString() || 0}
+                            <span className="text-gray-500 ml-1">원</span>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {product.ItemQty?.toLocaleString() || 0}
+                            <span className="text-gray-500 ml-1">개</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
+                              {getStatusLabel(product.ItemStatus)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                              product.Flag === 'MOVE' 
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                : 'bg-gray-100 text-gray-800 border border-gray-200'
+                            }`}>
+                              {product.Flag === 'MOVE' ? '무브' : '일반'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm text-gray-600">
+                              {formatDate(product.LastFetchDate)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleEditClick(product.ItemCode)}
+                              className="hover:bg-gray-100"
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              수정
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <ProductPreview 
+                              itemCode={product.ItemCode} 
+                              isMoveProduct={product.Flag === 'MOVE'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
 
-            {/* 페이지네이션 */}
-            <div className="mt-4 flex justify-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                이전
-              </Button>
-              <span className="py-2 px-4">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                다음
-              </Button>
+              {/* 페이지네이션 개선 */}
+              {totalPages > 1 && (
+                <div className="mt-6 flex justify-center items-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="flex items-center gap-1"
+                  >
+                    ← 이전
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">페이지</span>
+                    <div className="bg-white border rounded px-3 py-1 min-w-[80px] text-center">
+                      {page} / {totalPages}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="flex items-center gap-1"
+                  >
+                    다음 →
+                  </Button>
+                </div>
+              )}
             </div>
           </Tabs>
         </>

@@ -444,10 +444,11 @@ export async function GET(request: Request) {
   }
 }
 
+// POST 핸들러 수정
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { companyId, platformId, itemStatus = 'S1,S2' } = body
+    const { companyId, platformId, itemStatus, itemCode } = body
 
     // API Key 조회
     const platform = await prisma.zal_CompanyPlatform.findFirst({
@@ -465,22 +466,50 @@ export async function POST(request: Request) {
       )
     }
 
-    // 거래상태 유효성 검사 - 거래대기, 거래가능만 허용
-    const validStatuses = ['S1', 'S2']
-    const selectedStatuses = itemStatus.split(',')
-    const invalidStatuses = selectedStatuses.filter(status => !validStatuses.includes(status))
-    
-    if (invalidStatuses.length > 0) {
-      return NextResponse.json(
-        { error: `유효하지 않은 거래상태: ${invalidStatuses.join(', ')}. 거래대기(S1)와 거래가능(S2) 상태만 동기화할 수 있습니다.` },
-        { status: 400 }
-      )
+    // 단일 상품 동기화
+    if (itemCode) {
+      try {
+        const detail = await fetchItemDetail(platform.ApiKey, itemCode)
+        if (!detail) {
+          throw new Error('상품 정보를 찾을 수 없습니다.')
+        }
+
+        let options = []
+        if (detail.Flag === 'NONE') {
+          const inventoryInfo = await fetchItemInventoryInfo(platform.ApiKey, itemCode)
+          if (inventoryInfo) {
+            options = inventoryInfo
+          }
+        }
+
+        await saveToCosmosDB(
+          detail,
+          companyId,
+          platformId,
+          detail.Flag,
+          platform.SellerId || '',
+          platform.ApiKey,
+          options
+        )
+
+        return NextResponse.json({
+          success: true,
+          message: '상품이 성공적으로 동기화되었습니다.'
+        })
+      } catch (error) {
+        console.error('Failed to sync specific item:', error)
+        return NextResponse.json(
+          { error: '상품 동기화에 실패했습니다.' },
+          { status: 500 }
+        )
+      }
     }
 
+    // 일괄 동기화 로직
     console.log('상품 동기화 시작...', {
       companyId,
       platformId,
-      itemStatus: selectedStatuses
+      itemStatus
     })
 
     // 전체 상품 목록 조회
@@ -500,6 +529,8 @@ export async function POST(request: Request) {
     // 상품 상세 정보 조회 및 Cosmos DB 저장
     let successCount = 0
     let failCount = 0
+    let normalCount = 0
+    let moveCount = 0
 
     for (const itemCode of allItemCodes) {
       try {
@@ -508,25 +539,13 @@ export async function POST(request: Request) {
           let options = []
           
           if (detail.Flag === 'NONE') {
-            // 일반 상품인 경우 GetGoodsInventoryInfo API 호출
+            normalCount++
             const inventoryInfo = await fetchItemInventoryInfo(platform.ApiKey, itemCode)
             if (inventoryInfo) {
               options = inventoryInfo
             }
-          } else if (detail.Flag === 'MOVE' && detail.OptionQty) {
-            // 무브 상품인 경우 OptionQty 파싱
-            options = detail.OptionQty.split('$$').map((option: string) => {
-              const [color, size, qty, code] = option.split('||*')
-              return {
-                Name1: 'Color',
-                Value1: color,
-                Name2: 'Size',
-                Value2: size,
-                Qty: parseInt(qty) || 0,
-                ItemTypeCode: code,
-                Price: 0
-              }
-            })
+          } else if (detail.Flag === 'MOVE') {
+            moveCount++
           }
 
           const saved = await saveToCosmosDB(
@@ -541,34 +560,32 @@ export async function POST(request: Request) {
 
           if (saved) {
             successCount++
-            console.log(`상품 저장 성공: ${itemCode}`)
           } else {
             failCount++
-            console.log(`상품 저장 실패: ${itemCode}`)
           }
         } else {
           failCount++
-          console.log(`상품 상세 정보 없음: ${itemCode}`)
         }
         
-        // API 호출 간격 조절
         await new Promise(resolve => setTimeout(resolve, 200))
       } catch (error) {
         console.error(`상품 처리 실패 (${itemCode}):`, error)
         failCount++
       }
-
-      // 진행 상황 로깅
-      if ((successCount + failCount) % 5 === 0) {
-        console.log(`진행 상황: ${successCount + failCount}/${allItemCodes.length} (성공: ${successCount}, 실패: ${failCount})`)
-      }
     }
 
+    // 동기화 결과 반환
     return NextResponse.json({
       success: true,
       totalProducts: allItemCodes.length,
       syncDate: new Date(),
-      selectedStatuses: selectedStatuses
+      stats: {
+        total: allItemCodes.length,
+        success: successCount,
+        fail: failCount,
+        normal: normalCount,
+        move: moveCount
+      }
     })
 
   } catch (error) {
