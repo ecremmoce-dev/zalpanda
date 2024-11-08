@@ -2442,7 +2442,7 @@ model VoyageSlaInfo {
 }
 
 model Zal_CompanyInfo {
-  Id                  String                @id(map: "PK__Zal_Comp__3214EC071DF830D0") @db.UniqueIdentifier
+  Id                  String                @id(map: "PK__Zal_Comp__3214EC070E874165") @db.UniqueIdentifier
   ParentCompanyId     String?               @db.UniqueIdentifier
   Name                String?               @db.NVarChar(100)
   NameEn              String?               @db.NVarChar(100)
@@ -2467,14 +2467,14 @@ model Zal_CompanyInfo {
   Memo                String?
   ReceivingAccount    String?               @db.VarChar(100)
   ReceivingBank       String?               @db.VarChar(100)
-  CreatedAt           DateTime              @default(now(), map: "DF__Zal_Compa__Creat__41F8B7BD")
+  CreatedAt           DateTime              @default(now(), map: "DF__Zal_Compa__Creat__06A2E7C5")
   UpdatedAt           DateTime?
   DeletedAt           DateTime?
   Zal_CompanyPlatform Zal_CompanyPlatform[]
 }
 
 model Zal_CompanyPlatform {
-  Id              String          @id(map: "PK__Zal_Comp__3214EC07412CD151") @default(dbgenerated("newid()"), map: "DF__Zal_CompanyP__Id__46BD6CDA") @db.UniqueIdentifier
+  Id              String          @id(map: "PK__Zal_Comp__3214EC0707DBC20B") @default(dbgenerated("newid()"), map: "DF__Zal_CompanyP__Id__097F5470") @db.UniqueIdentifier
   CompanyId       String          @db.UniqueIdentifier
   Platform        String          @db.VarChar(20)
   SellerId        String?         @db.NVarChar(100)
@@ -2484,10 +2484,10 @@ model Zal_CompanyPlatform {
   AccessToken     String?
   RefreshToken    String?
   TokenExpiryDate DateTime?
-  IsActive        Boolean         @default(true, map: "DF__Zal_Compa__IsAct__47B19113")
+  IsActive        Boolean         @default(true, map: "DF__Zal_Compa__IsAct__0A7378A9")
   LastSyncDate    DateTime?
   Memo            String?
-  CreatedAt       DateTime        @default(now(), map: "DF__Zal_Compa__Creat__48A5B54C")
+  CreatedAt       DateTime        @default(now(), map: "DF__Zal_Compa__Creat__0B679CE2")
   UpdatedAt       DateTime?
   DeletedAt       DateTime?
   Zal_CompanyInfo Zal_CompanyInfo @relation(fields: [CompanyId], references: [Id], onUpdate: NoAction, map: "FK_CompanyPlatform_Company")
@@ -2602,15 +2602,3 @@ model Zal_Qoo10ItemOptions {
   Zal_Qoo10ItemDetails Zal_Qoo10ItemDetails @relation(fields: [ItemCode], references: [ItemCode], onDelete: Cascade, onUpdate: NoAction, map: "FK_ItemOptions_ItemCode")
 }
 
-/// --------- DO NOT REMOVE OR MODIFY THIS MODEL ---------
-/// @keep
-model SavedImage {
-  id          String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
-  userId      String
-  originalUrl String
-  resizedUrl  String
-  width       Int
-  height      Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
