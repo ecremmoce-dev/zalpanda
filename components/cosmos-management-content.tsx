@@ -633,7 +633,7 @@ export function CosmosManagementContent() {
   const handleEditClick = async (itemCode: string) => {
     try {
       const response = await fetch(`/api/qoo10/cosmos/products/${itemCode}`)
-      if (!response.ok) throw new Error('상품 조회 실패했습���다.')
+      if (!response.ok) throw new Error('상품 조회 실패했습니다.')
       
       const product = await response.json()
       setSelectedProduct(product)
