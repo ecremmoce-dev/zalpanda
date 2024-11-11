@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Edit, Globe, ExternalLink, Upload } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import dynamic from 'next/dynamic'
@@ -246,7 +246,7 @@ const JAPAN_REGIONS = [
   { value: 'GUMMA', label: '群馬県(GUMMA)' },
   { value: 'SAITAMA', label: '埼玉県(SAITAMA)' },
   { value: 'CHIBA', label: '千葉県(CHIBA)' },
-  { value: 'TOKYO', label: '東��都(TOKYO)' },
+  { value: 'TOKYO', label: '東都(TOKYO)' },
   { value: 'KANAGAWA', label: '神奈川(KANAGAWA)' },
   // ... 나머지 일본 지역들
   { value: 'OKINAWA', label: '沖縄県(OKINAWA)' }
@@ -1687,62 +1687,7 @@ export function CosmosManagementContent() {
                 />
               ) : (
                 <NormalProductEditor
-                  product={{
-                    id: "...",
-                    ItemCode: "...",
-                    CompanyId: "...",
-                    PlatformId: "...",
-                    SellerId: "...",
-                    SellerAuthKey: "...",
-                    Flag: "NONE",
-                    SellerCode: "...",
-                    ItemStatus: "...",
-                    ItemTitle: "...",
-                    ItemSeriesName: "...",
-                    Weight: 0,
-                    AttributeInfo: "...",
-                    RetailPrice: 0,
-                    TaxRate: 0,
-                    SettlePrice: 0,
-                    OptionMainimage: "...",
-                    OptionType: "...",
-                    ItemDescription: "...",
-                    MainCatCd: "...",
-                    MainCatNm: "...",
-                    FirstSubCatCd: "...",
-                    FirstSubCatNm: "...",
-                    SecondSubCatCd: "...",
-                    SecondSubCatNm: "...",
-                    ImageUrl: "...",
-                    BrandNo: "...",
-                    ItemPrice: 0,
-                    ShippingNo: "...",
-                    OriginType: "...",
-                    OriginCountryId: "...",
-                    SeasonType: "...",
-                    Keyword: "...",
-                    Options: [],
-                    ItemQty: 0,
-                    ItemDetail: "...",
-                    ExpireDate: "...",
-                    OptionSubimage: "...",
-                    OptionQty: "...",
-                    PromotionName: "...",
-                    IndustrialCodeType: "...",
-                    IndustrialCode: "...",
-                    ManufacturerDate: "...",
-                    ModelNM: "...",
-                    Material: "...",
-                    ProductionPlaceType: "...",
-                    ProductionPlace: "...",
-                    AdultYN: "...",
-                    ContactInfo: "...",
-                    AvailableDateType: "...",
-                    AvailableDateValue: "...",
-                    DesiredShippingDate: 0,
-                    CreatedAt: "...",
-                    LastFetchDate: "..."
-                  }}
+                  product={selectedProduct}
                   onSave={handleSaveProduct}
                   onCancel={() => setIsDetailDialogOpen(false)}
                   onApplyToQoo10={handleApplyToQoo10}
