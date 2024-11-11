@@ -304,7 +304,7 @@ async function saveToCosmosDB(item: any, companyId: string, platformId: string, 
         id: documentId,
         itemCode: item.ItemCode,
         companyId: companyId,
-        // flag: flag,
+        //flag: flag,
         // lastFetchDate: new Date().toISOString(),
         // updatedAt: new Date().toISOString()
       };
