@@ -1,38 +1,45 @@
-// 진행 상태를 저장할 Map 객체
-const progressMap = new Map<string, number>();
+type Progress = {
+  current: number;
+  total: number;
+  normalCount: number;
+  moveCount: number;
+  successCount: number;
+  failCount: number;
+};
 
-/**
- * 진행률을 설정하는 함수
- * @param key 진행률을 식별하는 키
- * @param value 진행률 값 (0-100)
- */
-export function setProgress(key: string, value: number) {
-  progressMap.set(key, Math.min(100, Math.max(0, value)));
-}
+const progressMap = new Map<string, Progress>();
 
-/**
- * 진행률을 가져오는 함수
- * @param key 진행률을 식별하는 키
- * @returns 진행률 값 (0-100), 키가 없으면 0 반환
- */
-export function getProgress(key: string): number {
-  return progressMap.get(key) || 0;
-}
+export const createProgressKey = (companyId: string, platformId: string) => {
+  return `${companyId}_${platformId}`;
+};
 
-/**
- * 진행률을 초기화하는 함수
- * @param key 진행률을 식별하는 키
- */
-export function resetProgress(key: string) {
+export const initProgress = (key: string, total: number) => {
+  progressMap.set(key, {
+    current: 0,
+    total,
+    normalCount: 0,
+    moveCount: 0,
+    successCount: 0,
+    failCount: 0
+  });
+};
+
+export const updateProgress = (key: string, update: Partial<Progress>) => {
+  const current = progressMap.get(key) || {
+    current: 0,
+    total: 0,
+    normalCount: 0,
+    moveCount: 0,
+    successCount: 0,
+    failCount: 0
+  };
+  progressMap.set(key, { ...current, ...update });
+};
+
+export const getProgress = (key: string) => {
+  return progressMap.get(key);
+};
+
+export const clearProgress = (key: string) => {
   progressMap.delete(key);
-}
-
-/**
- * 진행 상태 키를 생성하는 함수
- * @param companyId 회사 ID
- * @param platformId 플랫폼 ID
- * @returns 진행 상태 키
- */
-export function createProgressKey(companyId: string, platformId: string): string {
-  return `${companyId}:${platformId}`;
-} 
+}; 
