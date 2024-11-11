@@ -366,7 +366,7 @@ const convertHtmlToQoo10Format = (html: string) => {
     })
     // 중앙 정렬된 텍스트 처리
     .replace(/<p class="ql-align-center">(.*?)<\/p>/g, '<div style="text-align: center;">$1</div>')
-    // 나머지 p 태그를 div로 변환
+    // 나머지 p 태를 div로 변환
     .replace(/<p>(.*?)<\/p>/g, '<div>$1</div>')
     // 빈 줄바꿈 제거
     .replace(/<p><br><\/p>/g, '')
@@ -552,12 +552,12 @@ export function CosmosManagementContent() {
   // handleSyncToCosmos 함수 수정
   const handleSyncToCosmos = async () => {
     if (!selectedCompany || !selectedPlatform) {
-      alert('체와 플랫폼을 선택해주세요.')
-      return
+      alert('업체와 플랫폼을 선택해주세요.');
+      return;
     }
 
-    setIsSyncing(true)
-    setSyncProgress(null)
+    setIsSyncing(true);
+    setSyncProgress(null);
 
     try {
       const response = await fetch('/api/qoo10/cosmos/sync', {
@@ -570,65 +570,54 @@ export function CosmosManagementContent() {
           platformId: selectedPlatform,
           itemStatus: selectedStatus
         }),
-      })
+      });
+
+      const result = await response.json();
+      console.log('동기화 결과:', result);
 
       if (!response.ok) {
-        throw new Error('Failed to sync with Cosmos DB')
+        throw new Error(result.error || '동기화에 실패했습니다.');
       }
 
-      // EventSource를 사용하여 실시간 진행 상황 수신
-      const eventSource = new EventSource(`/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`);
+      // 동기화 결과 상세 메시지 생성
+      let resultMessage = '== QOO10 동기화 결과 ==\n\n';
       
-      eventSource.onmessage = (event) => {
-        try {
-          const progress = JSON.parse(event.data);
-          setSyncProgress(progress);
-          
-          // 동기화가 완료되면
-          if (progress.current === progress.total) {
-            eventSource.close();
-            setIsSyncing(false);
-            
-            // 동기화 완료 메시지 생성
-            const completionMessage = `
-              동기화가 완료되었습니다.
+      // 전체 처리 현황
+      resultMessage += '📊 전체 처리 현황\n';
+      resultMessage += `- 총 상품 수: ${result.stats.total || 0}개\n`;
+      resultMessage += `- 성공: ${result.stats.success || 0}개\n`;
+      resultMessage += `- 실패: ${result.stats.fail || 0}개\n\n`;
 
-              처리 결과:
-              - 총 처리 상품: ${progress.total}개
-              - 성공: ${progress.successCount}개
-              - 실패: ${progress.failCount}개
+      // 상품 유형별 현황
+      resultMessage += '📦 상품 유형별 현황\n';
+      resultMessage += `- 일반상품: ${result.stats.normal || 0}개\n`;
+      resultMessage += `- 무브상품: ${result.stats.move || 0}개\n\n`;
 
-              상품 유형:
-              - 일반상품: ${progress.normalCount}개
-              - 무브상품: ${progress.moveCount}개
-            `;
-            
-            alert(completionMessage);
-            
-            // 록 새로고침
-            fetchProducts();
-          }
-        } catch (error) {
-          console.error('Progress data parsing error:', error);
-          eventSource.close();
-          setIsSyncing(false);
-          alert('동기화 중 오류가 발생했습니다.');
-        }
-      };
+      // 동기화 시간 정보
+      if (result.syncDate) {
+        resultMessage += `🕒 동기화 시간: ${new Date(result.syncDate).toLocaleString()}\n\n`;
+      }
 
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        eventSource.close();
-        setIsSyncing(false);
-        alert('동기화 중 오류가 발생했습니다.');
-      };
+      // 최종 결과 표시
+      if (result.stats.fail === 0) {
+        resultMessage += '✅ 모든 상품이 성공적으로 동기화되었습니다.';
+      } else {
+        resultMessage += '⚠️ 일부 상품 동기화에 실패했습니다.\n';
+        resultMessage += '실패한 상품을 확인하고 다시 시도해주세요.';
+      }
 
-    } catch (error) {
-      console.error('Failed to sync with Cosmos DB:', error)
-      alert('Cosmos DB 동기화에 실패했습니다.')
-      setIsSyncing(false)
+      alert(resultMessage);
+
+    } catch (error: any) {
+      console.error('동기화 실패:', error);
+      alert(`동기화 중 오류가 발생했습니다.\n\n${error.message || '알 수 없는 오류가 발생했습니다.'}`);
+    } finally {
+      setIsSyncing(false);
+      setSyncProgress(null);
+      // 동기화 완료 후 목록 새로고침
+      fetchProducts();
     }
-  }
+  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -644,7 +633,7 @@ export function CosmosManagementContent() {
   const handleEditClick = async (itemCode: string) => {
     try {
       const response = await fetch(`/api/qoo10/cosmos/products/${itemCode}`)
-      if (!response.ok) throw new Error('상품 조회 실패했습니다.')
+      if (!response.ok) throw new Error('상품 조회 실패했습���다.')
       
       const product = await response.json()
       setSelectedProduct(product)
@@ -1078,7 +1067,7 @@ export function CosmosManagementContent() {
           '-10002': '검수 중인 상품은 수정할 수 없습다.',
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
-          '-10005': '승인거부된 상품은 수정할 수 없습니다.',
+          '-10005': '��인거부된 상품은 수정할 수 없습니다.',
           '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
           '-10101': '처리 중 오류가 발생했습니다.'
         }
@@ -1211,12 +1200,11 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 프로그레스바 컴포넌트 추가
-  const SyncProgressBar = () => {
-    if (!syncProgress) return null;
+  // SyncProgressBar 컴포넌트 수정
+  const SyncProgressBar = ({ progress }: { progress: any }) => {
+    if (!progress) return null;
 
-    const percentage = (syncProgress.current / syncProgress.total) * 100;
-    const remaining = syncProgress.total - syncProgress.current;
+    const percentage = (progress.current / progress.total) * 100;
 
     return (
       <div className="fixed top-4 right-4 w-80 bg-white p-4 rounded-lg shadow-lg border">
@@ -1224,7 +1212,7 @@ export function CosmosManagementContent() {
           <div className="flex justify-between items-center">
             <h3 className="font-semibold">QOO10 상품 동기화 중...</h3>
             <span className="text-sm text-gray-500">
-              {syncProgress.current}/{syncProgress.total}
+              {progress.current}/{progress.total}
             </span>
           </div>
           
@@ -1236,33 +1224,33 @@ export function CosmosManagementContent() {
             />
           </div>
 
-          {/* 상세 정보 */}
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="space-y-1">
-              <div className="flex justify-between">
+          {/* 상품 유형별 현황 */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <div className="flex justify-between text-sm">
                 <span>일반상품:</span>
-                <span className="font-medium">{syncProgress.normalCount}</span>
+                <span className="font-medium">{progress.normalCount}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span>무브상품:</span>
-                <span className="font-medium">{syncProgress.moveCount}</span>
+                <span className="font-medium">{progress.moveCount}</span>
               </div>
             </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
+            <div>
+              <div className="flex justify-between text-sm">
                 <span>성공:</span>
-                <span className="text-green-600 font-medium">{syncProgress.successCount}</span>
+                <span className="text-green-600 font-medium">{progress.successCount}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-sm">
                 <span>실패:</span>
-                <span className="text-red-600 font-medium">{syncProgress.failCount}</span>
+                <span className="text-red-600 font-medium">{progress.failCount}</span>
               </div>
             </div>
           </div>
 
           {/* 남은 상품 수 */}
           <div className="text-sm text-gray-600 text-center">
-            남은 상품: {remaining}개
+            남은 상품: {progress.total - progress.current}개
           </div>
         </div>
       </div>
@@ -1471,7 +1459,7 @@ export function CosmosManagementContent() {
       </div>
 
       {/* 프로그레스바 추가 */}
-      {isSyncing && <SyncProgressBar />}
+      {isSyncing && <SyncProgressBar progress={syncProgress} />}
 
       {selectedCompany && selectedPlatform && (
         <>

@@ -645,7 +645,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {editedProduct.Options?.length === 0 ? (
+                    {!editedProduct.Options || editedProduct.Options.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                           등록된 옵션이 없습니다.
@@ -682,36 +682,133 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                         </TableCell>
                       </TableRow>
                     ) : (
-                      editedProduct.Options?.map((option) => (
-                        <TableRow key={option.Id} className="hover:bg-gray-50">
+                      editedProduct.Options.map((option) => (
+                        <TableRow key={option.id} className="hover:bg-gray-50">
                           <TableCell>
                             <Input
-                              value={option.Name1 || ''}
+                              value={option.name1 || ''}
                               onChange={(e) => {
-                                setEditedProduct(prev => ({
-                                  ...prev,
-                                  Options: prev.Options?.map(opt =>
-                                    opt.Id === option.Id ? { ...opt, Name1: e.target.value } : opt
-                                  )
-                                }))
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, name1: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
                               }}
+                              disabled={!isEditing}
                             />
                           </TableCell>
-                          <TableCell>{option.Name1 || '-'}</TableCell>
                           <TableCell>
                             <Input
-                              value={option.Value1 || ''}
+                              value={option.value1 || ''}
                               onChange={(e) => {
-                                setEditedProduct(prev => ({
-                                  ...prev,
-                                  Options: prev.Options?.map(opt =>
-                                    opt.Id === option.Id ? { ...opt, Value1: e.target.value } : opt
-                                  )
-                                }))
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, value1: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
                               }}
+                              disabled={!isEditing}
                             />
                           </TableCell>
-                          {/* 나머지 필드들도 같은 방식으로 대문자로 시작하는 프로퍼티 이름 사용 */}
+                          <TableCell>
+                            <Input
+                              value={option.name2 || ''}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, name2: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={option.value2 || ''}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, value2: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={option.name3 || ''}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, name3: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={option.value3 || ''}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, value3: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              value={option.price || 0}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, price: Number(e.target.value) } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              value={option.qty || 0}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, qty: Number(e.target.value) } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={option.itemTypeCode || ''}
+                              onChange={(e) => {
+                                const updatedOptions = editedProduct.Options?.map(opt =>
+                                  opt.id === option.id ? { ...opt, itemTypeCode: e.target.value } : opt
+                                );
+                                handleFieldChange('Options', updatedOptions);
+                              }}
+                              disabled={!isEditing}
+                            />
+                          </TableCell>
+                          {isEditing && (
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const updatedOptions = editedProduct.Options?.filter(opt => opt.id !== option.id);
+                                  handleFieldChange('Options', updatedOptions);
+                                }}
+                                className="hover:bg-red-100"
+                              >
+                                <X className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))
                     )}
