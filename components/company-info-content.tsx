@@ -15,7 +15,7 @@ import { PlusCircle, ChevronDown, ChevronRight, Edit, Trash } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { CompanyForm } from './company-form'
 import { PlatformForm } from './platform-form'
-import { Company, Platform } from '@/types'
+import { Company, Platform, Supplier } from '@/types'
 
 export function CompanyInfoContent() {
   const [companies, setCompanies] = useState<Company[]>([])
@@ -26,6 +26,7 @@ export function CompanyInfoContent() {
   const [platformToEdit, setPlatformToEdit] = useState<Platform | null>(null)
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false)
   const [parentCompanyId, setParentCompanyId] = useState<string | null>(null)
+  const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null)
 
   useEffect(() => {
     fetchCompanies()
@@ -184,6 +185,11 @@ export function CompanyInfoContent() {
     setIsDialogOpen(true);
   };
 
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSupplierToEdit(supplier);
+    setIsSupplierDialogOpen(true);
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between mb-4">
@@ -307,7 +313,7 @@ export function CompanyInfoContent() {
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {company.suppliers?.map((supplier) => (
+                                  {company.suppliers?.map((supplier: Supplier) => (
                                     <TableRow 
                                       key={supplier.Id}
                                       className="hover:bg-gray-50 transition-colors"
@@ -475,22 +481,22 @@ export function CompanyInfoContent() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {selectedCompany ? '공급업체 정보 수정' : '공급업체 등록'}
+              {supplierToEdit ? '공급업체 정보 수정' : '공급업체 등록'}
             </DialogTitle>
             <DialogDescription>
-              {selectedCompany ? '공급업체 정보를 수정해주세요.' : '새로운 공급업체 정보를 입력해주세요.'}
+              {supplierToEdit ? '공급업체 정보를 수정해주세요.' : '새로운 공급업체 정보를 입력해주세요.'}
             </DialogDescription>
           </DialogHeader>
           <CompanyForm 
-            initialData={selectedCompany}
+            initialData={supplierToEdit}
             parentCompanyId={parentCompanyId}
             onSuccess={async () => {
               try {
                 setIsSupplierDialogOpen(false);
-                setSelectedCompany(null);
+                setSupplierToEdit(null);
                 setParentCompanyId(null);
                 
-                alert(selectedCompany ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
+                alert(supplierToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
                 
                 await fetchCompanies();
               } catch (error) {
