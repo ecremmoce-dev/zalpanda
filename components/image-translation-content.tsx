@@ -184,31 +184,70 @@ export default function ImageTranslationContent() {
   const downloadAllTranslated = async () => {
     const zip = new JSZip()
     
-    const selectedImages = images.filter(img => img.selected)
+    // 선택된 이미지 중 번역을 시도한 이미지만 필터링
+    const downloadTargetImages = images.filter(img => 
+      img.selected && (img.translated !== undefined)
+    )
 
-    if (selectedImages.length === 0) {
+    if (downloadTargetImages.length === 0) {
       toast({
         variant: "destructive",
-        description: "다운로드할 이미지가 없습니다."
+        description: "다운로드할 이미지가 없습니다. 이미지를 선택하고 번역을 시도해주세요."
       })
       return
     }
 
-    selectedImages.forEach((img, index) => {
-      const imageData = (img.translated || img.original).split(',')[1]
-      const fileName = img.translated 
-        ? `translated_${img.name}`
-        : `original_${img.name}`
+    // 번역 성공/실패 이미지 개수 카운트를 위한 변수
+    let successCount = 0
+    let failCount = 0
+
+    downloadTargetImages.forEach((img) => {
+      let imageData: string;
+      
+      if (img.isTranslationSuccessful && img.translated) {
+        // 번역 성공한 이미지
+        imageData = img.translated.split(',')[1]
+      } else {
+        // 번역 실패한 경우 원본 파일 사용
+        const reader = new FileReader()
+        reader.readAsDataURL(img.originalFile)
+        imageData = reader.result as string
+        if (imageData.includes(',')) {
+          imageData = imageData.split(',')[1]
+        }
+      }
+
+      // 파일명 생성 (번역 성공/실패 여부 표시)
+      const prefix = img.isTranslationSuccessful ? 'translated_' : 'original_'
+      const fileName = `${prefix}${img.name}`
       
       zip.file(fileName, imageData, { base64: true })
+
+      // 성공/실패 카운트 증가
+      if (img.isTranslationSuccessful) {
+        successCount++
+      } else {
+        failCount++
+      }
     })
 
-    const content = await zip.generateAsync({ type: 'blob' })
-    saveAs(content, 'translated_images.zip')
-    
-    toast({
-      description: "이미지 다운로드가 완료되었습니다."
-    })
+    try {
+      const content = await zip.generateAsync({ type: 'blob' })
+      saveAs(content, 'translated_images.zip')
+      
+      // 상세한 결과 메시지 표시
+      toast({
+        description: `다운로드 완료 (총 ${downloadTargetImages.length}개)
+          ${successCount > 0 ? `\n- 번역 성공: ${successCount}개` : ''}
+          ${failCount > 0 ? `\n- 번역 실패 (원본 다운로드): ${failCount}개` : ''}`
+      })
+    } catch (error) {
+      console.error('Download error:', error)
+      toast({
+        variant: "destructive",
+        description: "이미지 다운로드 중 오류가 발생했습니다."
+      })
+    }
   }
 
   const handleUrlUpload = async (urls: string[]) => {
@@ -443,32 +482,41 @@ export default function ImageTranslationContent() {
         >
           {images.map((image, index) => (
             <div key={`translated-${index}`} className="mb-4">
-              {image.selected && (
-                <div className="relative border-2 border-gray-300">
+              <div className="relative">
+                <div className={`relative border-2 border-gray-300`}>
                   <Image
-                    src={image.translated || image.original}  // 번역된 이미지 또는 원본 이미지
+                    src={image.translated || image.original}
                     alt={`Translated ${index + 1}`}
                     width={500}
                     height={500}
                     className="w-full h-auto"
                     unoptimized
                   />
+                  {!image.selected && (
+                    <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-[1px] flex items-center justify-center">
+                      <span className="text-white bg-gray-900/70 px-4 py-2 rounded-md">
+                        미선택 이미지
+                      </span>
+                    </div>
+                  )}
                   <div className="absolute top-2 left-2 bg-white/80 px-2 py-1 rounded">
                     <span className="text-sm">
-                      {image.translated ? (
-                        image.isTranslationSuccessful ? 
-                          '번역 완료' : 
-                          '번역 실패 (원본 표시)'
-                      ) : '번역 대기중'}
+                      {image.selected ? (
+                        image.translated ? (
+                          image.isTranslationSuccessful ? 
+                            '번역 완료' : 
+                            '역 실패 (원본 표시)'
+                        ) : '번역 대기중'
+                      ) : '미선택'}
                     </span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
-          {!images.some(img => img.selected) && (
+          {images.length === 0 && (
             <div className="h-full flex items-center justify-center text-gray-500">
-              <p>이미지를 선택해주세요</p>
+              <p>이미지를 업로드해주세요</p>
             </div>
           )}
         </div>
