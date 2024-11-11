@@ -102,26 +102,24 @@ export default function ImageTranslationContent() {
       })
 
       if (!response.ok) {
-        console.error('Translation request failed:', response.status)
-        return base64Image  // 실패 시 원본 이미지 반환
+        throw new Error(`Translation failed: ${response.status}`)
       }
 
       const data = await response.json()
       
-      // API 응답에서 번역된 이미지 또는 원본 이미지 반환
+      if (data.error) {
+        console.error('Translation error:', data.error)
+        throw new Error(data.error)
+      }
+
       if (data.translatedImage) {
         return `data:image/png;base64,${data.translatedImage}`
-      } else if (data.originalImage) {
-        return data.originalImage
       }
-      
-      // 예상치 못한 응답 형식인 경우 원본 이미지 반환
-      console.error('Unexpected API response format:', data)
-      return base64Image
 
+      throw new Error('No translation result')
     } catch (error) {
       console.error('Translation error:', error)
-      return base64Image  // 오류 발생 시 원본 이미지 반환
+      throw error
     }
   }
 
@@ -215,10 +213,40 @@ export default function ImageTranslationContent() {
 
   const handleUrlUpload = async (urls: string[]) => {
     try {
-      const newImages = await Promise.all(
-        urls.map(async (url) => {
+      const loadingToast = toast({
+        description: "이미지 로딩 중...",
+      })
+
+      // 유효한 URL만 필터링
+      const validUrls = urls.filter(url => {
+        try {
+          new URL(url)
+          return true
+        } catch {
+          return false
+        }
+      })
+
+      const results = await Promise.allSettled(
+        validUrls.map(async (url) => {
           try {
-            // 프록시 API를 통해 이미지 가져오기
+            // 먼저 직접 이미지 가져오기 시도
+            const response = await fetch(url)
+            const blob = await response.blob()
+            const fileName = url.split('/').pop()?.split('?')[0] || `image-${Date.now()}.png`
+            const file = new File([blob], fileName, { type: blob.type })
+            const dataUrl = URL.createObjectURL(blob)
+
+            return {
+              original: dataUrl,
+              originalFile: file,
+              name: fileName,
+              width: 0,
+              height: 0,
+              selected: false
+            }
+          } catch (error) {
+            // CORS 오류 등이 발생하면 프록시 서버를 통해 재시도
             const proxyResponse = await fetch('/api/proxy-image', {
               method: 'POST',
               headers: {
@@ -228,53 +256,62 @@ export default function ImageTranslationContent() {
             })
 
             if (!proxyResponse.ok) {
-              throw new Error('Failed to proxy image')
+              throw new Error('Proxy fetch failed')
             }
 
             const { image: dataUrl } = await proxyResponse.json()
             
-            // dataUrl을 Blob으로 변환
+            // base64 데이터 URL을 Blob으로 변환
             const response = await fetch(dataUrl)
             const blob = await response.blob()
-            const file = new File([blob], url.split('/').pop() || 'image.png', { type: blob.type })
+            const fileName = url.split('/').pop()?.split('?')[0] || `image-${Date.now()}.png`
+            const file = new File([blob], fileName, { type: blob.type })
 
             return {
               original: dataUrl,
               originalFile: file,
-              name: url.split('/').pop() || 'image.png',
+              name: fileName,
               width: 0,
               height: 0,
               selected: false
             }
-          } catch (error) {
-            console.error('이미지 URL 처리 실패:', url, error)
-            toast({
-              variant: "destructive",
-              description: `이미지 로드 실패: ${url}`
-            })
-            return null
           }
         })
       )
-      
-      const validImages = newImages.filter((img): img is ImageInfo => img !== null)
-      
-      if (validImages.length > 0) {
-        setImages(prev => [...prev, ...validImages])
+
+      loadingToast.dismiss()
+
+      // 성공한 결과만 필터링
+      const successfulUploads = results
+        .filter((result): result is PromiseFulfilledResult<ImageInfo> => 
+          result.status === 'fulfilled'
+        )
+        .map(result => result.value)
+
+      const failedCount = results.filter(result => result.status === 'rejected').length
+
+      // 상태 업데이트
+      if (successfulUploads.length > 0) {
+        setImages(prev => [...prev, ...successfulUploads])
         toast({
-          description: `${validImages.length}개의 이미지가 추가되었습니다.`
-        })
-      } else {
-        toast({
-          variant: "destructive",
-          description: "유효한 이미지를 찾을 수 없습니다."
+          description: `${successfulUploads.length}개의 이미지가 추가되었습니다.${
+            failedCount > 0 ? ` (${failedCount}개 실패)` : ''
+          }`,
         })
       }
+
+      if (failedCount > 0) {
+        toast({
+          variant: "destructive",
+          description: `${failedCount}개의 이미지 업로드에 실패했습니다.`,
+        })
+      }
+
     } catch (error) {
       console.error('URL 이미지 로딩 실패:', error)
       toast({
         variant: "destructive",
-        description: "이미지 URL 처리 중 오류가 발생했습니다."
+        description: "이미지 URL 처리 중 오류가 발생했습니다.",
       })
     }
   }

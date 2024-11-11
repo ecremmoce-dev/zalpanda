@@ -8,40 +8,20 @@ const NAVER_API_URL = 'https://naveropenapi.apigw.ntruss.com/image-to-image/v1/t
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData()
-    const image = formData.get('image')
-    const source = formData.get('source')
-    const target = formData.get('target')
+    // JSON 요청을 처리하도록 수정
+    const { image, source, target } = await request.json()
+    
+    // Base64 이미지 데이터를 Blob으로 변환
+    const base64Data = image.split(',')[1]
+    const binaryData = Buffer.from(base64Data, 'base64')
+    const blob = new Blob([binaryData], { type: 'image/png' })
+    
+    const formData = new FormData()
+    formData.append('image', blob, 'image.png')
+    formData.append('source', source)
+    formData.append('target', target)
 
-    // image가 없는 경우 처리
-    if (!image) {
-      return NextResponse.json(
-        { error: 'Image is required' },
-        { status: 400 }
-      )
-    }
-
-    // API 키 확인
-    if (!process.env.NCP_API_KEY_ID || !process.env.NCP_API_KEY) {
-      console.error('Missing Naver API credentials')
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    try {
-      const imageBlob = await fetch(image.toString()).then(res => res.blob())
-      formData.append('image', imageBlob, 'image.jpg')
-    } catch (error) {
-      console.error('Failed to fetch image:', error)
-      return NextResponse.json(
-        { error: 'Failed to process image', originalImage: image },
-        { status: 400 }
-      )
-    }
-
-    console.log('Sending request to Naver API...')
+    // 나머지 코드는 동일...
     const response = await fetch(NAVER_API_URL, {
       method: 'POST',
       headers: {
@@ -51,42 +31,23 @@ export async function POST(request: Request) {
       body: formData
     })
 
+    // 응답 처리 개선
     if (!response.ok) {
-      console.error('Naver API error:', {
-        status: response.status,
-        statusText: response.statusText
-      })
-      // 오류 발생 시 원본 이미지 반환
-      return NextResponse.json({ originalImage: image })
+      console.error('Naver API error:', response.status, response.statusText)
+      const errorText = await response.text()
+      console.error('Error details:', errorText)
+      return NextResponse.json({ error: 'Translation failed', originalImage: image })
     }
 
     const data = await response.json()
-    console.log('Naver API response received')
-
-    if ('error' in data) {
-      if (data.error.message === "Image No Text error") {
-        console.log('No text found in image')
-        return NextResponse.json({ originalImage: image })
-      }
-      console.error('Naver API error response:', data.error)
-      return NextResponse.json({ originalImage: image })
-    }
-
-    if ('data' in data && 'renderedImage' in data.data) {
-      console.log('Translation successful')
+    
+    if (data.data?.renderedImage) {
       return NextResponse.json({ translatedImage: data.data.renderedImage })
     }
 
-    console.error('Unexpected API response format:', data)
-    return NextResponse.json({ originalImage: image })
-  } catch (error: any) {
-    console.error('Translation error:', {
-      message: error.message,
-      stack: error.stack
-    })
-    return NextResponse.json(
-      { originalImage: Image },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'No translation result', originalImage: image })
+  } catch (error) {
+    console.error('Translation error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
