@@ -830,7 +830,7 @@ export function CosmosManagementContent() {
     })
   }
 
-  // AI 처리 핸들러를 컴포넌트 내���로 이동
+  // AI 처리 핸들러를 컴포넌트 내부로 이동
   const handleAIProcess = async () => {
     if (!editedProduct) return
 
@@ -1067,7 +1067,7 @@ export function CosmosManagementContent() {
           '-10002': '검수 중인 상품은 수정할 수 없습다.',
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
-          '-10005': '인거부된 상품은 수정할 수 없습니다.',
+          '-10005': '��인거부된 상품은 수정할 수 없습니다.',
           '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
           '-10101': '처리 중 오류가 발생했습니다.'
         }
@@ -1649,7 +1649,7 @@ export function CosmosManagementContent() {
                 <MoveProductEditor
                   product={{
                     ...selectedProduct,
-                    ItemDescription: selectedProduct.ItemDetail || '',
+                    ItemDescription: selectedProduct.ItemDescription || '',
                     PromotionName: selectedProduct.PromotionName || '',
                     TaxRate: selectedProduct.TaxRate || 0,
                     SettlePrice: selectedProduct.SettlePrice || 0,
