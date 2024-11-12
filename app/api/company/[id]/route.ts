@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 // GET: 특정 회사 정보 조회
 export async function GET(
@@ -11,7 +9,7 @@ export async function GET(
   try {
     console.log('Fetching company with ID:', params.id)
     
-    const company = await prisma.zal_CompanyInfo.findFirst({
+    const company = await prisma.zal_CompanyInfo.findUnique({
       where: {
         Id: params.id,
         DeletedAt: null
@@ -19,7 +17,7 @@ export async function GET(
     })
 
     if (!company) {
-      return NextResponse.json({ error: '회사를 찾을 수 없습니다.' }, { status: 404 })
+      return NextResponse.json({ error: '업체를 찾을 수 없습니다.' }, { status: 404 })
     }
 
     console.log('회사 정보를 성공적으로 조회했습니다.')
@@ -27,7 +25,7 @@ export async function GET(
   } catch (error) {
     console.error('API 오류:', error)
     return NextResponse.json(
-      { error: '회사 정보 조회에 실패했습니다.' }, 
+      { error: '업체 정보 조회에 실패했습니다.' }, 
       { status: 500 }
     )
   }

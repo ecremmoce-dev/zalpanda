@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { CosmosClient } from '@azure/cosmos'
+import { createProgressKey, initProgress, updateProgress, getProgress, clearProgress } from '@/lib/progress'
 
 // Cosmos DB 클라이언트 설정
 const client = new CosmosClient({
@@ -185,6 +186,7 @@ async function convertMoveItemData(item: any, companyId: string, platformId: str
       WashinginfoWashing: item.WashinginfoWashing || '',
       Weight: parseFloat(item.Weight) || 0,
       TaxRate: item.TaxRate || '10',
+      LastFetchDate: new Date().toISOString(),
       CreatedAt: new Date().toISOString(),
       UpdatedAt: new Date().toISOString()
     };
@@ -302,9 +304,9 @@ async function saveToCosmosDB(item: any, companyId: string, platformId: string, 
         id: documentId,
         itemCode: item.ItemCode,
         companyId: companyId,
-        flag: flag,
-        lastFetchDate: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        //flag: flag,
+        // lastFetchDate: new Date().toISOString(),
+        // updatedAt: new Date().toISOString()
       };
 
       // flag에 따라 컨테이너 선택
@@ -527,52 +529,58 @@ export async function POST(request: Request) {
     console.log(`전체 ${allItemCodes.length}개 상품 코드 조회 완료`)
 
     // 상품 상세 정보 조회 및 Cosmos DB 저장
-    let successCount = 0
-    let failCount = 0
-    let normalCount = 0
-    let moveCount = 0
+    const progressKey = createProgressKey(companyId, platformId);
+    initProgress(progressKey, allItemCodes.length);
 
     for (const itemCode of allItemCodes) {
       try {
-        const detail = await fetchItemDetail(platform.ApiKey, itemCode)
+        const detail = await fetchItemDetail(platform.ApiKey, itemCode);
         if (detail) {
-          let options = []
+          let options = [];
           
           if (detail.Flag === 'NONE') {
-            normalCount++
-            const inventoryInfo = await fetchItemInventoryInfo(platform.ApiKey, itemCode)
+            updateProgress(progressKey, { normalCount: getProgress(progressKey)!.normalCount + 1 });
+            const inventoryInfo = await fetchItemInventoryInfo(platform.ApiKey, itemCode);
             if (inventoryInfo) {
-              options = inventoryInfo
+              options = inventoryInfo;
             }
           } else if (detail.Flag === 'MOVE') {
-            moveCount++
+            updateProgress(progressKey, { moveCount: getProgress(progressKey)!.moveCount + 1 });
           }
 
           const saved = await saveToCosmosDB(
-            detail, 
+            detail,
             companyId,
             platformId,
             detail.Flag,
             platform.SellerId || '',
             platform.ApiKey,
             options
-          )
+          );
 
           if (saved) {
-            successCount++
+            updateProgress(progressKey, { successCount: getProgress(progressKey)!.successCount + 1 });
           } else {
-            failCount++
+            updateProgress(progressKey, { failCount: getProgress(progressKey)!.failCount + 1 });
           }
         } else {
-          failCount++
+          updateProgress(progressKey, { failCount: getProgress(progressKey)!.failCount + 1 });
         }
+
+        updateProgress(progressKey, { current: getProgress(progressKey)!.current + 1 });
         
-        await new Promise(resolve => setTimeout(resolve, 200))
       } catch (error) {
-        console.error(`상품 처리 실패 (${itemCode}):`, error)
-        failCount++
+        console.error(`상품 처리 실패 (${itemCode}):`, error);
+        updateProgress(progressKey, { 
+          failCount: getProgress(progressKey)!.failCount + 1,
+          current: getProgress(progressKey)!.current + 1 
+        });
       }
     }
+
+    // 작업 완료 후 진행 상태 정리
+    const finalProgress = getProgress(progressKey);
+    clearProgress(progressKey);
 
     // 동기화 결과 반환
     return NextResponse.json({
@@ -581,10 +589,10 @@ export async function POST(request: Request) {
       syncDate: new Date(),
       stats: {
         total: allItemCodes.length,
-        success: successCount,
-        fail: failCount,
-        normal: normalCount,
-        move: moveCount
+        success: finalProgress?.successCount || 0,
+        fail: finalProgress?.failCount || 0,
+        normal: finalProgress?.normalCount || 0,
+        move: finalProgress?.moveCount || 0
       }
     })
 

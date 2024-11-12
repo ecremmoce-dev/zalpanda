@@ -184,7 +184,6 @@ export default function ImageTranslationContent() {
   const downloadAllTranslated = async () => {
     const zip = new JSZip()
     
-    // 선택된 이미지 중 번역을 시도한 이미지만 필터링
     const downloadTargetImages = images.filter(img => 
       img.selected && (img.translated !== undefined)
     )
@@ -197,45 +196,43 @@ export default function ImageTranslationContent() {
       return
     }
 
-    // 번역 성공/실패 이미지 개수 카운트를 위한 변수
     let successCount = 0
     let failCount = 0
 
-    downloadTargetImages.forEach((img) => {
+    await Promise.all(downloadTargetImages.map(async (img) => {
       let imageData: string;
       
       if (img.isTranslationSuccessful && img.translated) {
         // 번역 성공한 이미지
         imageData = img.translated.split(',')[1]
       } else {
-        // 번역 실패한 경우 원본 파일 사용
-        const reader = new FileReader()
-        reader.readAsDataURL(img.originalFile)
-        imageData = reader.result as string
-        if (imageData.includes(',')) {
-          imageData = imageData.split(',')[1]
-        }
+        // 번역 실패한 경우 원본 파일을 비동기적으로 읽기
+        imageData = await new Promise((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result as string
+            resolve(result.split(',')[1])
+          }
+          reader.readAsDataURL(img.originalFile)
+        })
       }
 
-      // 파일명 생성 (번역 성공/실패 여부 표시)
       const prefix = img.isTranslationSuccessful ? 'translated_' : 'original_'
       const fileName = `${prefix}${img.name}`
       
       zip.file(fileName, imageData, { base64: true })
 
-      // 성공/실패 카운트 증가
       if (img.isTranslationSuccessful) {
         successCount++
       } else {
         failCount++
       }
-    })
+    }))
 
     try {
       const content = await zip.generateAsync({ type: 'blob' })
       saveAs(content, 'translated_images.zip')
       
-      // 상세한 결과 메시지 표시
       toast({
         description: `다운로드 완료 (총 ${downloadTargetImages.length}개)
           ${successCount > 0 ? `\n- 번역 성공: ${successCount}개` : ''}
