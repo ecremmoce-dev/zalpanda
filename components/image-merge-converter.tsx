@@ -25,6 +25,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { getKTCloudToken } from '@/lib/ktcloud/token';
+import { uploadImageToKTCloud } from '@/lib/ktcloud/upload';
 
 interface ImageItem {
   id: string;
@@ -103,6 +111,10 @@ export function ImageMergeConverter() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [previewMergedImage, setPreviewMergedImage] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [showUrlDialog, setShowUrlDialog] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
+  const [itemCode, setItemCode] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -210,7 +222,7 @@ export function ImageMergeConverter() {
     link.click();
   };
 
-  // 미리보기 이미지 생성 함수
+  // 미리기 이미지 생성 함수
   const generatePreview = async () => {
     if (images.length < 2) return;
 
@@ -274,6 +286,47 @@ export function ImageMergeConverter() {
       });
       return sorted;
     });
+  };
+
+  const uploadToCloud = async () => {
+    if (!canvasRef.current || !itemCode.trim()) return;
+    
+    try {
+      setIsUploading(true);
+      
+      const blob = await new Promise<Blob>((resolve) => {
+        canvasRef.current?.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/png');
+      });
+
+      const formData = new FormData();
+      formData.append('file', blob, `merged-${Date.now()}.png`);
+      formData.append('itemCode', itemCode.trim());
+
+      const response = await fetch('/api/ktcloud/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '업로드 실패');
+      }
+
+      setUploadedUrl(`<img src="${data.url}" alt="merged image" />`);
+      setShowUrlDialog(true);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(uploadedUrl);
+    alert('클립보드에 복사되었습니다.');
   };
 
   return (
@@ -353,10 +406,26 @@ export function ImageMergeConverter() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">미리보기</h2>
           {images.length >= 2 && (
-            <Button onClick={mergeAndDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              이미지 다운로드
-            </Button>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={itemCode}
+                onChange={(e) => setItemCode(e.target.value)}
+                placeholder="itemCode 입력"
+                className="h-10 px-3 rounded-md border border-input bg-background"
+              />
+              <Button 
+                onClick={uploadToCloud} 
+                disabled={isUploading || !itemCode.trim()}
+                variant="secondary"
+              >
+                {isUploading ? '업로드 중...' : '클라우드 업로드'}
+              </Button>
+              <Button onClick={mergeAndDownload}>
+                <Download className="w-4 h-4 mr-2" />
+                이미지 다운로드
+              </Button>
+            </div>
           )}
         </div>
 
@@ -380,6 +449,25 @@ export function ImageMergeConverter() {
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+
+      <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>이미지 URL</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <div className="bg-muted p-4 rounded-md">
+              <code className="text-sm break-all">{uploadedUrl}</code>
+            </div>
+            <Button 
+              onClick={copyToClipboard} 
+              className="mt-4 w-full"
+            >
+              클립보드에 복사
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
