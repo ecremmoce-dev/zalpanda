@@ -296,7 +296,7 @@ export function ImageSplitConverter() {
   const handleDownload = async (imageUrl: string, imageId: string, index: number) => {
     const link = document.createElement('a');
     link.href = imageUrl;
-    link.download = `split-image-${imageId}-${index + 1}.png`;
+    link.download = `image-${String(index + 1).padStart(3, '0')}.png`;
     link.click();
   };
 
@@ -309,7 +309,7 @@ export function ImageSplitConverter() {
       if (image.splitImages.length === 1) {
         const link = document.createElement('a');
         link.href = image.splitImages[0].dataUrl;
-        link.download = `split-image-${image.id}-1.png`;
+        link.download = `image-001.png`;
         link.click();
         continue;
       }
@@ -320,7 +320,7 @@ export function ImageSplitConverter() {
       for (let i = 0; i < image.splitImages.length; i++) {
         const imgData = image.splitImages[i].dataUrl;
         const base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
-        folder.file(`split-image-${i + 1}.png`, base64Data, { base64: true });
+        folder.file(`image-${String(i + 1).padStart(3, '0')}.png`, base64Data, { base64: true });
       }
     }
 
@@ -546,7 +546,7 @@ export function ImageSplitConverter() {
     if (image.splitImages.length === 1) {
       const link = document.createElement('a');
       link.href = image.splitImages[0].dataUrl;
-      link.download = `split-image-${image.id}-1.png`;
+      link.download = `image-001.png`;
       link.click();
       return;
     }
@@ -558,7 +558,7 @@ export function ImageSplitConverter() {
     for (let i = 0; i < image.splitImages.length; i++) {
       const imgData = image.splitImages[i].dataUrl;
       const base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
-      folder.file(`split-image-${i + 1}.png`, base64Data, { base64: true });
+      folder.file(`image-${String(i + 1).padStart(3, '0')}.png`, base64Data, { base64: true });
     }
 
     try {

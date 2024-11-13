@@ -22,8 +22,7 @@ export default function ProductsPage() {
   }, [router])
 
   return (
-    <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
-      <Sidebar />
+    <div className="min-h-screen w-full">
       <div className="flex flex-col">
         <header className="flex h-14 items-center gap-4 border-b bg-gray-100/40 px-6">
           <Button className="lg:hidden" size="icon" variant="ghost">
