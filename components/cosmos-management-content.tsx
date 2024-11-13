@@ -233,7 +233,7 @@ const PRODUCTION_PLACE_TYPES = [
   { value: '3', label: '타' }
 ]
 
-// 일본 지역 옵션
+// 일본 지역 옵션 수정
 const JAPAN_REGIONS = [
   { value: '0', label: '선택안함' },
   { value: 'HOKKAIDO', label: '北海道(HOKKAIDO)' },
@@ -248,9 +248,40 @@ const JAPAN_REGIONS = [
   { value: 'GUMMA', label: '群馬県(GUMMA)' },
   { value: 'SAITAMA', label: '埼玉県(SAITAMA)' },
   { value: 'CHIBA', label: '千葉県(CHIBA)' },
-  { value: 'TOKYO', label: '東都(TOKYO)' },
-  { value: 'KANAGAWA', label: '神奈川(KANAGAWA)' },
-  // ... 나머지 일본 지역들
+  { value: 'TOKYO', label: '東京都(TOKYO)' },
+  { value: 'KANAGAWA', label: '神奈川県(KANAGAWA)' },
+  { value: 'NIIGATA', label: '新潟県(NIIGATA)' },
+  { value: 'TOYAMA', label: '富山県(TOYAMA)' },
+  { value: 'ISHIKAWA', label: '石川県(ISHIKAWA)' },
+  { value: 'FUKUI', label: '福井県(FUKUI)' },
+  { value: 'YAMANASHI', label: '山梨県(YAMANASHI)' },
+  { value: 'NAGANO', label: '長野県(NAGANO)' },
+  { value: 'GIFU', label: '岐阜県(GIFU)' },
+  { value: 'SHIZUOKA', label: '静岡県(SHIZUOKA)' },
+  { value: 'AICHI', label: '愛知県(AICHI)' },
+  { value: 'MIE', label: '三重県(MIE)' },
+  { value: 'SHIGA', label: '滋賀県(SHIGA)' },
+  { value: 'KYOTO', label: '京都府(KYOTO)' },
+  { value: 'OSAKA', label: '大阪府(OSAKA)' },
+  { value: 'HYOGO', label: '兵庫県(HYOGO)' },
+  { value: 'NARA', label: '奈良県(NARA)' },
+  { value: 'WAKAYAMA', label: '和歌山県(WAKAYAMA)' },
+  { value: 'TOTTORI', label: '鳥取県(TOTTORI)' },
+  { value: 'SHIMANE', label: '島根県(SHIMANE)' },
+  { value: 'OKAYAMA', label: '岡山県(OKAYAMA)' },
+  { value: 'HIROSHIMA', label: '広島県(HIROSHIMA)' },
+  { value: 'YAMAGUCHI', label: '山口県(YAMAGUCHI)' },
+  { value: 'TOKUSHIMA', label: '徳島県(TOKUSHIMA)' },
+  { value: 'KAGAWA', label: '香川県(KAGAWA)' },
+  { value: 'EHIME', label: '愛媛県(EHIME)' },
+  { value: 'KOCHI', label: '高知県(KOCHI)' },
+  { value: 'FUKUOKA', label: '福岡県(FUKUOKA)' },
+  { value: 'SAGA', label: '佐賀県(SAGA)' },
+  { value: 'NAGASAKI', label: '長崎県(NAGASAKI)' },
+  { value: 'KUMAMOTO', label: '熊本県(KUMAMOTO)' },
+  { value: 'OITA', label: '大分県(OITA)' },
+  { value: 'MIYAZAKI', label: '宮崎県(MIYAZAKI)' },
+  { value: 'KAGOSHIMA', label: '鹿児島県(KAGOSHIMA)' },
   { value: 'OKINAWA', label: '沖縄県(OKINAWA)' }
 ]
 
@@ -1337,7 +1368,7 @@ export function CosmosManagementContent() {
     );
   };
 
-  // 테블 내의 ���짜 포맷팅 함수 추가
+  // 테블 내의 짜 포맷팅 함수 추가
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('ko-KR', {

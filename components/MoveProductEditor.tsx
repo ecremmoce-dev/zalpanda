@@ -142,6 +142,106 @@ const formatHtml = async (html: string): Promise<string> => {
   }
 };
 
+// 상단에 COUNTRY_OPTIONS 상수 추가
+const COUNTRY_OPTIONS = [
+  { value: '_SELECT_', label: '선택', disabled: true },
+  { value: 'KR', label: 'South Korea' },
+  { value: 'CN', label: 'China' },
+  { value: '_DIVIDER_', label: '==================', disabled: true },
+  { value: 'AF', label: 'Afghanistan' },
+  { value: 'AL', label: 'Albania' },
+  { value: 'DZ', label: 'Algeria' },
+  { value: 'AD', label: 'Andorra' },
+  { value: 'AO', label: 'Angola' },
+  { value: 'AI', label: 'ANGUILLA' },
+  { value: 'AG', label: 'Antigua and Barbuda' },
+  { value: 'AE', label: 'Arab Emirates' },
+  { value: 'AR', label: 'Argentina' },
+  { value: 'AM', label: 'Armenia' },
+  { value: 'AW', label: 'Aruba' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'AT', label: 'austria' },
+  { value: 'AZ', label: 'Azerbaijan' },
+  { value: 'BH', label: 'Bahrain' },
+  { value: 'BD', label: 'Bangladesh' },
+  { value: 'BB', label: 'Barbados' },
+  { value: 'BY', label: 'Belarus' },
+  { value: 'BE', label: 'Belgium' },
+  { value: 'BZ', label: 'Belize' },
+  { value: 'BJ', label: 'Benin' },
+  { value: 'BM', label: 'Bermuda' },
+  { value: 'BT', label: 'Bhutan' },
+  { value: 'BO', label: 'Bolivia' },
+  { value: 'BA', label: 'Bosnia and Herzegovina' },
+  { value: 'BW', label: 'Botswana' },
+  { value: 'BR', label: 'Brazil' },
+  { value: 'VG', label: 'British Virgin Islands' },
+  { value: 'BN', label: 'Brunei Darussalam' },
+  { value: 'BG', label: 'Bulgaria' },
+  { value: 'BF', label: 'BurkinaFaso' },
+  { value: 'BI', label: 'Burundi' },
+  { value: 'KH', label: 'Cambodia' },
+  { value: 'CM', label: 'Cameroon' },
+  { value: 'CA', label: 'Canada' },
+  // ... 나머지 국가들
+  { value: 'YE', label: 'Yemen' },
+  { value: 'ZM', label: 'Zambia' },
+  { value: 'ZW', label: 'Zimbabwe' }
+];
+
+// JAPAN_REGIONS 상수도 추가
+const JAPAN_REGIONS = [
+  { value: '0', label: '선택안함' },
+  { value: 'HOKKAIDO', label: '北海道(HOKKAIDO)' },
+  { value: 'AOMORI', label: '青森県(AOMORI)' },
+  { value: 'IWATE', label: '岩手県(IWATE)' },
+  { value: 'MIYAGI', label: '宮城県(MIYAGI)' },
+  { value: 'AKITA', label: '秋田県(AKITA)' },
+  { value: 'YAMAGATA', label: '山形県(YAMAGATA)' },
+  { value: 'FUKUSHIMA', label: '福島県(FUKUSHIMA)' },
+  { value: 'IBARAKI', label: '茨城県(IBARAKI)' },
+  { value: 'TOCHIGI', label: '栃木県(TOCHIGI)' },
+  { value: 'GUMMA', label: '群馬県(GUMMA)' },
+  { value: 'SAITAMA', label: '埼玉県(SAITAMA)' },
+  { value: 'CHIBA', label: '千葉県(CHIBA)' },
+  { value: 'TOKYO', label: '東京都(TOKYO)' },
+  { value: 'KANAGAWA', label: '神奈川県(KANAGAWA)' },
+  { value: 'NIIGATA', label: '新潟県(NIIGATA)' },
+  { value: 'TOYAMA', label: '富山県(TOYAMA)' },
+  { value: 'ISHIKAWA', label: '石川県(ISHIKAWA)' },
+  { value: 'FUKUI', label: '福井県(FUKUI)' },
+  { value: 'YAMANASHI', label: '山梨県(YAMANASHI)' },
+  { value: 'NAGANO', label: '長野県(NAGANO)' },
+  { value: 'GIFU', label: '岐阜県(GIFU)' },
+  { value: 'SHIZUOK', label: '静岡県(SHIZUOK)' },
+  { value: 'SHIZUOKA', label: '静岡県(SHIZUOKA)' },
+  { value: 'AICHI', label: '愛知県(AICHI)' },
+  { value: 'MIE', label: '三重県(MIE)' },
+  { value: 'SHIGA', label: '滋賀県(SHIGA)' },
+  { value: 'KYOTO', label: '京都府(KYOTO)' },
+  { value: 'OSAKA', label: '大阪府(OSAKA)' },
+  { value: 'HYOGO', label: '兵庫県(HYOGO)' },
+  { value: 'NARA', label: '奈良県(NARA)' },
+  { value: 'WAKAYAMA', label: '和歌山県(WAKAYAMA)' },
+  { value: 'TOTTORI', label: '鳥取県(TOTTORI)' },
+  { value: 'SHIMANE', label: '島根県(SHIMANE)' },
+  { value: 'OKAYAMA', label: '岡山県(OKAYAMA)' },
+  { value: 'HIROSHIMA', label: '広島県(HIROSHIMA)' },
+  { value: 'YAMAGUCHI', label: '山口県(YAMAGUCHI)' },
+  { value: 'TOKUSHIMA', label: '徳島県(TOKUSHIMA)' },
+  { value: 'KAGAWA', label: '香川県(KAGAWA)' },
+  { value: 'EHIME', label: '愛媛県(EHIME)' },
+  { value: 'KOCHI', label: '高知県(KOCHI)' },
+  { value: 'FUKUOKA', label: '福岡県(FUKUOKA)' },
+  { value: 'SAGA', label: '佐賀県(SAGA)' },
+  { value: 'NAGASAKI', label: '長崎県(NAGASAKI)' },
+  { value: 'KUMAMOTO', label: '熊本県(KUMAMOTO)' },
+  { value: 'OITA', label: '大分県(OITA)' },
+  { value: 'MIYAZAKI', label: '宮崎県(MIYAZAKI)' },
+  { value: 'KAGOSHIMA', label: '鹿児島県(KAGOSHIMA)' },
+  { value: 'OKINAWA', label: '沖縄県(OKINAWA)' }
+];
+
 export default function MoveProductEditor({ product, onSave, onCancel, onApplyToQoo10 }: MoveProductEditorProps) {
   const [isEditing, setIsEditing] = useState(true)
   const [editedProduct, setEditedProduct] = useState<DetailProduct>(product)
@@ -521,7 +621,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">원산지 유</Label>
+                      <Label className="text-sm font-medium text-gray-700">원산지 유형</Label>
                       <Select 
                         value={editedProduct.OriginType}
                         onValueChange={(value) => handleFieldChange('OriginType', value)}
@@ -539,14 +639,58 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">산지 가</Label>
-                      <Input 
-                        value={editedProduct.OriginCountryId} 
-                        onChange={(e) => handleFieldChange('OriginCountryId', e.target.value)}
-                        readOnly={!isEditing}
-                        className={!isEditing ? 'bg-gray-50' : ''}
-                        placeholder="예: KR, JP"
-                      />
+                      <Label className="text-sm font-medium text-gray-700">원산지</Label>
+                      {editedProduct.OriginType === '1' ? (
+                        // 국내(일본)일 경우 지역 선택
+                        <Select 
+                          value={editedProduct.OriginRegionId || '0'}
+                          onValueChange={(value) => handleFieldChange('OriginRegionId', value)}
+                          disabled={!isEditing}
+                        >
+                          <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                            <SelectValue placeholder="지역 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {JAPAN_REGIONS.map(region => (
+                              <SelectItem key={region.value} value={region.value}>
+                                {region.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : editedProduct.OriginType === '2' ? (
+                        // 해외일 경우 국가코드 입력
+                        <Select 
+                          value={editedProduct.OriginCountryId || '_SELECT_'}
+                          onValueChange={(value) => handleFieldChange('OriginCountryId', value)}
+                          disabled={!isEditing}
+                        >
+                          <SelectTrigger className={!isEditing ? 'bg-gray-50' : ''}>
+                            <SelectValue placeholder="국가 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COUNTRY_OPTIONS.map(country => (
+                              <SelectItem 
+                                key={country.value} 
+                                value={country.value}
+                                disabled={country.disabled}
+                              >
+                                {country.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        // 기타일 경우 텍스트 입력
+                        <Input 
+                          value={editedProduct.OriginOthers || ''} 
+                          onChange={(e) => handleFieldChange('OriginOthers', e.target.value)}
+                          readOnly={!isEditing}
+                          className={!isEditing ? 'bg-gray-50' : ''}
+                          placeholder="예) OO에限りOO国から発送"
+                          maxLength={50}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -658,7 +802,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
 
                       const result = await response.json();
 
-                      // 결과 메시지 생성
+                      // 결과 메시��� 생성
                       let message = '== QOO10 옵션정보 전송 결과 ==\n\n';
                       
                       if (result.ResultCode === 0) {
