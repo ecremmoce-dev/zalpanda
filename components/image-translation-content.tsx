@@ -219,8 +219,8 @@ export default function ImageTranslationContent() {
 
       // 파일명 형식 수정
       const fileName = img.isTranslationSuccessful 
-        ? `translated_image-${String(index + 1).padStart(3, '0')}.png`
-        : `original_image-${String(index + 1).padStart(3, '0')}.png`
+        ? `${String(index + 1).padStart(3, '0')}-translated_image.png`
+        : `${String(index + 1).padStart(3, '0')}-original_image.png`
       
       zip.file(fileName, imageData, { base64: true })
 
