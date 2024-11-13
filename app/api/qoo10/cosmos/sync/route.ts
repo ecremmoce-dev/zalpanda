@@ -450,7 +450,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { companyId, platformId, itemStatus, itemCode } = body
+    const { companyId, platformId, itemStatuses, itemCode } = body
 
     // API Key 조회
     const platform = await prisma.zal_CompanyPlatform.findFirst({
@@ -511,20 +511,29 @@ export async function POST(request: Request) {
     console.log('상품 동기화 시작...', {
       companyId,
       platformId,
-      itemStatus
+      itemStatuses
     })
 
-    // 전체 상품 목록 조회
-    const firstPageResult = await fetchQoo10Products(platform.ApiKey, itemStatus)
-    const allItemCodes = firstPageResult.ResultObject.Items.map((item: any) => item.ItemCode)
-    const totalPages = firstPageResult.ResultObject.TotalPages
-
-    // 나머지 페이지 조회
-    for (let page = 2; page <= totalPages; page++) {
-      const pageResult = await fetchQoo10Products(platform.ApiKey, itemStatus, page)
-      allItemCodes.push(...pageResult.ResultObject.Items.map((item: any) => item.ItemCode))
-      await new Promise(resolve => setTimeout(resolve, 100))
+    // 모든 상태에 대한 상품 목록을 조회하고 병합
+    let allItemCodes: string[] = [];
+    
+    // 각 상태별로 상품 조회
+    for (const status of itemStatuses) {
+      const firstPageResult = await fetchQoo10Products(platform.ApiKey, status)
+      allItemCodes.push(...firstPageResult.ResultObject.Items.map((item: any) => item.ItemCode))
+      
+      const totalPages = firstPageResult.ResultObject.TotalPages
+      
+      // 나머지 페이지 조회
+      for (let page = 2; page <= totalPages; page++) {
+        const pageResult = await fetchQoo10Products(platform.ApiKey, status, page)
+        allItemCodes.push(...pageResult.ResultObject.Items.map((item: any) => item.ItemCode))
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
     }
+
+    // 중복 제거
+    allItemCodes = [...new Set(allItemCodes)];
 
     console.log(`전체 ${allItemCodes.length}개 상품 코드 조회 완료`)
 

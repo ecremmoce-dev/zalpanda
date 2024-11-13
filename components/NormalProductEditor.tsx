@@ -33,7 +33,7 @@ interface NormalProductEditorProps {
 }
 
 export default function NormalProductEditor({ product, onSave, onCancel, onApplyToQoo10 }: NormalProductEditorProps) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(true)
   const [editedProduct, setEditedProduct] = useState(product)
   const [activeTab, setActiveTab] = useState("basic")
   const [htmlDialogOpen, setHtmlDialogOpen] = useState(false);
@@ -50,7 +50,6 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
   const handleSave = async () => {
     try {
       await onSave(editedProduct);
-      setIsEditing(false);
       setEditedProduct(editedProduct);
     } catch (error) {
       console.error('Failed to save:', error);
@@ -194,37 +193,29 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
       <div className="flex justify-between items-center border-b pb-4">
         <h2 className="text-2xl font-bold">상품 상세 정보</h2>
         <div className="flex gap-4">
-          {!isEditing ? (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                수정하기
-              </Button>
-              <Button 
-                onClick={onApplyToQoo10}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <Globe className="w-4 h-4" />
-                QOO10 전송
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => {
-                setIsEditing(false)
-                setEditedProduct(product)
-              }}>
-                취소
-              </Button>
-              <Button onClick={handleSave}>
-                저장
-              </Button>
-            </>
-          )}
+          <div className="flex gap-4 ml-4">
+            <Button 
+              onClick={() => {
+                if (confirm('QOO10에 상품 정보를 전송하시겠습니까?')) {
+                  onApplyToQoo10();
+                }
+              }}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Globe className="w-4 h-4" />
+              QOO10 전송
+            </Button>
+            <Button onClick={handleSave}>
+              저장
+            </Button>
+            <Button variant="outline" onClick={() => {
+              //setIsEditing(false)
+              //setEditedProduct(product)
+              onCancel()
+            }}>
+              닫기
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -238,6 +229,45 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
         {activeTab === "basic" && (
           <div className="mt-6">
             <div className="bg-white p-6 rounded-lg border shadow-sm">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-1 h-6 bg-blue-500 rounded"></div>
+                <h3 className="text-lg font-semibold">대표 이미지</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">이미지 URL</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={editedProduct.ImageUrl || ''} 
+                      onChange={(e) => handleFieldChange('ImageUrl', e.target.value)}
+                      readOnly={!isEditing}
+                      className={!isEditing ? 'bg-gray-50' : ''}
+                      placeholder="이미지 URL을 입력하세요"
+                    />
+                  </div>
+                </div>
+                
+                {/* 이미지 미리보기 */}
+                {editedProduct.ImageUrl && (
+                  <div className="mt-4">
+                    <Label className="text-sm font-medium text-gray-700 block mb-2">미리보기</Label>
+                    <div className="relative w-[200px] h-[200px] border rounded-lg overflow-hidden">
+                      <img
+                        src={editedProduct.ImageUrl}
+                        alt="대표 이미지"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 bg-white p-6 rounded-lg border shadow-sm">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-1 h-6 bg-blue-500 rounded"></div>
                 <h3 className="text-lg font-semibold">기본 정보</h3>
@@ -706,6 +736,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                                 handleFieldChange('Options', updatedOptions);
                               }}
                               disabled={!isEditing}
+                              className={!isNaN(Number(option.value1)) ? 'text-right' : ''}
                             />
                           </TableCell>
                           <TableCell>
@@ -730,6 +761,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                                 handleFieldChange('Options', updatedOptions);
                               }}
                               disabled={!isEditing}
+                              className={!isNaN(Number(option.value2)) ? 'text-right' : ''}
                             />
                           </TableCell>
                           <TableCell>
@@ -754,6 +786,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                                 handleFieldChange('Options', updatedOptions);
                               }}
                               disabled={!isEditing}
+                              className={!isNaN(Number(option.value3)) ? 'text-right' : ''}
                             />
                           </TableCell>
                           <TableCell className="text-right">
@@ -767,6 +800,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                                 handleFieldChange('Options', updatedOptions);
                               }}
                               disabled={!isEditing}
+                              className="text-right"
                             />
                           </TableCell>
                           <TableCell className="text-right">
@@ -780,6 +814,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                                 handleFieldChange('Options', updatedOptions);
                               }}
                               disabled={!isEditing}
+                              className="text-right"
                             />
                           </TableCell>
                           <TableCell>
@@ -1038,18 +1073,20 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
 
       {isEditing && (
         <div className="flex justify-end gap-4">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              setIsEditing(false)
-              setEditedProduct(product)
-            }}
-          >
-            취소
-          </Button>
           <Button onClick={handleSave}>
             저장
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              //setIsEditing(false)
+              //setEditedProduct(product)
+              onCancel()
+            }}
+          >
+            닫기
+          </Button>
+          
         </div>
       )}
     </div>
