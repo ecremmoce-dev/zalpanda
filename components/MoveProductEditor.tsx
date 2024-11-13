@@ -521,7 +521,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-gray-700">원산지 유</Label>
+                      <Label className="text-sm font-medium text-gray-700">원산지 유형</Label>
                       <Select 
                         value={editedProduct.OriginType}
                         onValueChange={(value) => handleFieldChange('OriginType', value)}
