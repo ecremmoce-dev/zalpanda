@@ -13,6 +13,32 @@ const normalContainer = database.container("Temp_qoo10jp_nonemove_product")
 
 export const dynamic = 'force-dynamic';
 
+// 정렬 함수 추가
+const sortItems = (items: any[], flag: string | null) => {
+  if (!flag || flag === 'all') {
+    // 전체탭: UpdatedAt desc
+    return items.sort((a, b) => {
+      const dateA = new Date(b.UpdatedAt || 0).getTime()
+      const dateB = new Date(a.UpdatedAt || 0).getTime()
+      return dateA - dateB
+    })
+  } else if (flag === 'NONE') {
+    // 일반상품: ListedDate asc
+    return items.sort((a, b) => {
+      const dateA = new Date(a.ListedDate || 0).getTime()
+      const dateB = new Date(b.ListedDate || 0).getTime()
+      return dateA - dateB
+    })
+  } else {
+    // 무브상품: UpdatedAt desc
+    return items.sort((a, b) => {
+      const dateA = new Date(b.UpdatedAt || 0).getTime()
+      const dateB = new Date(a.UpdatedAt || 0).getTime()
+      return dateA - dateB
+    })
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -86,12 +112,8 @@ export async function GET(request: Request) {
       items = resources.map(item => ({ ...item, flag: 'NONE' }))
     }
 
-    // 최신 동기화 순으로 정렬
-    items.sort((a, b) => {
-      const dateA = new Date(b.LastFetchDate || b.UpdatedAt || 0).getTime()
-      const dateB = new Date(a.LastFetchDate || a.UpdatedAt || 0).getTime()
-      return dateA - dateB
-    })
+    // 탭별 정렬 적용
+    items = sortItems(items, flag)
 
     // 페이지네이션 적용
     const startIndex = (page - 1) * pageSize
