@@ -24,6 +24,7 @@ import { Eye } from 'lucide-react'
 import { FileText } from 'lucide-react'
 import { Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import CategorySelector from './CategorySelector'
 
 interface NormalProductEditorProps {
   product: DetailProduct
@@ -255,7 +256,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                     <div className="relative w-[200px] h-[200px] border rounded-lg overflow-hidden">
                       <img
                         src={editedProduct.ImageUrl}
-                        alt="대표 이미지"
+                        alt="대��� 이미지"
                         className="w-full h-full object-contain"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '/placeholder-image.png'
@@ -405,7 +406,29 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
               </div>
               
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                
+              {isEditing && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Label className="text-sm font-medium text-gray-700">카테고리 변경</Label>
+                      <span className="text-sm text-gray-500">
+                        * 카테고리를 변경하려면 아래에서 새로운 카테고리를 선택하세요.
+                      </span>
+                    </div>
+                    <CategorySelector
+                      onSelect={(category) => {
+                        handleFieldChange('MainCatCd', category.mainCatCd);
+                        handleFieldChange('MainCatNm', category.mainCatNm);
+                        handleFieldChange('FirstSubCatCd', category.firstSubCatCd);
+                        handleFieldChange('FirstSubCatNm', category.firstSubCatNm);
+                        handleFieldChange('SecondSubCatCd', category.secondSubCatCd);
+                        handleFieldChange('SecondSubCatNm', category.secondSubCatNm);
+                      }}
+                      sellerAuthKey={editedProduct.SellerAuthKey}
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">메인카테고리</Label>
                     <div className="flex gap-2">
@@ -430,6 +453,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
 
