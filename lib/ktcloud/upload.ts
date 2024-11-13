@@ -1,50 +1,54 @@
 import { ktCloudConfig } from './config'
+import type { AuthResponse } from './token'
 
 export async function uploadImageToKTCloud({
-  token,
+  auth,
   imageBuffer,
   fileName,
-  vendorPath
+  itemCode
 }: {
-  token: string;
+  auth: AuthResponse;
   imageBuffer: Buffer;
   fileName: string;
-  vendorPath: string;
+  itemCode: string;
 }): Promise<string> {
-  const storageUrl = `https://${ktCloudConfig.host}/v1/${ktCloudConfig.account}`
   const containerName = ktCloudConfig.storageName
-  const objectPath = `${vendorPath}/${fileName}`
+  const objectPath = `${itemCode}/${fileName}`
   
-  const uploadUrl = `${storageUrl}/${containerName}/${objectPath}`
-  console.log('Uploading to:', uploadUrl)
-
   try {
+    const uploadUrl = `${auth.storageUrl}/${containerName}/${objectPath}`
+    console.log('Uploading to:', uploadUrl)
+
     const response = await fetch(uploadUrl, {
       method: 'PUT',
       headers: {
-        'X-Auth-Token': token,
+        'X-Auth-Token': auth.token,
         'Content-Type': 'image/png',
-        'Content-Length': imageBuffer.length.toString()
+        'Content-Length': imageBuffer.length.toString(),
+        'X-Object-Meta-Width': 'auto',
+        'X-Object-Meta-Height': 'auto'
       },
       body: imageBuffer
     })
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Upload failed:', {
+      const responseHeaders = Object.fromEntries(response.headers.entries());
+      console.error('업로드 실패:', {
         status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: errorText
+        headers: responseHeaders,
+        body: errorText,
+        requestUrl: uploadUrl
       })
-      throw new Error(`Upload failed: ${response.status} ${errorText}`)
+      throw new Error(`업로드 실패 (${response.status}): ${errorText}`)
     }
 
-    const cdnUrl = `https://${ktCloudConfig.cdn}/${objectPath}`
-    console.log('Upload successful:', cdnUrl)
-    return cdnUrl
+    return uploadUrl
 
   } catch (error) {
     console.error('Upload error:', error)
-    throw error
+    throw error instanceof Error 
+      ? error 
+      : new Error('이미지 업로드 중 알 수 없는 오류가 발생했습니다.');
   }
 } 
