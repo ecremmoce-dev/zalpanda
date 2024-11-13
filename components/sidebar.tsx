@@ -150,6 +150,13 @@ export function Sidebar() {
                     <Scissors className="h-4 w-4" />
                     이미지 분할
                   </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/image/merge"
+                  >
+                    <Square className="h-4 w-4" />
+                    이미지 합치기
+                  </Link>
                   <Button
                     variant={pathname === "/image/text-detection" ? "secondary" : "ghost"}
                     className="w-full justify-start"
@@ -240,7 +247,7 @@ export function Sidebar() {
                     href="/settings/accounts"
                   >
                     <Users className="h-4 w-4" />
-                    업체계정관리
+                    업체��정관리
                   </Link>
                 </div>
               )}

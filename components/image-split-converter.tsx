@@ -29,7 +29,6 @@ export function ImageSplitConverter() {
   const [dragStartY, setDragStartY] = useState<number>(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollableImages, setScrollableImages] = useState<Set<string>>(new Set());
-  const [isMinimapDragging, setIsMinimapDragging] = useState(false);
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -301,57 +300,54 @@ export function ImageSplitConverter() {
   };
 
   const handleMinimapClick = (imageId: string, e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    
+    const minimap = e.currentTarget;
+    const rect = minimap.getBoundingClientRect();
+    const clickY = e.clientY - rect.top;
+    const minimapHeight = rect.height;
+    
+    setImages(prev => prev.map(image => {
+      if (image.id !== imageId) return image;
+      
+      const positionRatio = clickY / minimapHeight;
+      const actualY = Math.round(image.imageSize.height * positionRatio);
+      
+      const tooClose = image.guideLines.some(line => 
+        Math.abs(line.y - actualY) < 20
+      );
+      
+      if (tooClose) return image;
+      
+      return {
+        ...image,
+        splitCount: image.splitCount + 1,
+        guideLines: [...image.guideLines, {
+          id: image.guideLines.length + 1,
+          y: actualY
+        }].sort((a, b) => a.y - b.y).map((line, idx) => ({
+          ...line,
+          id: idx + 1
+        })),
+        isGuidelineModified: true
+      };
+    }));
+  };
+
+  const handleMinimapWheel = (imageId: string, e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
     const container = document.querySelector(`[data-image-id="${imageId}"]`) as HTMLDivElement;
     if (!container) return;
 
-    const minimap = e.currentTarget;
-    const rect = minimap.getBoundingClientRect();
-    const clickPositionRatio = (e.clientY - rect.top) / rect.height;
-    
-    const scrollHeight = container.scrollHeight - container.clientHeight;
-    const newScrollTop = scrollHeight * clickPositionRatio;
-    
+    const scrollAmount = e.deltaY;
+    const currentScroll = container.scrollTop;
+    const newScroll = currentScroll + scrollAmount;
+
     container.scrollTo({
-      top: newScrollTop
+      top: newScroll
     });
   };
-
-  const handleMinimapMouseDown = (imageId: string, e: React.MouseEvent<HTMLDivElement>) => {
-    setIsMinimapDragging(true);
-    handleMinimapClick(imageId, e);
-  };
-
-  const handleMinimapMouseMove = (imageId: string, e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isMinimapDragging) return;
-    handleMinimapClick(imageId, e);
-  };
-
-  const handleMinimapMouseUp = () => {
-    setIsMinimapDragging(false);
-  };
-
-  useEffect(() => {
-    window.addEventListener('mouseup', handleMinimapMouseUp);
-    return () => window.removeEventListener('mouseup', handleMinimapMouseUp);
-  }, []);
-
-  useEffect(() => {
-    setImages(prev => prev.map(img => {
-      const container = document.querySelector(`[data-image-id="${img.id}"]`);
-      if (!container) return img;
-
-      const containerHeight = container.clientHeight;
-      const scrollHeight = container.scrollHeight;
-
-      return {
-        ...img,
-        visibleArea: {
-          top: 0,
-          height: (containerHeight / scrollHeight) * 100
-        }
-      };
-    }));
-  }, []);
 
   const checkImageScrollable = (imageId: string) => {
     const container = document.querySelector(`[data-image-id="${imageId}"]`);
@@ -382,36 +378,6 @@ export function ImageSplitConverter() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [images]);
-
-  // 미니맵 휠 이벤트 핸들러 추가
-  const handleMinimapWheel = (imageId: string, e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault(); // 브라우저 기본 스크롤 동작 방지
-    
-    const container = document.querySelector(`[data-image-id="${imageId}"]`) as HTMLDivElement;
-    if (!container) return;
-
-    const scrollAmount = e.deltaY;
-    const currentScroll = container.scrollTop;
-    const newScroll = currentScroll + scrollAmount;
-
-    container.scrollTo({
-      top: newScroll
-    });
-  };
-
-  // useEffect 추가 - 미니맵 영역에서 브라우저 스크롤 방지
-  useEffect(() => {
-    const preventScroll = (e: WheelEvent) => {
-      const target = e.target as HTMLElement;
-      const minimap = target.closest('.minimap-container');
-      if (minimap) {
-        e.preventDefault();
-      }
-    };
-
-    window.addEventListener('wheel', preventScroll, { passive: false });
-    return () => window.removeEventListener('wheel', preventScroll);
-  }, []);
 
   const handleAddGuideLine = (imageId: string) => {
     setImages(prev => prev.map(img => {
@@ -468,7 +434,6 @@ export function ImageSplitConverter() {
       const positionRatio = clickY / imgHeight;
       const actualY = Math.round(image.imageSize.height * positionRatio);
       
-      // 기존 가이드라인과 너무 가깝지 않은 경우에만 추가
       const tooClose = image.guideLines.some(line => 
         Math.abs(line.y - actualY) < 20
       );
@@ -490,12 +455,10 @@ export function ImageSplitConverter() {
     }));
   };
 
-  // 개별 이미지 세트 다운로드 함수 추가
   const handleDownloadImageSet = async (imageId: string) => {
     const image = images.find(img => img.id === imageId);
     if (!image || image.splitImages.length === 0) return;
 
-    // 단일 이미지인 경우 직접 다운로드
     if (image.splitImages.length === 1) {
       const link = document.createElement('a');
       link.href = image.splitImages[0];
@@ -504,7 +467,6 @@ export function ImageSplitConverter() {
       return;
     }
 
-    // 다중 이미지인 경우 ZIP 파일로 다운로드
     const zip = new JSZip();
     const folder = zip.folder(`split-images-${image.id}`);
     if (!folder) return;
@@ -530,6 +492,36 @@ export function ImageSplitConverter() {
       alert('파일 다운로드 중 오류가 발생했습니다.');
     }
   };
+
+  const handleContainerWheel = (imageId: string, e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
+    const container = document.querySelector(`[data-image-id="${imageId}"]`) as HTMLDivElement;
+    if (!container) return;
+
+    const scrollAmount = e.deltaY;
+    const currentScroll = container.scrollTop;
+    const newScroll = currentScroll + scrollAmount;
+
+    container.scrollTo({
+      top: newScroll
+    });
+  };
+
+  useEffect(() => {
+    const preventDefaultScroll = (e: WheelEvent) => {
+      const target = e.target as HTMLElement;
+      const isImageContainer = target.closest('.original-image-container');
+      const isMinimap = target.closest('.minimap-container');
+      
+      if (isImageContainer || isMinimap) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', preventDefaultScroll, { passive: false });
+    return () => window.removeEventListener('wheel', preventDefaultScroll);
+  }, []);
 
   return (
     <div className="p-6">
@@ -614,7 +606,7 @@ export function ImageSplitConverter() {
                   <div 
                     className="relative border rounded-lg overflow-hidden bg-gray-200 original-image-container group"
                     style={{ height: 'calc(100vh - 200px)' }}
-                    onClick={(e) => handleImageClick(image.id, e)}
+                    onWheel={(e) => handleContainerWheel(image.id, e)}
                   >
                     <div 
                       className="h-full overflow-y-auto"
@@ -670,8 +662,7 @@ export function ImageSplitConverter() {
                       >
                         <div
                           className="relative overflow-hidden cursor-pointer h-full minimap-container"
-                          onMouseDown={(e) => handleMinimapMouseDown(image.id, e)}
-                          onMouseMove={(e) => handleMinimapMouseMove(image.id, e)}
+                          onClick={(e) => handleMinimapClick(image.id, e)}
                           onWheel={(e) => handleMinimapWheel(image.id, e)}
                         >
                           <div className="absolute inset-0">
