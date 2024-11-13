@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['ssc461886-ssc461886.ktcdn.co.kr'],
+    domains: ['shop-phinf.pstatic.net', 'gi.esmplus.com'],
   },
   webpack: (config) => {
     config.module.rules.push({
