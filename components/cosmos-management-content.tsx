@@ -285,7 +285,7 @@ const ITEM_STATUS_OPTIONS = [
   { value: 'S8', label: '거부' }
 ]
 
-// 상태별 배지 색상 함수 수정
+// 상태  색상 함수 수정
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
     case 'S0':
@@ -421,14 +421,14 @@ const columns = [
 ]
 
 // 상단에 인터페이스 추가
-interface SyncProgress {
+interface Progress {
   current: number;
   total: number;
   normalCount: number;
   moveCount: number;
   successCount: number;
   failCount: number;
-  percentage: number;
+  isCompleted: boolean;
 }
 
 export function CosmosManagementContent() {
@@ -462,7 +462,7 @@ export function CosmosManagementContent() {
   const [htmlSource, setHtmlSource] = useState('')
 
   // 기화 진행 상태를 위한 state 추가
-  const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
+  const [syncProgress, setSyncProgress] = useState<Progress | null>(null);
 
   // 상단에 상태 추가
   const [directItemCode, setDirectItemCode] = useState('');
@@ -538,7 +538,7 @@ export function CosmosManagementContent() {
       if (response.ok) {
         setProducts(data.items)
         setTotalPages(data.totalPages)
-        setTotalItems(data.totalItems)  // 전체 항목 수 (두 컨테이너의 합)
+        setTotalItems(data.totalItems)  // 전체 목 수 (두 컨테이너의 합)
         setTotalNormalCount(data.normalCount)  // 일반상품 전체 수
         setTotalMoveCount(data.moveCount)      // 무브상품 전체 수
 
@@ -574,10 +574,61 @@ export function CosmosManagementContent() {
       return;
     }
 
+    if (selectedStatuses.length === 0) {
+      alert('거래상태를 선택해주세요.');
+      return;
+    }
+
     setIsSyncing(true);
     setSyncProgress(null);
 
+    const progressKey = createProgressKey(selectedCompany, selectedPlatform);
+    let eventSource: EventSource | null = null;
+
     try {
+      console.log('EventSource 연결 시작...');
+
+      const eventSourceUrl = `/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`;
+      console.log('EventSource URL:', eventSourceUrl);
+
+      eventSource = new EventSource(eventSourceUrl);
+
+      eventSource.onopen = () => {
+        console.log('EventSource 연결 성공');
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          console.log('Progress 이벤트 수신:', event.data);
+          const progress = JSON.parse(event.data);
+          
+          setSyncProgress({
+            current: progress.current,
+            total: progress.total,
+            normalCount: progress.normalCount,
+            moveCount: progress.moveCount,
+            successCount: progress.successCount,
+            failCount: progress.failCount,
+            isCompleted: progress.isCompleted
+          });
+
+          if (progress.isCompleted) {
+            console.log('동기화 완료, EventSource 종료');
+            eventSource?.close();
+            setIsSyncing(false);
+            fetchProducts();
+          }
+        } catch (error) {
+          console.error('Progress 데이터 파싱 오류:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource 에러:', error);
+        eventSource?.close();
+      };
+
+      console.log('동기화 API 호출 시작');
       const response = await fetch('/api/qoo10/cosmos/sync', {
         method: 'POST',
         headers: {
@@ -590,20 +641,9 @@ export function CosmosManagementContent() {
         }),
       });
 
-      // EventSource를 사용하여 실시간 진행 상황 수신
-      const eventSource = new EventSource(`/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`);
-      
-      eventSource.onmessage = (event) => {
-        const progress = JSON.parse(event.data);
-        setSyncProgress({
-          ...progress,
-          percentage: Math.round((progress.current / progress.total) * 100)
-        });
-      };
-
-      eventSource.onerror = () => {
-        eventSource.close();
-      };
+      if (!response.ok) {
+        throw new Error('동기화 요청이 실패했습니다.');
+      }
 
       const result = await response.json();
       eventSource.close();
@@ -643,15 +683,17 @@ export function CosmosManagementContent() {
       }
 
       alert(resultMessage);
+      console.log('동기화 API 호출 성공');
 
     } catch (error: any) {
       console.error('동기화 실패:', error);
       alert(`동기화 중 오류가 발생했습니다.\n\n${error.message || '알 수 없는 오류가 발생했습니다.'}`);
     } finally {
+      if (eventSource) {
+        console.log('EventSource 정리');
+        eventSource.close();
+      }
       setIsSyncing(false);
-      setSyncProgress(null);
-      // 동기화 완료 후 목록 새로고침
-      fetchProducts();
     }
   };
 
@@ -880,7 +922,7 @@ export function CosmosManagementContent() {
         category: `${editedProduct.MainCatNm} > ${editedProduct.FirstSubCatNm} > ${editedProduct.SecondSubCatNm}`
       }
 
-      // AI 서버에 요청
+      // AI 서버 요청
       const response = await fetch('/api/qoo10/cosmos/products/ai-code', {
         method: 'POST',
         headers: {
@@ -1239,16 +1281,18 @@ export function CosmosManagementContent() {
   }
 
   // 프로그레스바 컴포넌트 수정
-  const SyncProgressBar = ({ progress }: { progress: SyncProgress | null }) => {
+  const SyncProgressBar = ({ progress }: { progress: Progress | null }) => {
     if (!progress) return null;
 
+    const percentage = Math.round((progress.current / progress.total) * 100);
+
     return (
-      <div className="fixed top-4 right-4 w-80 bg-white p-4 rounded-lg shadow-lg border">
+      <div className="fixed top-4 right-4 w-80 bg-white p-4 rounded-lg shadow-lg border z-50">
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold">QOO10 상품 동기화 중...</h3>
             <span className="text-sm text-gray-500">
-              {progress.percentage}%
+              {percentage}%
             </span>
           </div>
           
@@ -1256,7 +1300,7 @@ export function CosmosManagementContent() {
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
               className="h-full bg-blue-500 transition-all duration-300"
-              style={{ width: `${progress.percentage}%` }}
+              style={{ width: `${percentage}%` }}
             />
           </div>
 
@@ -1268,8 +1312,8 @@ export function CosmosManagementContent() {
                 <span>{progress.current}/{progress.total}</span>
               </div>
               <div className="flex justify-between">
-                <span>남음:</span>
-                <span>{progress.total - progress.current}</span>
+                <span>일반:</span>
+                <span>{progress.normalCount}</span>
               </div>
             </div>
             <div>
@@ -1283,12 +1327,17 @@ export function CosmosManagementContent() {
               </div>
             </div>
           </div>
+
+          {/* 남은 상품 수 */}
+          <div className="text-sm text-gray-600 text-center">
+            남은 상품: {progress.total - progress.current}개
+          </div>
         </div>
       </div>
     );
   };
 
-  // 테블 내의 날짜 포맷팅 함수 추가
+  // 테블 내의 ���짜 포맷팅 함수 추가
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('ko-KR', {
