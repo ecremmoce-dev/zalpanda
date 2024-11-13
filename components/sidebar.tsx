@@ -32,6 +32,7 @@ export function Sidebar() {
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
   const [isQoo10MenuOpen, setIsQoo10MenuOpen] = useState(pathname.startsWith('/qoo10'))
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(pathname.startsWith('/settings'))
+  const [isProductMenuOpen, setIsProductMenuOpen] = useState(pathname.startsWith('/product'))
 
   const toggleImageMenu = () => {
     setIsImageMenuOpen(!isImageMenuOpen)
@@ -45,6 +46,10 @@ export function Sidebar() {
     setIsSettingsMenuOpen(!isSettingsMenuOpen)
   }
 
+  const toggleProductMenu = () => {
+    setIsProductMenuOpen(!isProductMenuOpen)
+  }
+
   useEffect(() => {
     if (pathname.startsWith('/image')) {
       setIsImageMenuOpen(true)
@@ -54,6 +59,9 @@ export function Sidebar() {
     }
     if (pathname.startsWith('/settings')) {
       setIsSettingsMenuOpen(true)
+    }
+    if (pathname.startsWith('/product')) {
+      setIsProductMenuOpen(true)
     }
   }, [pathname])
 
@@ -247,7 +255,34 @@ export function Sidebar() {
                     href="/settings/accounts"
                   >
                     <Users className="h-4 w-4" />
-                    업체��정관리
+                    업체정관리
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleProductMenu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <Package2 className="h-4 w-4" />
+                  <span className="font-semibold">상품</span>
+                </div>
+                {isProductMenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isProductMenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/list"
+                  >
+                    <Package2 className="h-4 w-4" />
+                    상품 목록
                   </Link>
                 </div>
               )}

@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Download, Trash, Split, Plus, Minus, RotateCcw, ArrowUpDown } from 'lucide-react';
 import JSZip from 'jszip';
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 interface GuideLine {
   id: number;
@@ -524,8 +527,8 @@ export function ImageSplitConverter() {
   }, []);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container py-6 space-y-6">
+      <div className="flex justify-between items-center">
         <input
           type="file"
           accept="image/*"
@@ -534,248 +537,250 @@ export function ImageSplitConverter() {
           id="imageInput"
           multiple
         />
-        <label
-          htmlFor="imageInput"
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors cursor-pointer"
-        >
-          이미지 선택 (다중 선택 가능)
+        <label htmlFor="imageInput">
+          <Button variant="default" asChild>
+            <span>이미지 선택 (다중 선택 가능)</span>
+          </Button>
         </label>
         {images.some(img => img.splitImages.length > 0) && (
-          <button
+          <Button 
+            variant="default" 
             onClick={handleDownloadAll}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center gap-2"
+            className="flex items-center gap-2"
           >
-            <Download size={18} />
+            <Download className="h-4 w-4" />
             전체 다운로드
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
+      <div className="grid grid-cols-1 gap-6">
         {images.map((image) => (
-          <div key={image.id} className="bg-white p-6 rounded-lg shadow-md">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="relative w-full">
-                <div className="sticky top-4 z-30 h-[52px] flex justify-end gap-2 mb-2">
-                  <div className="flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-lg p-1">
-                    <button
-                      onClick={() => handleSplitCountChange(image.id, image.splitCount - 1)}
-                      className="p-1.5 text-white hover:bg-white/20 rounded"
-                      disabled={image.splitCount <= 2}
-                    >
-                      <Minus size={20} />
-                    </button>
-                    <span className="text-white px-3 min-w-[2.5rem] text-center text-lg">
-                      {image.splitCount}
-                    </span>
-                    <button
-                      onClick={() => handleAddGuideLine(image.id)}
-                      className="p-1.5 text-white hover:bg-white/20 rounded"
-                      disabled={image.splitCount >= 50}
-                    >
-                      <Plus size={20} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleResetGuideLines(image.id)}
-                    className="p-2.5 bg-black/50 backdrop-blur-sm text-white rounded-lg hover:bg-black/70 transition-colors"
-                    title="가이드라인 초기화"
-                  >
-                    <RotateCcw size={22} />
-                  </button>
-
-                  <button
-                    onClick={() => handleSplitImage(image.id)}
-                    className="p-2.5 bg-black/50 backdrop-blur-sm text-white rounded-lg hover:bg-black/70 transition-colors"
-                    title="분할하기"
-                  >
-                    <Split size={22} />
-                  </button>
-
-                  <button
-                    onClick={() => handleRemoveImage(image.id)}
-                    className="p-2.5 bg-black/50 backdrop-blur-sm text-white rounded-lg hover:bg-black/70 transition-colors"
-                    title="삭제"
-                  >
-                    <Trash size={22} />
-                  </button>
-                </div>
-
-                <div className="flex gap-2">
-                  <div 
-                    className="relative border rounded-lg overflow-hidden bg-gray-200 original-image-container group"
-                    style={{ height: 'calc(100vh - 200px)' }}
-                    onWheel={(e) => handleContainerWheel(image.id, e)}
-                  >
-                    <div 
-                      className="h-full overflow-y-auto"
-                      data-image-id={image.id}
-                      onScroll={(e) => handleImageScroll(image.id, e)}
-                    >
-                      <div className="relative">
-                        <img
-                          src={image.originalImage}
-                          alt="Original"
-                          className="w-full h-auto object-contain"
-                          onLoad={() => handleImageLoad(image.id)}
-                        />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        
-                        {image.guideLines.map((line) => (
-                          <div
-                            key={line.id}
-                            className="absolute left-0 right-0 flex items-center justify-center group/line"
-                            style={{ 
-                              top: `${(line.y / image.imageSize.height) * 100}%`,
-                              transform: 'translateY(-50%)',
-                              zIndex: 20
-                            }}
-                          >
-                            <div className="w-full flex items-center relative">
-                              <div className="w-full h-[2px] bg-red-600 opacity-70 group-hover/line:opacity-90" />
-                              <div className="absolute left-2 bg-red-600 text-white text-xs px-1 rounded">
-                                {line.id}
-                              </div>
-                              <div 
-                                className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center cursor-ns-resize"
-                                onMouseDown={(e) => handleMouseDown(e, image.id, line.id)}
-                                style={{ zIndex: 22 }}
-                              >
-                                <div className="bg-red-600 rounded p-1 opacity-70 group-hover/line:opacity-90 transition-opacity">
-                                  <ArrowUpDown className="w-4 h-4 text-white" />
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+          <Card key={image.id}>
+            <CardContent className="p-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="relative w-full">
+                  <div className="sticky top-4 z-30 flex justify-end gap-2 mb-2">
+                    <div className="flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-md border">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleSplitCountChange(image.id, image.splitCount - 1)}
+                        disabled={image.splitCount <= 2}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="px-3 min-w-[2.5rem] text-center">
+                        {image.splitCount}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleAddGuideLine(image.id)}
+                        disabled={image.splitCount >= 50}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
 
-                    {scrollableImages.has(image.id) && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleResetGuideLines(image.id)}
+                      title="가이드라인 초기화"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleSplitImage(image.id)}
+                      title="분할하기"
+                    >
+                      <Split className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRemoveImage(image.id)}
+                      title="삭제"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <div 
+                      className="relative border rounded-lg overflow-hidden bg-muted original-image-container group"
+                      style={{ height: 'calc(100vh - 200px)' }}
+                      onWheel={(e) => handleContainerWheel(image.id, e)}
+                    >
                       <div 
-                        className="absolute right-3 top-3 z-50 opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out"
-                        style={{ 
-                          width: '150px',
-                          height: 'calc(100% - 24px)'
-                        }}
+                        className="h-full overflow-y-auto"
+                        data-image-id={image.id}
+                        onScroll={(e) => handleImageScroll(image.id, e)}
                       >
-                        <div
-                          className="relative overflow-hidden cursor-pointer h-full minimap-container"
-                          onClick={(e) => handleMinimapClick(image.id, e)}
-                          onWheel={(e) => handleMinimapWheel(image.id, e)}
-                        >
-                          <div className="absolute inset-0">
-                            <img
-                              src={image.originalImage}
-                              alt="Minimap"
-                              className="w-full h-full"
-                              style={{
-                                maxHeight: '100%',
-                                width: '100%',
-                                objectFit: 'contain',
-                                objectPosition: 'top',
-                                opacity: 0.4
-                              }}
-                              draggable={false}
-                            />
-                          </div>
+                        <div className="relative">
+                          <img
+                            src={image.originalImage}
+                            alt="Original"
+                            className="w-full h-auto object-contain"
+                            onLoad={() => handleImageLoad(image.id)}
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          
                           {image.guideLines.map((line) => (
                             <div
                               key={line.id}
-                              className="absolute left-0 right-0 pointer-events-none"
+                              className="absolute left-0 right-0 flex items-center justify-center group/line"
                               style={{ 
                                 top: `${(line.y / image.imageSize.height) * 100}%`,
-                                width: '100%'
+                                transform: 'translateY(-50%)',
+                                zIndex: 20
                               }}
                             >
-                              <div className="w-full h-[1px] bg-red-500/60" />
-                              <div className="absolute left-0 bg-red-500/60 text-white text-[8px] px-0.5">
-                                {line.id}
+                              <div className="w-full flex items-center relative">
+                                <div className="w-full h-[2px] bg-red-600 opacity-70 group-hover/line:opacity-90" />
+                                <div className="absolute left-2 bg-red-600 text-white text-xs px-1 rounded">
+                                  {line.id}
+                                </div>
+                                <div 
+                                  className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center cursor-ns-resize"
+                                  onMouseDown={(e) => handleMouseDown(e, image.id, line.id)}
+                                  style={{ zIndex: 22 }}
+                                >
+                                  <div className="bg-red-600 rounded p-1 opacity-70 group-hover/line:opacity-90 transition-opacity">
+                                    <ArrowUpDown className="w-4 h-4 text-white" />
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ))}
-                          {image.visibleArea && (
-                            <div
-                              className="absolute left-0 right-0 pointer-events-none"
+                        </div>
+                      </div>
+
+                      {scrollableImages.has(image.id) && (
+                        <div 
+                          className="absolute right-3 top-3 z-50 opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out"
+                          style={{ 
+                            width: '150px',
+                            height: 'calc(100% - 24px)'
+                          }}
+                        >
+                          <div
+                            className="relative overflow-hidden cursor-pointer h-full minimap-container"
+                            onClick={(e) => handleMinimapClick(image.id, e)}
+                            onWheel={(e) => handleMinimapWheel(image.id, e)}
+                          >
+                            <div className="absolute inset-0">
+                              <img
+                                src={image.originalImage}
+                                alt="Minimap"
+                                className="w-full h-full"
+                                style={{
+                                  maxHeight: '100%',
+                                  width: '100%',
+                                  objectFit: 'contain',
+                                  objectPosition: 'top',
+                                  opacity: 0.4
+                                }}
+                                draggable={false}
+                              />
+                            </div>
+                            {image.guideLines.map((line) => (
+                              <div
+                                key={line.id}
+                                className="absolute left-0 right-0 pointer-events-none"
+                                style={{ 
+                                  top: `${(line.y / image.imageSize.height) * 100}%`,
+                                  width: '100%'
+                                }}
+                              >
+                                <div className="w-full h-[1px] bg-red-500/60" />
+                                <div className="absolute left-0 bg-red-500/60 text-white text-[8px] px-0.5">
+                                  {line.id}
+                                </div>
+                              </div>
+                            ))}
+                            {image.visibleArea && (
+                              <div
+                                className="absolute left-0 right-0 pointer-events-none"
+                                style={{
+                                  top: `${image.visibleArea.top}%`,
+                                  height: `${image.visibleArea.height}%`,
+                                  width: '100%',
+                                  background: 'rgba(59, 130, 246, 0.2)',
+                                  backdropFilter: 'blur(1px)',
+                                  borderTop: '2px solid rgba(59, 130, 246, 0.5)',
+                                  borderBottom: '2px solid rgba(59, 130, 246, 0.5)',
+                                }}
+                              />
+                            )}
+                            <div 
+                              className="absolute inset-0" 
                               style={{
-                                top: `${image.visibleArea.top}%`,
-                                height: `${image.visibleArea.height}%`,
-                                width: '100%',
-                                background: 'rgba(59, 130, 246, 0.2)',
-                                backdropFilter: 'blur(1px)',
-                                borderTop: '2px solid rgba(59, 130, 246, 0.5)',
-                                borderBottom: '2px solid rgba(59, 130, 246, 0.5)',
+                                background: 'linear-gradient(to right, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2))',
+                                pointerEvents: 'none'
                               }}
                             />
-                          )}
-                          <div 
-                            className="absolute inset-0" 
-                            style={{
-                              background: 'linear-gradient(to right, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.2))',
-                              pointerEvents: 'none'
-                            }}
-                          />
+                          </div>
                         </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="relative w-full">
+                  <div className="sticky top-4 z-30 flex justify-end gap-2 mb-2">
+                    {image.splitImages.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleDownloadImageSet(image.id)}
+                        title={image.splitImages.length > 1 ? "ZIP 다운로드" : "다운로드"}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div 
+                    className="w-full border rounded-lg overflow-y-auto bg-muted"
+                    style={{ height: 'calc(100vh - 200px)' }}
+                  >
+                    {image.splitImages.length > 0 ? (
+                      <div className="p-4 space-y-4">
+                        {image.splitImages.map((splitImg, idx) => (
+                          <Card key={idx} className="relative overflow-hidden group">
+                            <img
+                              src={splitImg}
+                              alt={`Split ${idx + 1}`}
+                              className="w-full h-auto"
+                            />
+                            <div 
+                              className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              onClick={() => handleDownload(splitImg, image.id, idx)}
+                            >
+                              <Download className="h-6 w-6" />
+                            </div>
+                            <div className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md text-sm">
+                              {idx + 1}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        분할된 이미지가 없습니다
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-              
-              <div className="relative w-full">
-                <div className="sticky top-4 z-30 h-[52px] flex justify-end gap-2 mb-2">
-                  {image.splitImages.length > 0 && (
-                    <button
-                      onClick={() => handleDownloadImageSet(image.id)}
-                      className="p-2.5 bg-black/50 backdrop-blur-sm text-white rounded-lg hover:bg-black/70 transition-colors"
-                      title={image.splitImages.length > 1 ? "ZIP 다운로드" : "다운로드"}
-                    >
-                      <Download size={22} />
-                    </button>
-                  )}
-                </div>
-
-                <div 
-                  className="w-full border rounded-lg overflow-y-auto bg-gray-100"
-                  style={{ height: 'calc(100vh - 200px)' }}
-                >
-                  {image.splitImages.length > 0 ? (
-                    <div className="p-4 space-y-4">
-                      {image.splitImages.map((splitImg, idx) => (
-                        <div 
-                          key={idx} 
-                          className="relative border rounded-lg overflow-hidden group bg-white"
-                        >
-                          <img
-                            src={splitImg}
-                            alt={`Split ${idx + 1}`}
-                            className="w-full h-auto"
-                          />
-                          <div 
-                            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                            onClick={() => handleDownload(splitImg, image.id, idx)}
-                          >
-                            <Download 
-                              className="text-white" 
-                              size={24}
-                            />
-                          </div>
-                          <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-sm">
-                            {idx + 1}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500">
-                      분할된 이미지가 없습니다
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 

@@ -60,11 +60,11 @@ function SortableImageItem({ image, index, onRemove }: SortableImageItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative bg-white p-4 rounded-lg shadow-md flex flex-col gap-2 ${
-        isDragging ? 'border-2 border-blue-500 bg-blue-50' : ''
+      className={`relative border rounded-lg p-4 ${
+        isDragging ? 'border-primary bg-accent' : 'border-border'
       }`}
     >
-      <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+      <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
         <span className="truncate flex-1" title={image.file.name}>
           {image.file.name}
         </span>
@@ -72,13 +72,13 @@ function SortableImageItem({ image, index, onRemove }: SortableImageItemProps) {
       
       <div className="flex items-center gap-4 w-full">
         <button
-          className="cursor-grab active:cursor-grabbing p-1 hover:bg-gray-100 rounded flex-shrink-0"
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
           {...attributes}
           {...listeners}
         >
-          <GripVertical className="w-5 h-5 text-gray-400" />
+          <GripVertical className="w-5 h-5 text-muted-foreground" />
         </button>
-        <div className="flex-shrink-0 w-24 h-24">
+        <div className="flex-shrink-0 w-24 h-24 border rounded-md overflow-hidden">
           <img
             src={image.preview}
             alt={`Preview ${index + 1}`}
@@ -279,8 +279,8 @@ export function ImageMergeConverter() {
   return (
     <div className="grid grid-cols-2 gap-6 h-[calc(100vh-120px)]">
       {/* 왼쪽: 원본 이미지 목록 */}
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+      <div className="flex flex-col h-full">
+        <div className="flex justify-between items-center mb-4">
           <div className="flex gap-2">
             <input
               type="file"
@@ -290,14 +290,12 @@ export function ImageMergeConverter() {
               multiple
               onChange={handleImageUpload}
             />
-            <label
-              htmlFor="imageInput"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors cursor-pointer"
-            >
-              이미지 선택 (2장 이상)
+            <label htmlFor="imageInput">
+              <Button asChild>
+                <span>이미지 선택 (2장 이상)</span>
+              </Button>
             </label>
 
-            {/* 정렬 드롭다운 */}
             {images.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -319,7 +317,7 @@ export function ImageMergeConverter() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="flex flex-col gap-4 overflow-y-auto">
           {images.length > 0 ? (
             <DndContext
               sensors={sensors}
@@ -341,8 +339,8 @@ export function ImageMergeConverter() {
               </SortableContext>
             </DndContext>
           ) : (
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="h-[calc(100vh-300px)] flex items-center justify-center text-gray-500">
+            <div className="border rounded-lg p-6">
+              <div className="h-[calc(100vh-300px)] flex items-center justify-center text-muted-foreground">
                 2장 이상의 이미지를 선택해주세요
               </div>
             </div>
@@ -351,21 +349,18 @@ export function ImageMergeConverter() {
       </div>
 
       {/* 오른쪽: 미리보기 */}
-      <div className="flex flex-col h-full overflow-hidden">
-        <div className="flex justify-between items-center mb-4 flex-shrink-0">
+      <div className="flex flex-col h-full">
+        <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">미리보기</h2>
           {images.length >= 2 && (
-            <Button
-              onClick={mergeAndDownload}
-              className="bg-green-500 hover:bg-green-600 text-white"
-            >
+            <Button onClick={mergeAndDownload}>
               <Download className="w-4 h-4 mr-2" />
               이미지 다운로드
             </Button>
           )}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md h-full overflow-auto">
+        <div className="border rounded-lg h-full overflow-auto">
           <div className="p-4">
             {previewMergedImage ? (
               <div className="flex justify-center">
@@ -376,7 +371,7 @@ export function ImageMergeConverter() {
                 />
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
+              <div className="h-full flex items-center justify-center text-muted-foreground">
                 이미지를 선택하면 미리보기가 표시됩니다
               </div>
             )}
