@@ -17,7 +17,11 @@ interface ImageItem {
   originalImage: string;
   imageSize: { width: number; height: number };
   guideLines: GuideLine[];
-  splitImages: string[];
+  splitImages: Array<{
+    dataUrl: string;
+    width: number;
+    height: number;
+  }>;
   isGuidelineModified: boolean;
   splitCount: number;
   visibleArea?: {
@@ -33,6 +37,79 @@ export function ImageSplitConverter() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [scrollableImages, setScrollableImages] = useState<Set<string>>(new Set());
   
+  const resizeImage = (originalImage: string, maxWidth: number = 1960): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = originalImage;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(originalImage);
+
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          const ratio = maxWidth / width;
+          width = maxWidth;
+          height = height * ratio;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+    });
+  };
+
+  const handleOriginalImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    files.forEach(async file => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imgSrc = e.target?.result as string;
+        const resizedImgSrc = await resizeImage(imgSrc);
+        
+        const img = new Image();
+        img.src = resizedImgSrc;
+        img.onload = () => {
+          const imageId = `img-${Date.now()}-${Math.random()}`;
+          const newSize = {
+            width: img.width,
+            height: img.height
+          };
+          
+          const initialSplitCount = 5;
+          const partHeight = newSize.height / initialSplitCount;
+          const lines: GuideLine[] = [];
+          
+          for (let i = 1; i < initialSplitCount; i++) {
+            const y = Math.round(partHeight * i);
+            lines.push({ id: i, y });
+          }
+          
+          setImages(prev => [...prev, {
+            id: imageId,
+            originalImage: resizedImgSrc,
+            imageSize: newSize,
+            guideLines: lines,
+            splitImages: [],
+            isGuidelineModified: false,
+            splitCount: initialSplitCount,
+            visibleArea: {
+              top: 0,
+              height: 100
+            }
+          }]);
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     
@@ -114,7 +191,7 @@ export function ImageSplitConverter() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const results: string[] = [];
+      const results: Array<{ dataUrl: string; width: number; height: number }> = [];
       let prevY = 0;
 
       [...image.guideLines, { id: image.splitCount, y: image.imageSize.height }].forEach((line) => {
@@ -131,7 +208,11 @@ export function ImageSplitConverter() {
           img.width, line.y - prevY
         );
 
-        results.push(canvas.toDataURL('image/png'));
+        results.push({
+          dataUrl: canvas.toDataURL('image/png'),
+          width: canvas.width,
+          height: canvas.height
+        });
         prevY = line.y;
       });
 
@@ -227,7 +308,7 @@ export function ImageSplitConverter() {
       
       if (image.splitImages.length === 1) {
         const link = document.createElement('a');
-        link.href = image.splitImages[0];
+        link.href = image.splitImages[0].dataUrl;
         link.download = `split-image-${image.id}-1.png`;
         link.click();
         continue;
@@ -237,7 +318,7 @@ export function ImageSplitConverter() {
       if (!folder) continue;
 
       for (let i = 0; i < image.splitImages.length; i++) {
-        const imgData = image.splitImages[i];
+        const imgData = image.splitImages[i].dataUrl;
         const base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
         folder.file(`split-image-${i + 1}.png`, base64Data, { base64: true });
       }
@@ -464,7 +545,7 @@ export function ImageSplitConverter() {
 
     if (image.splitImages.length === 1) {
       const link = document.createElement('a');
-      link.href = image.splitImages[0];
+      link.href = image.splitImages[0].dataUrl;
       link.download = `split-image-${image.id}-1.png`;
       link.click();
       return;
@@ -475,7 +556,7 @@ export function ImageSplitConverter() {
     if (!folder) return;
 
     for (let i = 0; i < image.splitImages.length; i++) {
-      const imgData = image.splitImages[i];
+      const imgData = image.splitImages[i].dataUrl;
       const base64Data = imgData.replace(/^data:image\/\w+;base64,/, "");
       folder.file(`split-image-${i + 1}.png`, base64Data, { base64: true });
     }
@@ -529,19 +610,34 @@ export function ImageSplitConverter() {
   return (
     <div className="container py-6 space-y-6">
       <div className="flex justify-between items-center">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-          id="imageInput"
-          multiple
-        />
-        <label htmlFor="imageInput">
-          <Button variant="default" asChild>
-            <span>이미지 선택 (다중 선택 가능)</span>
-          </Button>
-        </label>
+        <div className="flex gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+            id="imageInput"
+            multiple
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleOriginalImageUpload}
+            className="hidden"
+            id="imageInputResize"
+            multiple
+          />
+          <label htmlFor="imageInput">
+            <Button variant="default" asChild>
+              <span>이미지 선택 (다중 선택 가능)</span>
+            </Button>
+          </label>
+          <label htmlFor="imageInputResize">
+            <Button variant="default" asChild>
+              <span>이미지 선택 (사이즈 수정)</span>
+            </Button>
+          </label>
+        </div>
         {images.some(img => img.splitImages.length > 0) && (
           <Button 
             variant="default" 
@@ -753,22 +849,36 @@ export function ImageSplitConverter() {
                     {image.splitImages.length > 0 ? (
                       <div className="p-4 space-y-4">
                         {image.splitImages.map((splitImg, idx) => (
-                          <Card key={idx} className="relative overflow-hidden group">
-                            <img
-                              src={splitImg}
-                              alt={`Split ${idx + 1}`}
-                              className="w-full h-auto"
-                            />
-                            <div 
-                              className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
-                              onClick={() => handleDownload(splitImg, image.id, idx)}
-                            >
-                              <Download className="h-6 w-6" />
+                          <div key={idx} className="relative">
+                            <div className="sticky top-0 z-10 mb-2 flex justify-between items-center bg-background/95 backdrop-blur-sm p-2 rounded-md border">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">#{idx + 1}</span>
+                                <span className="text-muted-foreground">
+                                  {splitImg.width}x{splitImg.height}px
+                                </span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDownload(splitImg.dataUrl, image.id, idx)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <div className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md text-sm">
-                              {idx + 1}
-                            </div>
-                          </Card>
+                            <Card className="relative overflow-hidden group">
+                              <img
+                                src={splitImg.dataUrl}
+                                alt={`Split ${idx + 1}`}
+                                className="w-full h-auto"
+                              />
+                              <div 
+                                className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                                onClick={() => handleDownload(splitImg.dataUrl, image.id, idx)}
+                              >
+                                <Download className="h-6 w-6" />
+                              </div>
+                            </Card>
+                          </div>
                         ))}
                       </div>
                     ) : (
