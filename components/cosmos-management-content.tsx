@@ -27,6 +27,8 @@ import { CKEditor } from '@ckeditor/ckeditor5-react'
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic'
 import MoveProductEditor from './MoveProductEditor'
 import NormalProductEditor from './NormalProductEditor'
+import { Console } from 'console'
+import { createProgressKey, getProgress } from '../lib/progress';
 
 interface Company {
   Id: string
@@ -109,12 +111,12 @@ interface DetailProduct {
   LastFetchDate?: string;
   CreatedAt?: string;
   PromotionName?: string;
-  MainCatCd?: string;
-  MainCatNm?: string;
-  FirstSubCatCd?: string;
-  FirstSubCatNm?: string;
-  SecondSubCatCd?: string;
-  SecondSubCatNm?: string;
+  MainCatCd: string;
+  MainCatNm: string;
+  FirstSubCatCd: string;
+  FirstSubCatNm: string;
+  SecondSubCatCd: string;
+  SecondSubCatNm: string;
   DrugType?: string;
   ProductionPlaceType?: string;
   ProductionPlace?: string;
@@ -279,7 +281,7 @@ const ITEM_STATUS_OPTIONS = [
   { value: 'S1', label: '거래대기' },
   { value: 'S2', label: '거래가능' },
   { value: 'S3', label: '거래중지(Qoo10)' },
-  { value: 'S5', label: '거래제한(Qoo10)' },
+  { value: 'S5', label: '래제한(Qoo10)' },
   { value: 'S8', label: '거부' }
 ]
 
@@ -324,7 +326,7 @@ const getAvailableDatePlaceholder = (type: string) => {
     case '1':
       return '4~14일 입력 (예: 5)'
     case '2':
-      return '출시일 입력 (예: 2024/03/20)'
+      return '출시일 입 (예: 2024/03/20)'
     case '3':
       return '발 시간 입력 (예: 14:30)'
     default:
@@ -405,7 +407,7 @@ const ProductPreview = ({ itemCode, isMoveProduct }: ProductPreviewProps) => {
 
 // 테이블 컬럼 정의 부분 수정
 const columns = [
-  // 기존 컬럼들...
+  // 기존 컬들...
   {
     id: 'preview',
     header: '미리보기',
@@ -426,6 +428,7 @@ interface SyncProgress {
   moveCount: number;
   successCount: number;
   failCount: number;
+  percentage: number;
 }
 
 export function CosmosManagementContent() {
@@ -435,7 +438,7 @@ export function CosmosManagementContent() {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('')
   const [isSyncing, setIsSyncing] = useState(false)
   // 상태 선택 상태를 단일 값으로 수정
-  const [selectedStatus, setSelectedStatus] = useState<string>('S2') // 기본값: 거래가능
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['S2']) // 기본값: 거래가능
 
   const [products, setProducts] = useState<CosmosProduct[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -463,6 +466,9 @@ export function CosmosManagementContent() {
 
   // 상단에 상태 추가
   const [directItemCode, setDirectItemCode] = useState('');
+
+  const [totalNormalCount, setTotalNormalCount] = useState(0)
+  const [totalMoveCount, setTotalMoveCount] = useState(0)
 
   useEffect(() => {
     fetchCompanies()
@@ -528,22 +534,34 @@ export function CosmosManagementContent() {
 
       const response = await fetch(`/api/qoo10/cosmos/products?${searchParams.toString()}`)
       const data = await response.json()
-      
+      console.log("response.ok", response.ok)
       if (response.ok) {
         setProducts(data.items)
         setTotalPages(data.totalPages)
-        setTotalItems(data.total)
+        setTotalItems(data.totalItems)  // 전체 항목 수 (두 컨테이너의 합)
+        setTotalNormalCount(data.normalCount)  // 일반상품 전체 수
+        setTotalMoveCount(data.moveCount)      // 무브상품 전체 수
+
+        // progress store 값 확인을 위한 로그 추가
+        //console.log("Progress Store 상태:", progress);
+        // console.log("data.total", data.total)
+        // console.log("data.normalCount", data.normalCount )
+        // console.log("data.moveCount", data.moveCount )
       } else {
         console.error('Failed to fetch products:', data.error)
         setProducts([])
         setTotalPages(1)
         setTotalItems(0)
+        setTotalNormalCount(0)
+        setTotalMoveCount(0)
       }
     } catch (error) {
       console.error('Failed to fetch products:', error)
       setProducts([])
       setTotalPages(1)
       setTotalItems(0)
+      setTotalNormalCount(0)
+      setTotalMoveCount(0)
     } finally {
       setIsLoading(false)
     }
@@ -568,19 +586,37 @@ export function CosmosManagementContent() {
         body: JSON.stringify({
           companyId: selectedCompany,
           platformId: selectedPlatform,
-          itemStatus: selectedStatus
+          itemStatuses: selectedStatuses
         }),
       });
 
-      const result = await response.json();
-      console.log('동기화 결과:', result);
+      // EventSource를 사용하여 실시간 진행 상황 수신
+      const eventSource = new EventSource(`/api/qoo10/cosmos/sync/progress?companyId=${selectedCompany}&platformId=${selectedPlatform}`);
+      
+      eventSource.onmessage = (event) => {
+        const progress = JSON.parse(event.data);
+        setSyncProgress({
+          ...progress,
+          percentage: Math.round((progress.current / progress.total) * 100)
+        });
+      };
 
-      if (!response.ok) {
-        throw new Error(result.error || '동기화에 실패했습니다.');
-      }
+      eventSource.onerror = () => {
+        eventSource.close();
+      };
+
+      const result = await response.json();
+      eventSource.close();
 
       // 동기화 결과 상세 메시지 생성
       let resultMessage = '== QOO10 동기화 결과 ==\n\n';
+      
+      // 선택된 상태 표시
+      resultMessage += '🔍 선택된 거래상태:\n';
+      selectedStatuses.forEach(status => {
+        resultMessage += `- ${SYNC_STATUS_OPTIONS.find(opt => opt.value === status)?.label}\n`;
+      });
+      resultMessage += '\n';
       
       // 전체 처리 현황
       resultMessage += '📊 전체 처리 현황\n';
@@ -637,6 +673,8 @@ export function CosmosManagementContent() {
       
       const product = await response.json()
       setSelectedProduct(product)
+      setEditedProduct(product)
+      setIsEditing(true)
       setIsDetailDialogOpen(true)
     } catch (error) {
       console.error('상품 조회 실패:', error)
@@ -654,7 +692,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 수정 모드 전환
+  // 수정 모 전환
   const handleEditMode = () => {
     if (selectedProduct) {
       const editProduct = {
@@ -713,7 +751,7 @@ export function CosmosManagementContent() {
       // HTML 변환
       const convertedHtml = convertHtmlToQoo10Format(editedProduct.ItemDetail || '')
 
-      // 변환 HTML로 업데이트
+      // 변환 HTML로 데이트
       const updatedProduct = {
         ...editedProduct,
         ItemDetail: convertedHtml
@@ -929,7 +967,7 @@ export function CosmosManagementContent() {
           api: 'UpdateMoveGoods (MOVE 상품 기본정보)',
           success: updateMoveGoodsResult.ResultCode === 0,
           message: updateMoveGoodsResult.ResultMsg,
-          returnMessage: `상태코드: ${updateMoveGoodsResult.ResultCode}, 메시지: ${updateMoveGoodsResult.ResultMsg}`
+          returnMessage: `상코드: ${updateMoveGoodsResult.ResultCode}, 메시지: ${updateMoveGoodsResult.ResultMsg}`
         })
 
         // 2. ItemsOrder.EditMoveGoodsPrice API 호출
@@ -1067,9 +1105,9 @@ export function CosmosManagementContent() {
           '-10002': '검수 중인 상품은 수정할 수 없습다.',
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
-          '-10005': '��인거부된 상품은 수정할 수 없습니다.',
+          '-10005': '인거부된 상품은 수할 수 없습니다.',
           '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
-          '-10101': '처리 중 오류가 발생했습니다.'
+          '-10101': '처리 중 오류가 발생했습다.'
         }
 
         results.push({
@@ -1134,7 +1172,7 @@ export function CosmosManagementContent() {
           const editContentsResult = await editContentsResponse.json()
           console.log('[QOO10 적용] EditGoodsContents API 응답:', editContentsResult)
           results.push({
-            api: 'EditGoodsContents (상세설명)',
+            api: 'EditGoodsContents (세설명)',
             success: editContentsResult.ResultCode === 0,
             message: editContentsResult.ResultMsg,
             returnMessage: `상태코드: ${editContentsResult.ResultCode}, 메시지: ${editContentsResult.ResultMsg}`
@@ -1200,11 +1238,9 @@ export function CosmosManagementContent() {
     }
   }
 
-  // SyncProgressBar 컴포넌트 수정
-  const SyncProgressBar = ({ progress }: { progress: any }) => {
+  // 프로그레스바 컴포넌트 수정
+  const SyncProgressBar = ({ progress }: { progress: SyncProgress | null }) => {
     if (!progress) return null;
-
-    const percentage = (progress.current / progress.total) * 100;
 
     return (
       <div className="fixed top-4 right-4 w-80 bg-white p-4 rounded-lg shadow-lg border">
@@ -1212,7 +1248,7 @@ export function CosmosManagementContent() {
           <div className="flex justify-between items-center">
             <h3 className="font-semibold">QOO10 상품 동기화 중...</h3>
             <span className="text-sm text-gray-500">
-              {progress.current}/{progress.total}
+              {progress.percentage}%
             </span>
           </div>
           
@@ -1220,44 +1256,39 @@ export function CosmosManagementContent() {
           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
             <div 
               className="h-full bg-blue-500 transition-all duration-300"
-              style={{ width: `${percentage}%` }}
+              style={{ width: `${progress.percentage}%` }}
             />
           </div>
 
-          {/* 상품 유형별 현황 */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* 상세 정보 */}
+          <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <div className="flex justify-between text-sm">
-                <span>일반상품:</span>
-                <span className="font-medium">{progress.normalCount}</span>
+              <div className="flex justify-between">
+                <span>처리:</span>
+                <span>{progress.current}/{progress.total}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>무브상품:</span>
-                <span className="font-medium">{progress.moveCount}</span>
+              <div className="flex justify-between">
+                <span>남음:</span>
+                <span>{progress.total - progress.current}</span>
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span>성공:</span>
-                <span className="text-green-600 font-medium">{progress.successCount}</span>
+                <span className="text-green-600">{progress.successCount}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span>실패:</span>
-                <span className="text-red-600 font-medium">{progress.failCount}</span>
+                <span className="text-red-600">{progress.failCount}</span>
               </div>
             </div>
-          </div>
-
-          {/* 남은 상품 수 */}
-          <div className="text-sm text-gray-600 text-center">
-            남은 상품: {progress.total - progress.current}개
           </div>
         </div>
       </div>
     );
   };
 
-  // 테이블 내의 날짜 포맷팅 함수 추가
+  // 테블 내의 날짜 포맷팅 함수 추가
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('ko-KR', {
@@ -1335,7 +1366,7 @@ export function CosmosManagementContent() {
 
       const result = await response.json();
       alert('동기화가 완료되었습니다.');
-      setDirectItemCode(''); // 입력 필드 초기화
+      setDirectItemCode(''); // 입력 필드 기화
       fetchProducts(); // 목록 새로고침
 
     } catch (error) {
@@ -1348,114 +1379,147 @@ export function CosmosManagementContent() {
 
   return (
     <div className="p-6">
-      <div className="flex gap-4 mb-6">
-        <div className="w-[200px]">
-          <Select
-            value={selectedCompany}
-            onValueChange={(value) => {
-              setSelectedCompany(value)
-              setSelectedPlatform('')
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="업체 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {companies.map((company) => (
-                <SelectItem key={company.Id} value={company.Id}>
-                  {company.Name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex justify-between gap-4 mb-6">
+        {/* 좌측: 선택 필드들 */}
+        <div className="flex gap-4">
+          <div className="w-[200px]">
+            <Select
+              value={selectedCompany}
+              onValueChange={(value) => {
+                setSelectedCompany(value)
+                setSelectedPlatform('')
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="업체 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((company) => (
+                  <SelectItem key={company.Id} value={company.Id}>
+                    {company.Name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[200px]">
+            <Select
+              value={selectedPlatform}
+              onValueChange={setSelectedPlatform}
+              disabled={!selectedCompany || platforms.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="플랫폼 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {platforms.map((platform) => (
+                  <SelectItem key={platform.Id} value={platform.Id}>
+                    {platform.Platform} ({platform.SellerId})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+         
         </div>
 
-        <div className="w-[200px]">
-          <Select
-            value={selectedPlatform}
-            onValueChange={setSelectedPlatform}
-            disabled={!selectedCompany || platforms.length === 0}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="플랫폼 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {platforms.map((platform) => (
-                <SelectItem key={platform.Id} value={platform.Id}>
-                  {platform.Platform} ({platform.SellerId})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="w-[300px]">
-          <Select
-            value={selectedStatus}
-            onValueChange={setSelectedStatus}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="거래상태 선택" />
-            </SelectTrigger>
-            <SelectContent>
-              {SYNC_STATUS_OPTIONS.map(status => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 접 동기화 입력 필드와 버튼 가 */}
+        {/* 우측: 동기화 버튼들 */}
         <div className="flex gap-2">
-          <Input
-            value={directItemCode}
-            onChange={(e) => setDirectItemCode(e.target.value)}
-            placeholder="상품코드 직접 입력"
-            className="w-[200px]"
-          />
+        <div className="w-[250px] relative">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-between text-left"
+              >
+                {selectedStatuses.length > 0 ? (
+                  <span className="truncate">
+                    {selectedStatuses.map(status => 
+                      SYNC_STATUS_OPTIONS.find(opt => opt.value === status)?.label
+                    ).join(', ')}
+                  </span>
+                ) : (
+                  '거래상태 선택'
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <div className="p-2">
+                {SYNC_STATUS_OPTIONS.map(status => (
+                  <label
+                    key={status.value}
+                    className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(status.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStatuses([...selectedStatuses, status.value]);
+                        } else {
+                          setSelectedStatuses(selectedStatuses.filter(s => s !== status.value));
+                        }
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <span>{status.label}</span>
+                  </label>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+          <div className="flex gap-2">
+            <Input
+              value={directItemCode}
+              onChange={(e) => setDirectItemCode(e.target.value)}
+              placeholder="상품코드 직접 입력"
+              className="w-[200px]"
+            />
+            <Button
+              onClick={handleDirectSync}
+              disabled={!selectedCompany || !selectedPlatform || isSyncing || !directItemCode.trim()}
+              variant="outline"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              직접 동기화
+            </Button>
+          </div>
+
           <Button
-            onClick={handleDirectSync}
-            disabled={!selectedCompany || !selectedPlatform || isSyncing || !directItemCode.trim()}
-            variant="outline"
+            onClick={handleSyncToCosmos}
+            disabled={!selectedCompany || !selectedPlatform || isSyncing}
+            className="min-w-[300px]"
           >
-            <Upload className="w-4 h-4 mr-2" />
-            직접 동기화
+            {isSyncing ? (
+              <div className="flex flex-col items-center w-full">
+                <div className="flex items-center mb-1">
+                  <span className="animate-spin mr-2">⟳</span>
+                  QOO10 상품 동기화 중...
+                </div>
+                {syncProgress && (
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between gap-4">
+                      <span>진행: {syncProgress.current}/{syncProgress.total}</span>
+                      <span>남은 상품: {syncProgress.total - syncProgress.current}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>일반: {syncProgress.normalCount}</span>
+                      <span>무브: {syncProgress.moveCount}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center">
+                <span className="mr-2">↻</span>
+                QOO10 상품 동기화
+              </div>
+            )}
           </Button>
         </div>
-
-        <Button
-          onClick={handleSyncToCosmos}
-          disabled={!selectedCompany || !selectedPlatform || isSyncing}
-          className="ml-2 min-w-[300px]"
-        >
-          {isSyncing ? (
-            <div className="flex flex-col items-center w-full">
-              <div className="flex items-center mb-1">
-                <span className="animate-spin mr-2">⟳</span>
-                QOO10 상품 동기화 중...
-              </div>
-              {syncProgress && (
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between gap-4">
-                    <span>진행: {syncProgress.current}/{syncProgress.total}</span>
-                    <span>남은 상품: {syncProgress.total - syncProgress.current}</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>일반: {syncProgress.normalCount}</span>
-                    <span>무브: {syncProgress.moveCount}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center">
-              <span className="mr-2">↻</span>
-              QOO10 상품 동기화
-            </div>
-          )}
-        </Button>
       </div>
 
       {/* 프로그레스바 추가 */}
@@ -1479,7 +1543,7 @@ export function CosmosManagementContent() {
             </Select>
             <div className="flex gap-2 flex-1">
               <Input
-                placeholder="검색어를 입력하세요"
+                placeholder="검색어를 입력하요"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -1489,33 +1553,34 @@ export function CosmosManagementContent() {
           </div>
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mt-6">
-            <TabsList>
-              <TabsTrigger value="all">
-                전체 ({totalItems})
-              </TabsTrigger>
-              <TabsTrigger value="NONE">
-                일반 상품 ({products?.filter(p => p.Flag === 'NONE').length || 0})
-              </TabsTrigger>
-              <TabsTrigger value="MOVE">
-                무브 상품 ({products?.filter(p => p.Flag === 'MOVE').length || 0})
-              </TabsTrigger>
-            </TabsList>
+          <TabsList>
+            <TabsTrigger value="all">
+              전체 ({totalMoveCount + totalNormalCount}) {/* totalItems 대신 totalMoveCount + totalNormalCount 사용 */}
+            </TabsTrigger>
+            <TabsTrigger value="NONE">
+              일반 상품 ({totalNormalCount})
+            </TabsTrigger>
+            <TabsTrigger value="MOVE">
+              무브 상품 ({totalMoveCount})
+            </TabsTrigger>
+          </TabsList>
 
             <div className="mt-4">
               <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold">상품코드</TableHead>
-                      <TableHead className="font-semibold">셀러코드</TableHead>
-                      <TableHead className="font-semibold w-[300px]">상품명</TableHead>
-                      <TableHead className="font-semibold text-right">판매가</TableHead>
-                      <TableHead className="font-semibold text-right">재고</TableHead>
-                      <TableHead className="font-semibold text-center">판매상태</TableHead>
-                      <TableHead className="font-semibold text-center">상품유형</TableHead>
-                      <TableHead className="font-semibold">최종 동기화</TableHead>
-                      <TableHead className="font-semibold text-center">관리</TableHead>
-                      <TableHead className="font-semibold text-center">미리보기</TableHead>
+                      <TableHead className="font-semibold w-[80px]">이미지</TableHead>
+                      <TableHead className="font-semibold w-[120px]">상품코드</TableHead>
+                      <TableHead className="font-semibold w-[120px]">셀러코드</TableHead>
+                      <TableHead className="font-semibold w-[400px]">상품명</TableHead>
+                      <TableHead className="font-semibold text-right w-[100px]">판매가</TableHead>
+                      <TableHead className="font-semibold text-right w-[80px]">재고</TableHead>
+                      <TableHead className="font-semibold text-center w-[100px]">판매상태</TableHead>
+                      <TableHead className="font-semibold text-center w-[80px]">상품유형</TableHead>
+                      <TableHead className="font-semibold w-[160px]">최종 동기화</TableHead>
+                      <TableHead className="font-semibold text-center w-[80px]">관리</TableHead>
+                      <TableHead className="font-semibold text-center w-[120px]">미리보기</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1543,6 +1608,35 @@ export function CosmosManagementContent() {
                           key={product.id}
                           className="hover:bg-gray-50 transition-colors"
                         >
+                          <TableCell className="w-[80px]">
+                            {product.Flag === 'MOVE' ? (
+                              <div className="relative w-[60px] h-[60px]">
+                                {product.OptionMainimage && (
+                                  <img
+                                    src={product.OptionMainimage.split('$$')[0]?.split('||*')[1] || ''}
+                                    alt="대표 이미지"
+                                    className="w-full h-full object-cover rounded border"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-image.png' // 이미지 로드 실패시 기본 이미지
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div className="relative w-[60px] h-[60px]">
+                                {product.ImageUrl && (
+                                  <img
+                                    src={product.ImageUrl}
+                                    alt="대표 이미지"
+                                    className="w-full h-full object-cover rounded border"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-image.png' // 이미지 로드 실패시 기본 이미지
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="font-mono text-sm">{product.ItemCode}</TableCell>
                           <TableCell className="font-mono text-sm">{product.SellerCode || '-'}</TableCell>
                           <TableCell className="max-w-[300px]">
@@ -1552,7 +1646,7 @@ export function CosmosManagementContent() {
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {product.ItemPrice?.toLocaleString() || 0}
-                            <span className="text-gray-500 ml-1">원</span>
+                            <span className="text-gray-500 ml-1">엔</span>
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {product.ItemQty?.toLocaleString() || 0}
@@ -1585,7 +1679,6 @@ export function CosmosManagementContent() {
                               className="hover:bg-gray-100"
                             >
                               <Edit className="w-4 h-4 mr-1" />
-                              수정
                             </Button>
                           </TableCell>
                           <TableCell className="text-center">
@@ -1607,6 +1700,15 @@ export function CosmosManagementContent() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setPage(1)}
+                    disabled={page === 1}
+                    className="flex items-center gap-1"
+                  >
+                    처음
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1}
                     className="flex items-center gap-1"
@@ -1615,9 +1717,28 @@ export function CosmosManagementContent() {
                   </Button>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600">페이지</span>
-                    <div className="bg-white border rounded px-3 py-1 min-w-[80px] text-center">
-                      {page} / {totalPages}
-                    </div>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={page}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        if (!isNaN(value) && value >= 1 && value <= totalPages) {
+                          setPage(value);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const value = parseInt(e.target.value);
+                        if (isNaN(value) || value < 1) {
+                          setPage(1);
+                        } else if (value > totalPages) {
+                          setPage(totalPages);
+                        }
+                      }}
+                      className="w-[80px] text-center"
+                    />
+                    <span className="text-sm text-gray-600">/ {totalPages}</span>
                   </div>
                   <Button
                     variant="outline"
@@ -1627,6 +1748,15 @@ export function CosmosManagementContent() {
                     className="flex items-center gap-1"
                   >
                     다음 →
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(totalPages)}
+                    disabled={page === totalPages}
+                    className="flex items-center gap-1"
+                  >
+                    마지막
                   </Button>
                 </div>
               )}
@@ -1640,10 +1770,15 @@ export function CosmosManagementContent() {
         <Dialog 
           open={isDetailDialogOpen} 
           onOpenChange={(open) => {
-            if (!open) setIsDetailDialogOpen(false)
+            if (!open) {
+              setIsDetailDialogOpen(false)
+              setIsEditing(false)
+              setEditedProduct(null)
+              setSelectedProduct(null)
+            }
           }}
         >
-          <DialogContent className="w-full max-w-[95vw] h-[95vh] p-0">
+          <DialogContent className="w-full max-w-[80vw] h-[80vh] p-0">
             <div className="h-full overflow-y-auto p-6">
               {selectedProduct.Flag === 'MOVE' ? (
                 <MoveProductEditor
@@ -1676,7 +1811,9 @@ export function CosmosManagementContent() {
               ) : (
                 <NormalProductEditor
                   product={selectedProduct}
-                  onSave={handleSaveProduct}
+                  onSave={async (product) => {
+                    await handleSaveProduct(product);
+                  }}
                   onCancel={() => setIsDetailDialogOpen(false)}
                   onApplyToQoo10={handleApplyToQoo10}
                 />

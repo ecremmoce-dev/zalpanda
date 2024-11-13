@@ -143,7 +143,7 @@ const formatHtml = async (html: string): Promise<string> => {
 };
 
 export default function MoveProductEditor({ product, onSave, onCancel, onApplyToQoo10 }: MoveProductEditorProps) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(true)
   const [editedProduct, setEditedProduct] = useState<DetailProduct>(product)
   const [activeTab, setActiveTab] = useState("basic")
   const [dialogOpen, setDialogOpen] = useState(false) // 다이얼로그 상태 추가
@@ -235,7 +235,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
   const handleSave = async () => {
     try {
       await onSave(editedProduct)
-      setIsEditing(false)
+      //setIsEditing(false)
     } catch (error) {
       console.error('Failed to save:', error)
       alert('저장에 실패했습니다.')
@@ -376,37 +376,24 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
       <div className="flex justify-between items-center border-b pb-4">
         <h2 className="text-2xl font-bold">무브상품 상세 정보</h2>
         <div className="flex gap-4">
-          {!isEditing ? (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                수정하기
-              </Button>
-              <Button 
-                onClick={handleApplyToQoo10}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <Globe className="w-4 h-4" />
-                QOO10 전송
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => {
-                setIsEditing(false)
-                setEditedProduct(product)
-              }}>
-                취소
-              </Button>
-              <Button onClick={handleSave}>
-                저장
-              </Button>
-            </>
-          )}
+          <Button 
+            onClick={handleApplyToQoo10}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+          >
+            <Globe className="w-4 h-4" />
+            QOO10 전송
+          </Button>
+          <Button onClick={handleSave}>
+            저장
+          </Button>
+          <Button variant="outline" onClick={() => {
+            //setIsEditing(false)
+            //setEditedProduct(product)
+            onCancel()
+          }}>
+            닫기
+          </Button>
+         
         </div>
       </div>
 
@@ -627,7 +614,7 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
                         if (confirm('모든 옵션을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
                           // 옵션 전체 삭제
                           setOptions([]);
-                          // 관련된 모든 옵션 ���자열 초기화
+                          // 관련된 모든 옵션 자열 초기화
                           setEditedProduct(prev => ({
                             ...prev,
                             OptionType: '',
