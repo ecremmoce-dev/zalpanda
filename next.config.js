@@ -29,6 +29,12 @@ const nextConfig = {
   },
   unstable_runtimeJS: true,
   output: 'standalone',
+  api: {
+    bodyParser: {
+      sizeLimit: '100mb' // 기본값은 '1mb'
+    },
+    responseLimit: '100mb' // 응답 크기 제한
+  }
 }
 
 module.exports = nextConfig 
