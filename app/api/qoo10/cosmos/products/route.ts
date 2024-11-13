@@ -57,22 +57,6 @@ export async function GET(request: Request) {
       )
     }
 
-    // 플랫폼 정보 조회
-    const platform = await prisma.zal_CompanyPlatform.findFirst({
-      where: {
-        CompanyId: companyId,
-        DeletedAt: null,
-        Id: platformId
-      }
-    })
-
-    if (!platform?.SellerId) {
-      return NextResponse.json(
-        { error: '플랫폼 정보를 찾을 수 없습니다.' },
-        { status: 400 }
-      )
-    }
-
     // 기본 쿼리 생성
     const baseQuery = {
       query: "SELECT * FROM c WHERE c.CompanyId = @companyId AND c.PlatformId = @platformId",
@@ -88,28 +72,27 @@ export async function GET(request: Request) {
       baseQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
     }
 
+    // 항상 두 컨테이너의 전체 개수를 조회
+    const [totalMoveItems, totalNormalItems] = await Promise.all([
+      moveContainer.items.query(baseQuery).fetchAll(),
+      normalContainer.items.query(baseQuery).fetchAll()
+    ])
+
+    const totalMoveCount = totalMoveItems.resources.length
+    const totalNormalCount = totalNormalItems.resources.length
+
     let items = []
-
-    // flag에 따른 조회 처리
+    
+    // flag에 따른 데이터 필터링
     if (!flag || flag === 'all') {
-      // 두 컨테이너에서 모두 조회
-      const [moveItems, normalItems] = await Promise.all([
-        moveContainer.items.query(baseQuery).fetchAll(),
-        normalContainer.items.query(baseQuery).fetchAll()
-      ])
-
       items = [
-        ...moveItems.resources.map(item => ({ ...item, flag: 'MOVE' })),
-        ...normalItems.resources.map(item => ({ ...item, flag: 'NONE' }))
+        ...totalMoveItems.resources.map(item => ({ ...item, Flag: 'MOVE' })),
+        ...totalNormalItems.resources.map(item => ({ ...item, Flag: 'NONE' }))
       ]
     } else if (flag === 'MOVE') {
-      // 무브상품만 조회
-      const { resources } = await moveContainer.items.query(baseQuery).fetchAll()
-      items = resources.map(item => ({ ...item, flag: 'MOVE' }))
+      items = totalMoveItems.resources.map(item => ({ ...item, Flag: 'MOVE' }))
     } else {
-      // 일반상품만 조회
-      const { resources } = await normalContainer.items.query(baseQuery).fetchAll()
-      items = resources.map(item => ({ ...item, flag: 'NONE' }))
+      items = totalNormalItems.resources.map(item => ({ ...item, Flag: 'NONE' }))
     }
 
     // 탭별 정렬 적용
@@ -119,14 +102,16 @@ export async function GET(request: Request) {
     const startIndex = (page - 1) * pageSize
     const paginatedItems = items.slice(startIndex, startIndex + pageSize)
     
+    // 응답에 전체 개수와 현재 필터링된 개수를 모두 포함
     return NextResponse.json({
       items: paginatedItems,
-      total: items.length,
+      total: items.length,            // 현재 필터링된 항목 수
+      totalItems: totalMoveCount + totalNormalCount,  // 전체 항목 수
       page,
       pageSize,
       totalPages: Math.ceil(items.length / pageSize),
-      moveCount: items.filter(item => item.flag === 'MOVE').length,
-      normalCount: items.filter(item => item.flag === 'NONE').length
+      moveCount: totalMoveCount,      // 전체 무브상품 수
+      normalCount: totalNormalCount   // 전체 일반상품 수
     })
 
   } catch (error) {
@@ -138,4 +123,4 @@ export async function GET(request: Request) {
   } finally {
     await prisma.$disconnect()
   }
-} 
+}
