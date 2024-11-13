@@ -199,7 +199,7 @@ export default function ImageTranslationContent() {
     let successCount = 0
     let failCount = 0
 
-    await Promise.all(downloadTargetImages.map(async (img) => {
+    await Promise.all(downloadTargetImages.map(async (img, index) => {
       let imageData: string;
       
       if (img.isTranslationSuccessful && img.translated) {
@@ -217,8 +217,10 @@ export default function ImageTranslationContent() {
         })
       }
 
-      const prefix = img.isTranslationSuccessful ? 'translated_' : 'original_'
-      const fileName = `${prefix}${img.name}`
+      // 파일명 형식 수정
+      const fileName = img.isTranslationSuccessful 
+        ? `translated_image-${String(index + 1).padStart(3, '0')}.png`
+        : `original_image-${String(index + 1).padStart(3, '0')}.png`
       
       zip.file(fileName, imageData, { base64: true })
 
