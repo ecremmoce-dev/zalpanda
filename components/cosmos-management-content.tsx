@@ -1858,7 +1858,7 @@ export function CosmosManagementContent() {
             }
           }}
         >
-          <DialogContent className="w-full max-w-[80vw] h-[80vh] p-0">
+          <DialogContent className="w-full max-w-[60vw] h-[80vh] p-0">
             <div className="h-full overflow-y-auto p-6">
               {selectedProduct.Flag === 'MOVE' ? (
                 <MoveProductEditor
