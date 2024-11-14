@@ -2602,3 +2602,16 @@ model Zal_Qoo10ItemOptions {
   Zal_Qoo10ItemDetails Zal_Qoo10ItemDetails @relation(fields: [ItemCode], references: [ItemCode], onDelete: Cascade, onUpdate: NoAction, map: "FK_ItemOptions_ItemCode")
 }
 
+model Zal_Qoo10Category {
+  mainCategoryCode String    @map("MainCategoryCode")
+  mainCategoryName String    @map("MainCategoryName")
+  midCategoryCode  String    @map("MidCategoryCode")
+  midCategoryName  String    @map("MidCategoryName")
+  subCategoryCode  String    @map("SubCategoryCode")
+  subCategoryName  String    @map("SubCategoryName")
+  createdAt        DateTime  @default(now()) @map("CreatedAt")
+  updatedAt        DateTime? @updatedAt @map("UpdatedAt")
+
+  @@id([mainCategoryCode, midCategoryCode, subCategoryCode])
+  @@map("Zal_Qoo10Category")
+}

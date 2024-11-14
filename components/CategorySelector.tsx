@@ -36,11 +36,11 @@ export default function CategorySelector({ onSelect, sellerAuthKey }: CategorySe
   const [categories, setCategories] = useState<Category[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
+  console.log("CategorySelector", isLoading);
   // 검색 결과를 메모이제이션
   const filteredCategories = useMemo(() => {
     if (!searchTerm) return categories;
-    
+    console.log("filteredCategories", isLoading);
     const searchLower = searchTerm.toLowerCase();
     return categories.filter(cat => 
       cat.CATE_L_NM.toLowerCase().includes(searchLower) ||
@@ -51,22 +51,30 @@ export default function CategorySelector({ onSelect, sellerAuthKey }: CategorySe
 
   // 카테고리 데이터 로드 - 캐시 적용
   const fetchCategories = async () => {
-    // 세션 스토리지에서 캐시된 데이터 확인
-    const cached = sessionStorage.getItem(`categories_${sellerAuthKey}`);
-    if (cached) {
-      setCategories(JSON.parse(cached));
-      return;
-    }
+    console.log("fetchCategories 시작", sellerAuthKey);
 
     setIsLoading(true);
     try {
+      // QOO10 API에서 카테고리 정보 조회
       const response = await fetch(`/api/qoo10/category?key=${sellerAuthKey}`);
-      if (!response.ok) throw new Error('Failed to fetch categories');
+      console.log("API 응답 상태:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API 에러:', errorText);
+        throw new Error('Failed to fetch categories');
+      }
+      
       const data = await response.json();
-      const categories = data.ResultObject || [];
-      setCategories(categories);
-      // 세션 스토리지에 캐시
-      sessionStorage.setItem(`categories_${sellerAuthKey}`, JSON.stringify(categories));
+      console.log("API 데이터:", data);
+      
+      if (data.ResultObject && Array.isArray(data.ResultObject)) {
+        setCategories(data.ResultObject);
+        // 세션 스토리지에 캐시
+        sessionStorage.setItem(`categories_${sellerAuthKey}`, JSON.stringify(data.ResultObject));
+      } else {
+        console.error('Invalid data format:', data);
+      }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
     } finally {
@@ -74,9 +82,21 @@ export default function CategorySelector({ onSelect, sellerAuthKey }: CategorySe
     }
   };
 
+  // useEffect 수정
   useEffect(() => {
-    fetchCategories();
-  }, [sellerAuthKey]);
+    console.log("useEffect 실행", sellerAuthKey);
+    if (sellerAuthKey) {
+      // 세션 스토리지에서 캐시된 데이터 확인
+      const cached = sessionStorage.getItem(`categories_${sellerAuthKey}`);
+      if (cached) {
+        console.log("캐시된 데이터 사용");
+        setCategories(JSON.parse(cached));
+      } else {
+        console.log("API 호출 시작");
+        fetchCategories();
+      }
+    }
+  }, [sellerAuthKey]); // sellerAuthKey 의존성 추가
 
   // 실시간 검색 처리
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,14 +165,20 @@ export default function CategorySelector({ onSelect, sellerAuthKey }: CategorySe
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onSelect({
-                          mainCatCd: category.CATE_L_CD,
-                          mainCatNm: category.CATE_L_NM,
-                          firstSubCatCd: category.CATE_M_CD,
-                          firstSubCatNm: category.CATE_M_NM,
-                          secondSubCatCd: category.CATE_S_CD,
-                          secondSubCatNm: category.CATE_S_NM
-                        })}
+                        onClick={() => {
+                          const mainCatNm = category.CATE_L_NM.split('(')[0].trim();
+                          const firstSubCatNm = category.CATE_M_NM.split('(')[0].trim();
+                          const secondSubCatNm = category.CATE_S_NM.split('(')[0].trim();
+
+                          onSelect({
+                            mainCatCd: category.CATE_L_CD,
+                            mainCatNm: mainCatNm,
+                            firstSubCatCd: category.CATE_M_CD,
+                            firstSubCatNm: firstSubCatNm,
+                            secondSubCatCd: category.CATE_S_CD,
+                            secondSubCatNm: secondSubCatNm
+                          })
+                        }}
                       >
                         선택
                       </Button>
