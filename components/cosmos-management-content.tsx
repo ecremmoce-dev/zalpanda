@@ -206,7 +206,7 @@ const getAvailableDateType = (type: string | null | undefined) => {
 
 // formatDate 함수 수정
 const formatDate = (dateString: string) => {
-  if (!dateString) return '-';
+  if (!dateString) return { date: '-', time: '-' };
   const date = new Date(dateString);
   return {
     date: date.toLocaleDateString('ko-KR', {
@@ -1098,7 +1098,7 @@ export function CosmosManagementContent() {
       if (selectedProduct.Flag === 'MOVE') {
         // MOVE 상품인 경우
         // 1. ItemsBasic.UpdateMoveGoods API 호출
-        console.log('[QOO10 적용] UpdateMoveGoods API 호출 작...')
+        console.log('[QOO10 적용] UpdateMoveGoods API 호출 시작...')
         const updateMoveGoodsResponse = await fetch(`/api/qoo10/products/move/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1264,7 +1264,7 @@ export function CosmosManagementContent() {
         })
 
         // EditGoodsStatus API 호출
-        console.log('[QOO10 적] EditGoodsStatus API 호출 시작...')
+        console.log('[QOO10 적용] EditGoodsStatus API 호출 시작...')
         const editStatusResponse = await fetch(`/api/qoo10/products/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1287,7 +1287,7 @@ export function CosmosManagementContent() {
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
           '-10005': '인거부된 상품은 수할 수 없습니다.',
-          '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: ���래가능, 3: 거래폐지)',
+          '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
           '-10101': '처리 중 오류가 발생했습다.'
         }
 
@@ -1601,18 +1601,18 @@ export function CosmosManagementContent() {
     }
   };
 
-  // 그리드 템플릿 상수 정의
+  // 그리드 템플릿 상수 수정
   const GRID_TEMPLATE = [
-    '120px',   // 이미지
-    '220px',   // 상품코드
-    '150px',   // 셀러코드
-    '380px',   // 상품명
-    '120px',   // 판매가
-    '100px',   // 재고
-    '100px',   // 판매상태
-    '100px',   // 상품유형
-    '120px',   // 최종 동기화
-    '60px',    // 관리
+    '120px',   // 이미지 (고정)
+    '220px',   // 상품코드 (고정)
+    '150px',   // 셀러코드 (고정)
+    '380px',   // 상품명 (유동적)
+    '120px',   // 판매가 (고정)
+    '100px',   // 재고 (고정)
+    '100px',   // 판매상태 (고정)
+    '100px',   // 상품유형 (고정)
+    '120px',   // 최종 동기화 (고정)
+    '60px'     // 관리 (고정)
   ].join('_');
 
   return (
@@ -1812,168 +1812,172 @@ export function CosmosManagementContent() {
             </TabsTrigger>
           </TabsList>
 
-            <div className="mt-4">
-              <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
-                {/* 고정 헤더 */}
-                <div className="sticky top-0 z-20 bg-gray-50">
-                  <div className={`grid grid-cols-[${GRID_TEMPLATE}] border-b`}>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">이미지</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품코드</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">셀러코드</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품명</div>
-                    <div className="font-semibold p-3 text-sm text-right border-r flex items-center justify-end">판매가(円)</div>
-                    <div className="font-semibold p-3 text-sm text-right border-r flex items-center justify-end">재고(개)</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">판매상태</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품유형</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">최종 동기화</div>
-                    <div className="font-semibold p-3 text-sm text-center flex items-center justify-center">관리</div>
-                  </div>
-                </div>
-
-                {/* 스크롤 가능한 바디 */}
-                <div className="max-h-[calc(100vh-400px)] overflow-y-auto">
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full bg-white border rounded-lg shadow-sm">
+                <thead className="sticky top-0 z-20 bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[120px]">이미지</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[220px]">상품코드</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[150px]">셀러코드</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r min-w-[300px]">상품명</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[120px]">판매가(円)</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[100px]">재고(개)</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[100px]">판매상태</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[100px]">상품유형</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b border-r w-[120px]">최종 동기화</th>
+                    <th className="p-3 text-sm font-semibold text-center border-b w-[60px]">관리</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
                   {isLoading ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <div className="animate-spin mb-2">⟳</div>
-                      <div>데이터를 불러오는 중...</div>
-                    </div>
+                    <tr>
+                      <td colSpan={10} className="p-8 text-center text-gray-500">
+                        <div className="animate-spin mb-2">⟳</div>
+                        <div>데이터를 불러오는 중...</div>
+                      </td>
+                    </tr>
                   ) : !products || products.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      <div className="mb-2">📭</div>
-                      <div>등록된 상품이 없습니다.</div>
-                    </div>
+                    <tr>
+                      <td colSpan={10} className="p-8 text-center text-gray-500">
+                        <div className="mb-2">📭</div>
+                        <div>등록된 상품이 없습니다.</div>
+                      </td>
+                    </tr>
                   ) : (
                     sortedProducts.map((product) => (
-                      <div 
-                        key={product.id}
-                        className={`grid grid-cols-[${GRID_TEMPLATE}] hover:bg-gray-50 transition-colors border-b`}
-                      >
+                      <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                         {/* 이미지 */}
-                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
-                          <div className="relative w-[100px] h-[100px]">
-                            <img
-                              src={product.Flag === 'MOVE' 
-                                ? (product.OptionMainimage?.split('$$')[0]?.split('||*')[1] || '/placeholder-image.png')
-                                : (product.ImageUrl || '/placeholder-image.png')
-                              }
-                              alt="상품 이미지"
-                              className="w-full h-full object-cover rounded-sm border hover:scale-150 transition-transform duration-200"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/placeholder-image.png'
-                              }}
-                            />
+                        <td className="p-3 border-r">
+                          <div className="flex justify-center">
+                            <div className="relative w-[100px] h-[100px]">
+                              <img
+                                src={product.Flag === 'MOVE' 
+                                  ? (product.OptionMainimage?.split('$$')[0]?.split('||*')[1] || '/placeholder-image.png')
+                                  : (product.ImageUrl || '/placeholder-image.png')
+                                }
+                                alt="상품 이미지"
+                                className="w-full h-full object-cover rounded border hover:scale-150 transition-transform duration-200"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        </td>
 
                         {/* 상품코드 */}
-                        <div className="p-2 border-r flex items-center justify-between min-h-[80px]">
-                          <span className="text-sm">{product.ItemCode}</span>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopy('itemCode', product.ItemCode);
-                              }}
-                              title="상품코드 복사"
-                            >
-                              {copiedCodes.itemCode === product.ItemCode ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : (
-                                <Copy className="h-3 w-3 text-gray-500" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(
-                                  `${product.Flag === 'MOVE' 
-                                    ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
-                                    : "https://www.qoo10.jp/g/"
-                                  }${product.ItemCode}`,
-                                  '_blank'
-                                );
-                              }}
-                              title="상품 미리보기"
-                            >
-                              <ExternalLink className="h-3 w-3 text-gray-500" />
-                            </Button>
+                        <td className="p-3 border-r">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-sm">{product.ItemCode}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy('itemCode', product.ItemCode);
+                                }}
+                                title="상품코드 복사"
+                              >
+                                {copiedCodes.itemCode === product.ItemCode ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-gray-500" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(
+                                    `${product.Flag === 'MOVE' 
+                                      ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
+                                      : "https://www.qoo10.jp/g/"
+                                    }${product.ItemCode}`,
+                                    '_blank'
+                                  );
+                                }}
+                                title="상품 미리보기"
+                              >
+                                <ExternalLink className="h-3 w-3 text-gray-500" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        </td>
 
                         {/* 셀러코드 */}
-                        <div className="p-2 border-r flex items-center justify-between min-h-[80px]">
-                          <span className="text-sm">{product.SellerCode || '-'}</span>
-                          {product.SellerCode && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 hover:bg-gray-100"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopy('sellerCode', product.SellerCode);
-                              }}
-                              title="셀러코드 복사"
-                            >
-                              {copiedCodes.sellerCode === product.SellerCode ? (
-                                <Check className="h-3 w-3 text-green-500" />
-                              ) : (
-                                <Copy className="h-3 w-3 text-gray-500" />
-                              )}
-                            </Button>
-                          )}
-                        </div>
+                        <td className="p-3 border-r">
+                          <div className="flex items-center justify-center gap-2">
+                            <span>{product.SellerCode || '-'}</span>
+                            {product.SellerCode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy('sellerCode', product.SellerCode);
+                                }}
+                                title="셀러코드 복사"
+                              >
+                                {copiedCodes.sellerCode === product.SellerCode ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-gray-500" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
 
-                        {/* 상품명 */}
-                        <div className="p-2 border-r flex items-center min-h-[80px]">
-                          <div className="text-sm break-words line-clamp-2" title={product.ItemTitle}>
+                        {/* 상품 */}
+                        <td className="p-3 border-r">
+                          <div className="break-words line-clamp-2" title={product.ItemTitle}>
                             {product.ItemTitle}
                           </div>
-                        </div>
+                        </td>
 
                         {/* 판매가 */}
-                        <div className="p-2 border-r flex items-center justify-end min-h-[80px]">
-                          <span className="text-sm tabular-nums">{product.ItemPrice?.toLocaleString() || 0}</span>
-                        </div>
+                        <td className="p-3 text-right font-medium border-r">
+                          {product.ItemPrice?.toLocaleString() || 0}
+                        </td>
 
                         {/* 재고 */}
-                        <div className="p-2 border-r flex items-center justify-end min-h-[80px]">
-                          <span className="text-sm tabular-nums">{product.ItemQty?.toLocaleString() || 0}</span>
-                        </div>
+                        <td className="p-3 text-right font-medium border-r">
+                          {product.ItemQty?.toLocaleString() || 0}
+                        </td>
 
                         {/* 판매상태 */}
-                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
+                        <td className="p-3 text-center border-r">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
                             {getStatusLabel(product.ItemStatus)}
                           </span>
-                        </div>
+                        </td>
 
                         {/* 상품유형 */}
-                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        <td className="p-3 text-center border-r">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                             product.Flag === 'MOVE' 
                               ? 'bg-blue-100 text-blue-800 border border-blue-200' 
                               : 'bg-gray-100 text-gray-800 border border-gray-200'
                           }`}>
                             {product.Flag === 'MOVE' ? '무브' : '일반'}
                           </span>
-                        </div>
+                        </td>
 
                         {/* 최종 동기화 */}
-                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
-                          <div className="flex flex-col text-xs text-gray-600">
+                        <td className="p-3 text-center border-r">
+                          <div className="flex flex-col items-center text-sm text-gray-600">
                             <span>{formatDate(product.LastFetchDate).date}</span>
                             <span>{formatDate(product.LastFetchDate).time}</span>
                           </div>
-                        </div>
+                        </td>
 
                         {/* 관리 */}
-                        <div className="p-2 flex items-center justify-center min-h-[80px]">
+                        <td className="p-2 text-center">
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -1982,80 +1986,80 @@ export function CosmosManagementContent() {
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </Button>
-                        </div>
-                      </div>
+                        </td>
+                      </tr>
                     ))
                   )}
-                </div>
-              </div>
-
-              {/* 페이지네션 선 */}
-              {totalPages > 1 && (
-                <div className="mt-6 flex justify-center items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(1)}
-                    disabled={page === 1}
-                    className="flex items-center gap-1"
-                  >
-                    처음
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="flex items-center gap-1"
-                  >
-                    ← 이전
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">페이지</span>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={totalPages}
-                      value={page}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (!isNaN(value) && value >= 1 && value <= totalPages) {
-                          setPage(value);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (isNaN(value) || value < 1) {
-                          setPage(1);
-                        } else if (value > totalPages) {
-                          setPage(totalPages);
-                        }
-                      }}
-                      className="w-[80px] text-center"
-                    />
-                    <span className="text-sm text-gray-600">/ {totalPages}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="flex items-center gap-1"
-                  >
-                    다음 →
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(totalPages)}
-                    disabled={page === totalPages}
-                    className="flex items-center gap-1"
-                  >
-                    마지막
-                  </Button>
-                </div>
-              )}
+                </tbody>
+              </table>
             </div>
+
+            {/* 페이네션 선 */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex justify-center items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="flex items-center gap-1"
+                >
+                  처음
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="flex items-center gap-1"
+                >
+                  ← 이전
+                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">페이지</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={page}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 1 && value <= totalPages) {
+                        setPage(value);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (isNaN(value) || value < 1) {
+                        setPage(1);
+                      } else if (value > totalPages) {
+                        setPage(totalPages);
+                      }
+                    }}
+                    className="w-[80px] text-center"
+                  />
+                  <span className="text-sm text-gray-600">/ {totalPages}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="flex items-center gap-1"
+                >
+                  다음 →
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="flex items-center gap-1"
+                >
+                  마지막
+                </Button>
+              </div>
+            )}
           </Tabs>
         </>
       ) : (
