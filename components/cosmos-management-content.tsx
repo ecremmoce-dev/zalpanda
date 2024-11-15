@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Table,
   TableBody,
@@ -501,6 +501,78 @@ export function CosmosManagementContent() {
   const [totalNormalCount, setTotalNormalCount] = useState(0)
   const [totalMoveCount, setTotalMoveCount] = useState(0)
 
+  // 정렬 관련 상태 추가
+  const [sortField, setSortField] = useState<string>('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // 정렬 핸들러 함수
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // 정렬된 제품 목록 계산 로직 수정
+  const sortedProducts = useMemo(() => {
+    // 현재 탭에 해당하는 상품만 필터링
+    const filteredProducts = products.filter(product => {
+      if (selectedTab === 'all') return true;
+      return product.Flag === selectedTab;
+    });
+
+    // 필터링된 상품들을 정렬
+    return [...filteredProducts].sort((a, b) => {
+      if (!sortField) return 0;
+      
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      
+      switch (sortField) {
+        case 'ItemCode':
+          return (a.ItemCode || '').localeCompare(b.ItemCode || '') * direction;
+        case 'ItemTitle':
+          return (a.ItemTitle || '').localeCompare(b.ItemTitle || '') * direction;
+        case 'ItemPrice':
+          return ((a.ItemPrice || 0) - (b.ItemPrice || 0)) * direction;
+        case 'ItemQty':
+          return ((a.ItemQty || 0) - (b.ItemQty || 0)) * direction;
+        case 'ItemStatus':
+          return (a.ItemStatus || '').localeCompare(b.ItemStatus || '') * direction;
+        case 'Flag':
+          return (a.Flag || '').localeCompare(b.Flag || '') * direction;
+        case 'LastSyncDate':
+          const dateA = a.LastSyncDate ? new Date(a.LastSyncDate).getTime() : 0;
+          const dateB = b.LastSyncDate ? new Date(b.LastSyncDate).getTime() : 0;
+          return (dateA - dateB) * direction;
+        default:
+          return 0;
+      }
+    });
+  }, [products, selectedTab, sortField, sortDirection]);
+
+  // 정렬 헤더 컴포넌트
+  const SortableTableHeader = ({ field, children }: { field: string, children: React.ReactNode }) => {
+    const isSorted = sortField === field;
+    
+    return (
+      <TableHead 
+        className="font-semibold cursor-pointer hover:bg-gray-100"
+        onClick={() => handleSort(field)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {isSorted && (
+            <span className="text-xs">
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </span>
+          )}
+        </div>
+      </TableHead>
+    );
+  };
+
   useEffect(() => {
     fetchCompanies()
   }, [])
@@ -809,12 +881,12 @@ export function CosmosManagementContent() {
 
   // 필 값 변경 핸들러
   const handleFieldChange = (field: string, value: any) => {
-    if (!editedProduct) return
+    if (!editedProduct) return;
     setEditedProduct({
       ...editedProduct,
       [field]: value
-    })
-  }
+    });
+  };
 
   // 저장 핸들러 수정
   const handleSave = async () => {
@@ -1311,7 +1383,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 프로그레스바 컴포넌트 수정
+  // 프���그레스바 컴포넌트 수정
   const SyncProgressBar = ({ progress }: { progress: Progress | null }) => {
     if (!progress) return null;
 
@@ -1366,18 +1438,6 @@ export function CosmosManagementContent() {
         </div>
       </div>
     );
-  };
-
-  // 테블 내의 짜 포맷팅 함수 추가
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   // 상품 저장 핸들러 추가
@@ -1651,14 +1711,14 @@ export function CosmosManagementContent() {
                   <TableHeader>
                     <TableRow className="bg-gray-50">
                       <TableHead className="font-semibold w-[80px]">이미지</TableHead>
-                      <TableHead className="font-semibold w-[120px]">상품코드</TableHead>
+                      <SortableTableHeader field="ItemCode">상품코드</SortableTableHeader>
                       <TableHead className="font-semibold w-[120px]">셀러코드</TableHead>
-                      <TableHead className="font-semibold w-[400px]">상품명</TableHead>
-                      <TableHead className="font-semibold text-right w-[100px]">판매가</TableHead>
-                      <TableHead className="font-semibold text-right w-[80px]">재고</TableHead>
-                      <TableHead className="font-semibold text-center w-[100px]">판매상태</TableHead>
-                      <TableHead className="font-semibold text-center w-[80px]">상품유형</TableHead>
-                      <TableHead className="font-semibold w-[160px]">최종 동기화</TableHead>
+                      <SortableTableHeader field="ItemTitle">상품명</SortableTableHeader>
+                      <SortableTableHeader field="ItemPrice">판매가</SortableTableHeader>
+                      <SortableTableHeader field="ItemQty">재고</SortableTableHeader>
+                      <SortableTableHeader field="ItemStatus">판매상태</SortableTableHeader>
+                      <SortableTableHeader field="Flag">상품유형</SortableTableHeader>
+                      <SortableTableHeader field="LastSyncDate">최종 동기화</SortableTableHeader>
                       <TableHead className="font-semibold text-center w-[80px]">관리</TableHead>
                       <TableHead className="font-semibold text-center w-[120px]">미리보기</TableHead>
                     </TableRow>
@@ -1683,7 +1743,7 @@ export function CosmosManagementContent() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      products.map((product) => (
+                      sortedProducts.map((product) => (
                         <TableRow 
                           key={product.id}
                           className="hover:bg-gray-50 transition-colors"
