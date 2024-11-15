@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Globe, ExternalLink, Upload } from 'lucide-react'
+import { Edit, Globe, ExternalLink, Upload, Copy, Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,9 @@ interface CosmosProduct {
   SellerCode: string
   LastSyncDate: string
   LastFetchDate: string
+  ImageUrl?: string              // 이미지 URL 필드 추가
+  OptionMainimage?: string       // 무브상품 이미지 필드 추가
+  Keyword?: string              // 키워드 필드 추가
 }
 
 interface Option {
@@ -201,20 +204,22 @@ const getAvailableDateType = (type: string | null | undefined) => {
   }
 }
 
-const formatDate = (dateStr: string | null | undefined) => {
-  if (!dateStr) return '-'
-  try {
-    return new Date(dateStr).toLocaleDateString('ko-KR', {
+// formatDate 함수 수정
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return {
+    date: date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit',
+      day: '2-digit'
+    }),
+    time: date.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit'
     })
-  } catch (error) {
-    return '-'
-  }
-}
+  };
+};
 
 // 산 드 타입 옵션 추가
 const INDUSTRIAL_CODE_TYPES = [
@@ -264,10 +269,10 @@ const JAPAN_REGIONS = [
   { value: 'KYOTO', label: '京都府(KYOTO)' },
   { value: 'OSAKA', label: '大阪府(OSAKA)' },
   { value: 'HYOGO', label: '兵庫県(HYOGO)' },
-  { value: 'NARA', label: '奈良県(NARA)' },
+  { value: 'NARA', label: '良県(NARA)' },
   { value: 'WAKAYAMA', label: '和歌山県(WAKAYAMA)' },
   { value: 'TOTTORI', label: '鳥取県(TOTTORI)' },
-  { value: 'SHIMANE', label: '島根県(SHIMANE)' },
+  { value: 'SHIMANE', label: '島(SHIMANE)' },
   { value: 'OKAYAMA', label: '岡山県(OKAYAMA)' },
   { value: 'HIROSHIMA', label: '広島県(HIROSHIMA)' },
   { value: 'YAMAGUCHI', label: '山口県(YAMAGUCHI)' },
@@ -546,6 +551,8 @@ export function CosmosManagementContent() {
           const dateA = a.LastSyncDate ? new Date(a.LastSyncDate).getTime() : 0;
           const dateB = b.LastSyncDate ? new Date(b.LastSyncDate).getTime() : 0;
           return (dateA - dateB) * direction;
+        case 'Keyword':
+          return ((a.Keyword || '') as string).localeCompare((b.Keyword || '') as string) * direction;
         default:
           return 0;
       }
@@ -553,24 +560,53 @@ export function CosmosManagementContent() {
   }, [products, selectedTab, sortField, sortDirection]);
 
   // 정렬 헤더 컴포넌트
-  const SortableTableHeader = ({ field, children }: { field: string, children: React.ReactNode }) => {
+  const SortableTableHeader = ({ 
+    field, 
+    children,
+    className = "" 
+  }: { 
+    field: string, 
+    children: React.ReactNode,
+    className?: string 
+  }) => {
     const isSorted = sortField === field;
     
     return (
       <TableHead 
-        className="font-semibold cursor-pointer hover:bg-gray-100"
+        className={cn(
+          "font-semibold cursor-pointer hover:bg-gray-100/50 text-center", // hover 효과 수정
+          className
+        )}
         onClick={() => handleSort(field)}
       >
-        <div className="flex items-center gap-1">
-          {children}
+        <div className="flex items-center gap-1 justify-center">
+          <span>{children}</span>
           {isSorted && (
-            <span className="text-xs">
+            <span className="text-xs ml-1">
               {sortDirection === 'asc' ? '↑' : '↓'}
             </span>
           )}
         </div>
       </TableHead>
     );
+  };
+
+  // 상단에 state 추가
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [shouldLoadData, setShouldLoadData] = useState(false);
+
+  // useEffect 수정
+  useEffect(() => {
+    if (selectedCompany && selectedPlatform && shouldLoadData) {
+      fetchProducts();
+    }
+  }, [selectedCompany, selectedPlatform, page, selectedTab, shouldLoadData]);
+
+  // LOAD 버튼 클릭 핸들러 추가
+  const handleLoadClick = () => {
+    setIsInitialLoad(false);
+    setShouldLoadData(true);
+    fetchProducts();
   };
 
   useEffect(() => {
@@ -641,7 +677,7 @@ export function CosmosManagementContent() {
       if (response.ok) {
         setProducts(data.items)
         setTotalPages(data.totalPages)
-        setTotalItems(data.totalItems)  // 전체 목 수 (두 컨테이너의 합)
+        setTotalItems(data.totalItems)  // 전체 목 수 (두 컨테이의 합)
         setTotalNormalCount(data.normalCount)  // 일반상품 전체 수
         setTotalMoveCount(data.moveCount)      // 무브상품 전체 수
 
@@ -789,8 +825,8 @@ export function CosmosManagementContent() {
       console.log('동기화 API 호출 성공');
 
     } catch (error: any) {
-      console.error('동기화 실패:', error);
-      alert(`동기화 중 오류가 발생했습니다.\n\n${error.message || '알 수 없는 오류가 발생했습니다.'}`);
+      console.error('기화 실패:', error);
+      alert(`동기화 중 류가 발생했습니다.\n\n${error.message || '알 수 없는 오류가 발생했습니다.'}`);
     } finally {
       if (eventSource) {
         console.log('EventSource 정리');
@@ -853,7 +889,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 원산지 형 변경 핸들러
+  // 원산지 형 변경 핸들
   const handleProductionPlaceTypeChange = (value: string) => {
     if (!editedProduct) return
 
@@ -916,7 +952,7 @@ export function CosmosManagementContent() {
       setSelectedProduct(result)
       setIsEditing(false)
       setEditedProduct(null)
-      fetchProducts() // 목록 새고침
+      fetchProducts() // 목 새고침
 
       // 저장 성공 메시지
       alert('상품 정보가 저장되었습니다.')
@@ -1383,7 +1419,7 @@ export function CosmosManagementContent() {
     }
   }
 
-  // 프���그레스바 컴포넌트 수정
+  // 프그레스바 컴포넌트 수정
   const SyncProgressBar = ({ progress }: { progress: Progress | null }) => {
     if (!progress) return null;
 
@@ -1433,7 +1469,7 @@ export function CosmosManagementContent() {
 
           {/* 남은 상품 수 */}
           <div className="text-sm text-gray-600 text-center">
-            남은 상품: {progress.total - progress.current}개
+            은 상품: {progress.total - progress.current}개
           </div>
         </div>
       </div>
@@ -1501,7 +1537,7 @@ export function CosmosManagementContent() {
       });
 
       if (!response.ok) {
-        throw new Error('동기화에 실패했습니다.');
+        throw new Error('동기화에 실패했습니.');
       }
 
       const result = await response.json();
@@ -1514,6 +1550,54 @@ export function CosmosManagementContent() {
       alert('동기화에 실패했습니다.');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // 복사 상태를 관리하기 위한 state 추가
+  const [copiedItemCode, setCopiedItemCode] = useState<string | null>(null);
+
+  // 복사 핸들러 함수 추가
+  const handleCopyItemCode = async (itemCode: string) => {
+    try {
+      await navigator.clipboard.writeText(itemCode);
+      setCopiedItemCode(itemCode);
+      
+      // 1초 후에 복사 상태 초기화
+      setTimeout(() => {
+        setCopiedItemCode(null);
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to copy item code:', err);
+    }
+  };
+
+  // 복사 상태 관리를 위한 state 수정 - 상품코드와 셀러코드 구분
+  const [copiedCodes, setCopiedCodes] = useState<{
+    itemCode: string | null;
+    sellerCode: string | null;
+  }>({
+    itemCode: null,
+    sellerCode: null
+  });
+
+  // 복사 핸들러 함수 수정
+  const handleCopy = async (type: 'itemCode' | 'sellerCode', code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCodes(prev => ({
+        ...prev,
+        [type]: code
+      }));
+      
+      // 1초 후에 복사 상태 초기화
+      setTimeout(() => {
+        setCopiedCodes(prev => ({
+          ...prev,
+          [type]: null
+        }));
+      }, 1000);
+    } catch (err) {
+      console.error('Failed to copy code:', err);
     }
   };
 
@@ -1562,7 +1646,16 @@ export function CosmosManagementContent() {
             </Select>
           </div>
 
-         
+          {/* LOAD 버튼 추가 */}
+          <Button 
+            variant="outline"
+            onClick={handleLoadClick}
+            disabled={!selectedCompany || !selectedPlatform}
+            className="flex items-center gap-2"
+          >
+            <Globe className="w-4 h-4" />
+            LOAD
+          </Button>
         </div>
 
         {/* 우측: 동기화 버튼들 */}
@@ -1581,7 +1674,7 @@ export function CosmosManagementContent() {
                     ).join(', ')}
                   </span>
                 ) : (
-                  '거래상태 선택'
+                  '거래상태 택'
                 )}
               </Button>
             </PopoverTrigger>
@@ -1662,10 +1755,10 @@ export function CosmosManagementContent() {
         </div>
       </div>
 
-      {/* 프로그레스바 추가 */}
+      {/* 프로그레스바 ��가 */}
       {isSyncing && <SyncProgressBar progress={syncProgress} />}
 
-      {selectedCompany && selectedPlatform && (
+      {selectedCompany && selectedPlatform && !isInitialLoad ? (
         <>
           <div className="flex gap-4 mb-4">
             <Select
@@ -1707,131 +1800,193 @@ export function CosmosManagementContent() {
 
             <div className="mt-4">
               <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold w-[80px]">이미지</TableHead>
-                      <SortableTableHeader field="ItemCode">상품코드</SortableTableHeader>
-                      <TableHead className="font-semibold w-[120px]">셀러코드</TableHead>
-                      <SortableTableHeader field="ItemTitle">상품명</SortableTableHeader>
-                      <SortableTableHeader field="ItemPrice">판매가</SortableTableHeader>
-                      <SortableTableHeader field="ItemQty">재고</SortableTableHeader>
-                      <SortableTableHeader field="ItemStatus">판매상태</SortableTableHeader>
-                      <SortableTableHeader field="Flag">상품유형</SortableTableHeader>
-                      <SortableTableHeader field="LastSyncDate">최종 동기화</SortableTableHeader>
-                      <TableHead className="font-semibold text-center w-[80px]">관리</TableHead>
-                      <TableHead className="font-semibold text-center w-[120px]">미리보기</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="h-32">
-                          <div className="flex flex-col items-center justify-center text-gray-500">
-                            <div className="animate-spin mb-2">⟳</div>
-                            <div>데이터를 불러오 중...</div>
+                {/* 고정 헤더 */}
+                <div className="sticky top-0 z-20 bg-gray-50">
+                  <div className="grid grid-cols-[120px_220px_120px_570px_100px_80px_100px_100px_120px_50px] border-b">
+                    <div className="font-semibold p-3 text-sm text-center border-r">이미지</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r">상품코드</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r">셀러코드</div>
+                    <div className="font-semibold p-3 text-sm border-r">상품명</div>
+                    <div className="font-semibold p-3 text-sm text-right border-r">판매가(円)</div>
+                    <div className="font-semibold p-3 text-sm text-right border-r">재고(개)</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r">판매상태</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r">상품유형</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r">최종 동기화</div>
+                    <div className="font-semibold p-3 text-sm text-center">관리</div>
+                  </div>
+                </div>
+
+                {/* 스크롤 가능한 바디 */}
+                <div className="max-h-[calc(100vh-400px)] overflow-y-auto">
+                  {isLoading ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <div className="animate-spin mb-2">⟳</div>
+                      <div>데이터를 불러오는 중...</div>
+                    </div>
+                  ) : !products || products.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <div className="mb-2">📭</div>
+                      <div>등록된 상품이 없습니다.</div>
+                    </div>
+                  ) : (
+                    sortedProducts.map((product) => (
+                      <div 
+                        key={product.id}
+                        className="grid grid-cols-[120px_220px_120px_570px_100px_80px_100px_100px_120px_50px] hover:bg-gray-50 transition-colors border-b"
+                      >
+                        {/* 이미지 */}
+                        <div className="p-3 border-r">
+                          <div className="flex justify-center">
+                            <div className="relative w-[100px] h-[100px]">
+                              {product.Flag === 'MOVE' ? (
+                                <img
+                                  src={product.OptionMainimage?.split('$$')[0]?.split('||*')[1] || '/placeholder-image.png'}
+                                  alt="상품 이미지"
+                                  className="w-full h-full object-cover rounded border hover:scale-150 transition-transform duration-200"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={product.ImageUrl || '/placeholder-image.png'}
+                                  alt="상품 이미지"
+                                  className="w-full h-full object-cover rounded border hover:scale-150 transition-transform duration-200"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                                  }}
+                                />
+                              )}
+                            </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : !products || products.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="h-32">
-                          <div className="flex flex-col items-center justify-center text-gray-500">
-                            <div className="mb-2">📭</div>
-                            <div>등록된 상품이 없습니다.</div>
+                        </div>
+
+                        {/* 상품코드 */}
+                        <div className="p-3 font-mono text-sm border-r">
+                          <div className="flex items-center justify-center gap-2">
+                            <span>{product.ItemCode}</span>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy('itemCode', product.ItemCode);
+                                }}
+                                title="상품코드 복사"
+                              >
+                                {copiedCodes.itemCode === product.ItemCode ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-gray-500" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(
+                                    `${product.Flag === 'MOVE' 
+                                      ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
+                                      : "https://www.qoo10.jp/g/"
+                                    }${product.ItemCode}`,
+                                    '_blank'
+                                  );
+                                }}
+                                title="상품 미리보기"
+                              >
+                                <ExternalLink className="h-3 w-3 text-gray-500" />
+                              </Button>
+                            </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedProducts.map((product) => (
-                        <TableRow 
-                          key={product.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <TableCell className="w-[80px]">
-                            {product.Flag === 'MOVE' ? (
-                              <div className="relative w-[60px] h-[60px]">
-                                {product.OptionMainimage && (
-                                  <img
-                                    src={product.OptionMainimage.split('$$')[0]?.split('||*')[1] || ''}
-                                    alt="대표 이미지"
-                                    className="w-full h-full object-cover rounded border"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder-image.png' // 이미지 로드 실패시 기본 이미지
-                                    }}
-                                  />
+                        </div>
+
+                        {/* 셀러코드 */}
+                        <div className="p-3 font-mono text-sm border-r">
+                          <div className="flex items-center justify-center gap-2">
+                            <span>{product.SellerCode || '-'}</span>
+                            {product.SellerCode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy('sellerCode', product.SellerCode);
+                                }}
+                                title="셀러코드 복사"
+                              >
+                                {copiedCodes.sellerCode === product.SellerCode ? (
+                                  <Check className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-gray-500" />
                                 )}
-                              </div>
-                            ) : (
-                              <div className="relative w-[60px] h-[60px]">
-                                {product.ImageUrl && (
-                                  <img
-                                    src={product.ImageUrl}
-                                    alt="대표 이미지"
-                                    className="w-full h-full object-cover rounded border"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder-image.png' // 이미지 로드 실패시 기본 이미지
-                                    }}
-                                  />
-                                )}
-                              </div>
+                              </Button>
                             )}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{product.ItemCode}</TableCell>
-                          <TableCell className="font-mono text-sm">{product.SellerCode || '-'}</TableCell>
-                          <TableCell className="max-w-[300px]">
-                            <div className="truncate" title={product.ItemTitle}>
-                              {product.ItemTitle}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {product.ItemPrice?.toLocaleString() || 0}
-                            <span className="text-gray-500 ml-1">엔</span>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {product.ItemQty?.toLocaleString() || 0}
-                            <span className="text-gray-500 ml-1">개</span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
-                              {getStatusLabel(product.ItemStatus)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              product.Flag === 'MOVE' 
-                                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
-                                : 'bg-gray-100 text-gray-800 border border-gray-200'
-                            }`}>
-                              {product.Flag === 'MOVE' ? '무브' : '일반'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-gray-600">
-                              {formatDate(product.LastFetchDate)}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleEditClick(product.ItemCode)}
-                              className="hover:bg-gray-100"
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                            </Button>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <ProductPreview 
-                              itemCode={product.ItemCode} 
-                              isMoveProduct={product.Flag === 'MOVE'}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
+                        </div>
+
+                        {/* 상품 */}
+                        <div className="p-3 border-r">
+                          <div className="break-words line-clamp-2" title={product.ItemTitle}>
+                            {product.ItemTitle}
+                          </div>
+                        </div>
+
+                        {/* 판매가 */}
+                        <div className="p-3 text-right font-medium border-r">
+                          {product.ItemPrice?.toLocaleString() || 0}
+                        </div>
+
+                        {/* 재고 */}
+                        <div className="p-3 text-right font-medium border-r">
+                          {product.ItemQty?.toLocaleString() || 0}
+                        </div>
+
+                        {/* 판매상태 */}
+                        <div className="p-3 text-center border-r">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
+                            {getStatusLabel(product.ItemStatus)}
+                          </span>
+                        </div>
+
+                        {/* 상품유형 */}
+                        <div className="p-3 text-center border-r">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                            product.Flag === 'MOVE' 
+                              ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                              : 'bg-gray-100 text-gray-800 border border-gray-200'
+                          }`}>
+                            {product.Flag === 'MOVE' ? '무브' : '일반'}
+                          </span>
+                        </div>
+
+                        {/* 최종 동기화 */}
+                        <div className="p-3 text-center border-r">
+                          <div className="flex flex-col items-center text-sm text-gray-600">
+                            <span>{formatDate(product.LastFetchDate).date}</span>
+                            <span>{formatDate(product.LastFetchDate).time}</span>
+                          </div>
+                        </div>
+
+                        {/* 관리 */}
+                        <div className="p-2 text-center">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEditClick(product.ItemCode)}
+                            className="hover:bg-gray-100 h-7 w-7 p-0"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               {/* 페이지네션 선 */}
@@ -1903,6 +2058,12 @@ export function CosmosManagementContent() {
             </div>
           </Tabs>
         </>
+      ) : (
+        <div className="mt-4 p-8 text-center text-gray-500 bg-white border rounded-lg">
+          <Globe className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-lg font-medium mb-2">데이터를 불러오려면 LOAD 버튼을 클릭하세요</p>
+          <p className="text-sm text-gray-400">업체와 플랫폼을 선택한 후 LOAD 버튼을 클릭하면 상품 목록이 표시됩니다.</p>
+        </div>
       )}
 
       {/* 상품 보 다이얼로그 */}
