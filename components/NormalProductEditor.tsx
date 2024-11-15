@@ -248,7 +248,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
 
     } catch (error: any) {
       console.error('[QOO10 적용] 실패:', error)
-      alert(`QOO10 적용 실패: ${error.message || '알 수 없는 오류가 발생했습니다.'}`)
+      alert(`QOO10 적용 실: ${error.message || '알 수 없는 오류가 발생했습니다.'}`)
     }
   }
 
@@ -396,35 +396,82 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">판매가</Label>
+                    <Label className="text-sm font-medium text-gray-700">공급원가</Label>
                     <div className="relative">
                       <Input 
                         type="number"
-                        value={editedProduct.ItemPrice} 
-                        onChange={(e) => handleFieldChange('ItemPrice', e.target.value)}
-                        readOnly={!isEditing}
-                        className={`pr-12 ${!isEditing ? 'bg-gray-50' : ''}`}
+                        value={editedProduct.SettlePrice || 0} 
+                        disabled={true}
+                        readOnly={true}
+                        className="pr-12 bg-gray-50"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                        원
+                        엔
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">소비세율</Label>
+                    <Label className="text-sm font-medium text-gray-700">참고가격</Label>
                     <div className="relative">
                       <Input 
                         type="number"
-                        value={editedProduct.TaxRate} 
-                        onChange={(e) => handleFieldChange('TaxRate', e.target.value)}
+                        value={editedProduct.RetailPrice || 0} 
+                        onChange={(e) => handleFieldChange('RetailPrice', Number(e.target.value))}
                         readOnly={!isEditing}
-                        className={`pr-8 ${!isEditing ? 'bg-gray-50' : ''}`}
+                        className={`pr-12 ${!isEditing ? 'bg-gray-50' : ''}`}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                        엔
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">판매가격</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number"
+                        value={editedProduct.ItemPrice || 0} 
+                        onChange={(e) => {
+                          const itemPrice = Number(e.target.value);
+                          handleFieldChange('ItemPrice', itemPrice);
+                          
+                          // 공급원가가 있는 경우 수수료율 자동 계산
+                          if (editedProduct.SettlePrice && itemPrice) {
+                            const margin = itemPrice - editedProduct.SettlePrice;
+                            const taxRate = Math.round((margin / itemPrice) * 100);
+                            handleFieldChange('TaxRate', taxRate);
+                          }
+                        }}
+                        readOnly={!isEditing}
+                        className={`pr-12 ${!isEditing ? 'bg-gray-50' : ''}`}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                        엔
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">수수료 (VAT 별도)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        value={editedProduct.ItemPrice && editedProduct.SettlePrice ? Math.round(((editedProduct.ItemPrice - editedProduct.SettlePrice) / editedProduct.ItemPrice) * 100) : 0}
+                        disabled={true}
+                        readOnly={true}
+                        className="mt-1 bg-gray-50 pr-8"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
                         %
                       </span>
                     </div>
+                    {editedProduct.ItemPrice && editedProduct.SettlePrice && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        마진: {editedProduct.ItemPrice - editedProduct.SettlePrice}엔
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -667,7 +714,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">희망배송일</Label>
+                    <Label className="text-sm font-medium text-gray-700">희배송일</Label>
                     <Input 
                       type="number"
                       value={editedProduct.DesiredShippingDate} 
@@ -1109,7 +1156,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                           setHtmlSource(formatted);
                         } catch (error) {
                           console.error('HTML 포맷팅 실패:', error);
-                          alert('HTML 포맷팅에 실패했습니다.');
+                          alert('HTML 포맷팅에 실했습니다.');
                         }
                       }}
                       className="flex items-center gap-1"
@@ -1169,7 +1216,7 @@ export default function NormalProductEditor({ product, onSave, onCancel, onApply
                     />
                   </div>
 
-                  {/* 하단 버튼 */}
+                  {/* 단 버튼 */}
                   <div className="flex justify-end gap-2 pt-4 border-t">
                     <Button
                       variant="outline"
