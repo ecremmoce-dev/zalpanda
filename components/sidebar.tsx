@@ -68,11 +68,6 @@ export function Sidebar() {
   const qoo10SubMenus = [
     {
       title: '상품관리',
-      href: '/qoo10/products',
-      icon: Package2
-    },
-    {
-      title: '상품COSMOS',
       href: '/qoo10/cosmos',
       icon: Globe
     },
@@ -204,17 +199,10 @@ export function Sidebar() {
                 <div className="ml-6 mt-2 space-y-1">
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
-                    href="/qoo10/products"
-                  >
-                    <Package2 className="h-4 w-4" />
-                    상품관리
-                  </Link>
-                  <Link
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
                     href="/qoo10/cosmos"
                   >
                     <Globe className="h-4 w-4" />
-                    상품COSMOS
+                    상품관리
                   </Link>
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
@@ -255,7 +243,7 @@ export function Sidebar() {
                     href="/settings/accounts"
                   >
                     <Users className="h-4 w-4" />
-                    업체정관리
+                    업체계정관리
                   </Link>
                 </div>
               )}

@@ -12,11 +12,6 @@ import { Sidebar } from "@/components/sidebar"
 const qoo10SubMenus = [
   {
     title: '상품관리',
-    href: '/qoo10/products',
-    icon: Package
-  },
-  {
-    title: '상품COSMOS',
     href: '/qoo10/cosmos',
     icon: Globe
   },
