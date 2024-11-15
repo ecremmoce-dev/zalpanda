@@ -1098,7 +1098,7 @@ export function CosmosManagementContent() {
       if (selectedProduct.Flag === 'MOVE') {
         // MOVE 상품인 경우
         // 1. ItemsBasic.UpdateMoveGoods API 호출
-        console.log('[QOO10 적용] UpdateMoveGoods API 호출 시작...')
+        console.log('[QOO10 적용] UpdateMoveGoods API 호출 작...')
         const updateMoveGoodsResponse = await fetch(`/api/qoo10/products/move/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1264,7 +1264,7 @@ export function CosmosManagementContent() {
         })
 
         // EditGoodsStatus API 호출
-        console.log('[QOO10 적용] EditGoodsStatus API 호출 시작...')
+        console.log('[QOO10 적] EditGoodsStatus API 호출 시작...')
         const editStatusResponse = await fetch(`/api/qoo10/products/status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1287,7 +1287,7 @@ export function CosmosManagementContent() {
           '-10003': '거래중지된 상품은 수정할 수 없습니다.',
           '-10004': '거래한된 상품은 수정할 수 없습니다.',
           '-10005': '인거부된 상품은 수할 수 없습니다.',
-          '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: 거래가능, 3: 거래폐지)',
+          '-10006': '올바른 상태값을 입력해주세요. (1: 거래대기, 2: ���래가능, 3: 거래폐지)',
           '-10101': '처리 중 오류가 발생했습다.'
         }
 
@@ -1601,6 +1601,20 @@ export function CosmosManagementContent() {
     }
   };
 
+  // 그리드 템플릿 상수 정의
+  const GRID_TEMPLATE = [
+    '120px',   // 이미지
+    '220px',   // 상품코드
+    '150px',   // 셀러코드
+    '380px',   // 상품명
+    '120px',   // 판매가
+    '100px',   // 재고
+    '100px',   // 판매상태
+    '100px',   // 상품유형
+    '120px',   // 최종 동기화
+    '60px',    // 관리
+  ].join('_');
+
   return (
     <div className="p-6">
       <div className="flex justify-between gap-4 mb-6">
@@ -1755,7 +1769,7 @@ export function CosmosManagementContent() {
         </div>
       </div>
 
-      {/* 프로그레스바 ��가 */}
+      {/* 프로그레스바 가 */}
       {isSyncing && <SyncProgressBar progress={syncProgress} />}
 
       {selectedCompany && selectedPlatform && !isInitialLoad ? (
@@ -1802,17 +1816,17 @@ export function CosmosManagementContent() {
               <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
                 {/* 고정 헤더 */}
                 <div className="sticky top-0 z-20 bg-gray-50">
-                  <div className="grid grid-cols-[120px_220px_120px_570px_100px_80px_100px_100px_120px_50px] border-b">
-                    <div className="font-semibold p-3 text-sm text-center border-r">이미지</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r">상품코드</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r">셀러코드</div>
-                    <div className="font-semibold p-3 text-sm border-r">상품명</div>
-                    <div className="font-semibold p-3 text-sm text-right border-r">판매가(円)</div>
-                    <div className="font-semibold p-3 text-sm text-right border-r">재고(개)</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r">판매상태</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r">상품유형</div>
-                    <div className="font-semibold p-3 text-sm text-center border-r">최종 동기화</div>
-                    <div className="font-semibold p-3 text-sm text-center">관리</div>
+                  <div className={`grid grid-cols-[${GRID_TEMPLATE}] border-b`}>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">이미지</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품코드</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">셀러코드</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품명</div>
+                    <div className="font-semibold p-3 text-sm text-right border-r flex items-center justify-end">판매가(円)</div>
+                    <div className="font-semibold p-3 text-sm text-right border-r flex items-center justify-end">재고(개)</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">판매상태</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">상품유형</div>
+                    <div className="font-semibold p-3 text-sm text-center border-r flex items-center justify-center">최종 동기화</div>
+                    <div className="font-semibold p-3 text-sm text-center flex items-center justify-center">관리</div>
                   </div>
                 </div>
 
@@ -1832,130 +1846,116 @@ export function CosmosManagementContent() {
                     sortedProducts.map((product) => (
                       <div 
                         key={product.id}
-                        className="grid grid-cols-[120px_220px_120px_570px_100px_80px_100px_100px_120px_50px] hover:bg-gray-50 transition-colors border-b"
+                        className={`grid grid-cols-[${GRID_TEMPLATE}] hover:bg-gray-50 transition-colors border-b`}
                       >
                         {/* 이미지 */}
-                        <div className="p-3 border-r">
-                          <div className="flex justify-center">
-                            <div className="relative w-[100px] h-[100px]">
-                              {product.Flag === 'MOVE' ? (
-                                <img
-                                  src={product.OptionMainimage?.split('$$')[0]?.split('||*')[1] || '/placeholder-image.png'}
-                                  alt="상품 이미지"
-                                  className="w-full h-full object-cover rounded border hover:scale-150 transition-transform duration-200"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/placeholder-image.png'
-                                  }}
-                                />
-                              ) : (
-                                <img
-                                  src={product.ImageUrl || '/placeholder-image.png'}
-                                  alt="상품 이미지"
-                                  className="w-full h-full object-cover rounded border hover:scale-150 transition-transform duration-200"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = '/placeholder-image.png'
-                                  }}
-                                />
-                              )}
-                            </div>
+                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
+                          <div className="relative w-[100px] h-[100px]">
+                            <img
+                              src={product.Flag === 'MOVE' 
+                                ? (product.OptionMainimage?.split('$$')[0]?.split('||*')[1] || '/placeholder-image.png')
+                                : (product.ImageUrl || '/placeholder-image.png')
+                              }
+                              alt="상품 이미지"
+                              className="w-full h-full object-cover rounded-sm border hover:scale-150 transition-transform duration-200"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder-image.png'
+                              }}
+                            />
                           </div>
                         </div>
 
                         {/* 상품코드 */}
-                        <div className="p-3 font-mono text-sm border-r">
-                          <div className="flex items-center justify-center gap-2">
-                            <span>{product.ItemCode}</span>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopy('itemCode', product.ItemCode);
-                                }}
-                                title="상품코드 복사"
-                              >
-                                {copiedCodes.itemCode === product.ItemCode ? (
-                                  <Check className="h-3 w-3 text-green-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3 text-gray-500" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(
-                                    `${product.Flag === 'MOVE' 
-                                      ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
-                                      : "https://www.qoo10.jp/g/"
-                                    }${product.ItemCode}`,
-                                    '_blank'
-                                  );
-                                }}
-                                title="상품 미리보기"
-                              >
-                                <ExternalLink className="h-3 w-3 text-gray-500" />
-                              </Button>
-                            </div>
+                        <div className="p-2 border-r flex items-center justify-between min-h-[80px]">
+                          <span className="text-sm">{product.ItemCode}</span>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy('itemCode', product.ItemCode);
+                              }}
+                              title="상품코드 복사"
+                            >
+                              {copiedCodes.itemCode === product.ItemCode ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-gray-500" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(
+                                  `${product.Flag === 'MOVE' 
+                                    ? "https://www.qoo10.jp/gmkt.inc/goods/move/movegoods.aspx?goodscode="
+                                    : "https://www.qoo10.jp/g/"
+                                  }${product.ItemCode}`,
+                                  '_blank'
+                                );
+                              }}
+                              title="상품 미리보기"
+                            >
+                              <ExternalLink className="h-3 w-3 text-gray-500" />
+                            </Button>
                           </div>
                         </div>
 
                         {/* 셀러코드 */}
-                        <div className="p-3 font-mono text-sm border-r">
-                          <div className="flex items-center justify-center gap-2">
-                            <span>{product.SellerCode || '-'}</span>
-                            {product.SellerCode && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCopy('sellerCode', product.SellerCode);
-                                }}
-                                title="셀러코드 복사"
-                              >
-                                {copiedCodes.sellerCode === product.SellerCode ? (
-                                  <Check className="h-3 w-3 text-green-500" />
-                                ) : (
-                                  <Copy className="h-3 w-3 text-gray-500" />
-                                )}
-                              </Button>
-                            )}
-                          </div>
+                        <div className="p-2 border-r flex items-center justify-between min-h-[80px]">
+                          <span className="text-sm">{product.SellerCode || '-'}</span>
+                          {product.SellerCode && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy('sellerCode', product.SellerCode);
+                              }}
+                              title="셀러코드 복사"
+                            >
+                              {copiedCodes.sellerCode === product.SellerCode ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-gray-500" />
+                              )}
+                            </Button>
+                          )}
                         </div>
 
-                        {/* 상품 */}
-                        <div className="p-3 border-r">
-                          <div className="break-words line-clamp-2" title={product.ItemTitle}>
+                        {/* 상품명 */}
+                        <div className="p-2 border-r flex items-center min-h-[80px]">
+                          <div className="text-sm break-words line-clamp-2" title={product.ItemTitle}>
                             {product.ItemTitle}
                           </div>
                         </div>
 
                         {/* 판매가 */}
-                        <div className="p-3 text-right font-medium border-r">
-                          {product.ItemPrice?.toLocaleString() || 0}
+                        <div className="p-2 border-r flex items-center justify-end min-h-[80px]">
+                          <span className="text-sm tabular-nums">{product.ItemPrice?.toLocaleString() || 0}</span>
                         </div>
 
                         {/* 재고 */}
-                        <div className="p-3 text-right font-medium border-r">
-                          {product.ItemQty?.toLocaleString() || 0}
+                        <div className="p-2 border-r flex items-center justify-end min-h-[80px]">
+                          <span className="text-sm tabular-nums">{product.ItemQty?.toLocaleString() || 0}</span>
                         </div>
 
                         {/* 판매상태 */}
-                        <div className="p-3 text-center border-r">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
+                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(product.ItemStatus)}`}>
                             {getStatusLabel(product.ItemStatus)}
                           </span>
                         </div>
 
                         {/* 상품유형 */}
-                        <div className="p-3 text-center border-r">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             product.Flag === 'MOVE' 
                               ? 'bg-blue-100 text-blue-800 border border-blue-200' 
                               : 'bg-gray-100 text-gray-800 border border-gray-200'
@@ -1965,15 +1965,15 @@ export function CosmosManagementContent() {
                         </div>
 
                         {/* 최종 동기화 */}
-                        <div className="p-3 text-center border-r">
-                          <div className="flex flex-col items-center text-sm text-gray-600">
+                        <div className="p-2 border-r flex items-center justify-center min-h-[80px]">
+                          <div className="flex flex-col text-xs text-gray-600">
                             <span>{formatDate(product.LastFetchDate).date}</span>
                             <span>{formatDate(product.LastFetchDate).time}</span>
                           </div>
                         </div>
 
                         {/* 관리 */}
-                        <div className="p-2 text-center">
+                        <div className="p-2 flex items-center justify-center min-h-[80px]">
                           <Button 
                             variant="outline" 
                             size="sm"
