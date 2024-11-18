@@ -245,7 +245,7 @@ const JAPAN_REGIONS = [
   { value: 'AOMORI', label: '青森県(AOMORI)' },
   { value: 'IWATE', label: '岩手県(IWATE)' },
   { value: 'MIYAGI', label: '宮城県(MIYAGI)' },
-  { value: 'AKITA', label: '秋田県(AKITA)' },
+  { value: 'AKITA', label: '秋(AKITA)' },
   { value: 'YAMAGATA', label: '山形県(YAMAGATA)' },
   { value: 'FUKUSHIMA', label: '福島県(FUKUSHIMA)' },
   { value: 'IBARAKI', label: '茨城県(IBARAKI)' },
@@ -271,7 +271,7 @@ const JAPAN_REGIONS = [
   { value: 'HYOGO', label: '兵庫県(HYOGO)' },
   { value: 'NARA', label: '良県(NARA)' },
   { value: 'WAKAYAMA', label: '和歌山県(WAKAYAMA)' },
-  { value: 'TOTTORI', label: '鳥取県(TOTTORI)' },
+  { value: 'TOTTORI', label: '県(TOTTORI)' },
   { value: 'SHIMANE', label: '島(SHIMANE)' },
   { value: 'OKAYAMA', label: '岡山県(OKAYAMA)' },
   { value: 'HIROSHIMA', label: '広島県(HIROSHIMA)' },
@@ -467,6 +467,35 @@ interface Progress {
   isCompleted: boolean;
 }
 
+// GRID_TEMPLATE 상수를 배열로 수정
+const GRID_TEMPLATE = {
+  image: '120px',      // 이미지 (고정)
+  itemCode: '220px',   // 상품코드 (고정)
+  sellerCode: '150px', // 셀러코드 (고정)
+  title: '380px',      // 상품명 (유동적)
+  price: '120px',      // 판매가 (고정)
+  qty: '100px',        // 재고 (고정)
+  status: '100px',     // 판매상태 (고정)
+  type: '100px',       // 상품유형 (고정)
+  syncDate: '120px',   // 최종 동기화 (고정)
+  manage: '60px'       // 관리 (고정)
+};
+
+// 검색 조건 인터페이스 수정
+interface SearchCondition {
+  field: string;
+  label: string;
+  value: string;
+  enabled: boolean;
+}
+
+// searchConditions 초기값 설정 부분 수정
+const initialSearchConditions: SearchCondition[] = [
+  { field: 'ItemCode', label: '상품코드', value: '', enabled: false },
+  { field: 'ItemTitle', label: '상품명', value: '', enabled: false },
+  { field: 'SellerCode', label: '셀러코드', value: '', enabled: false }
+];
+
 export function CosmosManagementContent() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [selectedCompany, setSelectedCompany] = useState<string>('')
@@ -488,8 +517,8 @@ export function CosmosManagementContent() {
   const [isEditing, setIsEditing] = useState(false)
   const [editedProduct, setEditedProduct] = useState<DetailProduct | null>(null)
 
-  const [searchTerm, setSearchTerm] = useState('')
-  const [searchField, setSearchField] = useState('itemCode')
+  // searchConditions state 초기화
+  const [searchConditions, setSearchConditions] = useState<SearchCondition[]>(initialSearchConditions);
 
   const [imageUrl, setImageUrl] = useState('')
 
@@ -657,54 +686,76 @@ export function CosmosManagementContent() {
     }
   }
 
+  // fetchProducts 함수 수정
   const fetchProducts = async () => {
-    if (!selectedCompany || !selectedPlatform) return
+    if (!selectedCompany || !selectedPlatform) return;
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const flag = selectedTab === 'all' ? '' : selectedTab
+      const flag = selectedTab === 'all' ? '' : selectedTab;
       const searchParams = new URLSearchParams({
         companyId: selectedCompany,
         platformId: selectedPlatform,
         page: page.toString(),
         flag,
-        ...(searchTerm && { search: searchTerm, searchField })
-      })
+      });
 
-      const response = await fetch(`/api/qoo10/cosmos/products?${searchParams.toString()}`)
-      const data = await response.json()
-      console.log("response.ok", response.ok)
+      // 활성화된 검색 조건만 파라미터에 추가
+      const enabledConditions = searchConditions.filter(
+        condition => condition.enabled && condition.value.trim()
+      );
+
+      if (enabledConditions.length > 0) {
+        // 마지막으로 활성화된 검색 조건만 사용
+        const lastCondition = enabledConditions[enabledConditions.length - 1];
+        
+        // 필드명을 대문자로 변환하는 매핑
+        const fieldMapping: { [key: string]: string } = {
+          'itemCode': 'ItemCode',
+          'itemTitle': 'ItemTitle',
+          'sellerCode': 'SellerCode'
+        };
+        
+        // 필드명을 대문자로 변환
+        const searchField = fieldMapping[lastCondition.field] || lastCondition.field;
+        searchParams.append('searchField', searchField);
+        searchParams.append('searchTerm', lastCondition.value.trim());
+        
+        // 디버깅을 위한 로그 추가
+        console.log('Search Params:', {
+          searchField,
+          searchTerm: lastCondition.value.trim()
+        });
+      }
+
+      const response = await fetch(`/api/qoo10/cosmos/products?${searchParams.toString()}`);
+      const data = await response.json();
+      
       if (response.ok) {
-        setProducts(data.items)
-        setTotalPages(data.totalPages)
-        setTotalItems(data.totalItems)  // 전체 목 수 (두 컨테이의 합)
-        setTotalNormalCount(data.normalCount)  // 일반상품 전체 수
-        setTotalMoveCount(data.moveCount)      // 무브상품 전체 수
-
-        // progress store 값 확인을 위한 로그 추가
-        //console.log("Progress Store 상태:", progress);
-        // console.log("data.total", data.total)
-        // console.log("data.normalCount", data.normalCount )
-        // console.log("data.moveCount", data.moveCount )
+        setProducts(data.items);
+        setTotalPages(data.totalPages);
+        setTotalItems(data.totalItems);
+        setTotalNormalCount(data.normalCount);
+        setTotalMoveCount(data.moveCount);
       } else {
-        console.error('Failed to fetch products:', data.error)
-        setProducts([])
-        setTotalPages(1)
-        setTotalItems(0)
-        setTotalNormalCount(0)
-        setTotalMoveCount(0)
+        console.error('Failed to fetch products:', data.error);
+        setProducts([]);
+        setTotalPages(1);
+        setTotalItems(0);
+        setTotalNormalCount(0);
+        setTotalMoveCount(0);
       }
     } catch (error) {
-      console.error('Failed to fetch products:', error)
-      setProducts([])
-      setTotalPages(1)
-      setTotalItems(0)
-      setTotalNormalCount(0)
-      setTotalMoveCount(0)
+      console.error('Failed to fetch products:', error);
+      setProducts([]);
+      setTotalPages(1);
+      setTotalItems(0);
+      setTotalNormalCount(0);
+      setTotalMoveCount(0);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // handleSyncToCosmos 함수 수정
   const handleSyncToCosmos = async () => {
@@ -1320,7 +1371,7 @@ export function CosmosManagementContent() {
         // SetGoodsPriceQty 에러 메시지 매핑
         const priceQtyErrorMessages: { [key: string]: string } = {
           '-10000': 'API 인증키를 확인해주세요.',
-          '-10001': '상품코드 또는 판매자코드를 찾을 수 없습니다.',
+          '-10001': '상품코드 또는 판매자드를 찾을 수 없습니다.',
           '-10101': '처리 중 오류가 발생했습니다.',
           '-90001': 'API가 존재하지 않습니다.',
           '-90002': '권한이 없습니다.',
@@ -1333,7 +1384,7 @@ export function CosmosManagementContent() {
           api: 'SetGoodsPriceQty (가격/수량)',
           success: setPriceQtyResult.ResultCode === 0,
           message: setPriceQtyResult.ResultMsg,
-          returnMessage: `상태코드: ${setPriceQtyResult.ResultCode}, 메시지: ${priceQtyErrorMessages[setPriceQtyResult.ResultCode] || setPriceQtyResult.ResultMsg}`
+          returnMessage: `상태코드: ${setPriceQtyResult.ResultCode}, 메지: ${priceQtyErrorMessages[setPriceQtyResult.ResultCode] || setPriceQtyResult.ResultMsg}`
         })
 
         // 4. ItemsContents.EditGoodsContents API
@@ -1601,20 +1652,6 @@ export function CosmosManagementContent() {
     }
   };
 
-  // 그리드 템플릿 상수 수정
-  const GRID_TEMPLATE = [
-    '120px',   // 이미지 (고정)
-    '220px',   // 상품코드 (고정)
-    '150px',   // 셀러코드 (고정)
-    '380px',   // 상품명 (유동적)
-    '120px',   // 판매가 (고정)
-    '100px',   // 재고 (고정)
-    '100px',   // 판매상태 (고정)
-    '100px',   // 상품유형 (고정)
-    '120px',   // 최종 동기화 (고정)
-    '60px'     // 관리 (고정)
-  ].join('_');
-
   return (
     <div className="p-6">
       <div className="flex justify-between gap-4 mb-6">
@@ -1774,28 +1811,55 @@ export function CosmosManagementContent() {
 
       {selectedCompany && selectedPlatform && !isInitialLoad ? (
         <>
-          <div className="flex gap-4 mb-4">
-            <Select
-              value={searchField}
-              onValueChange={setSearchField}
-            >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="검색 필드" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="itemCode">상품코드</SelectItem>
-                <SelectItem value="itemTitle">상품명</SelectItem>
-                <SelectItem value="sellerCode">셀러코드</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2 flex-1">
-              <Input
-                placeholder="검색어를 입력하요"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <Button onClick={handleSearch}>검색</Button>
+          <div className="flex items-center gap-4 mb-4">
+            {searchConditions.map((condition, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={condition.enabled}
+                    onChange={(e) => {
+                      const newConditions = [...searchConditions];
+                      newConditions[index].enabled = e.target.checked;
+                      setSearchConditions(newConditions);
+                    }}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm whitespace-nowrap">{condition.label}</span>
+                </label>
+                <Input
+                  placeholder={condition.enabled ? `${condition.label} 입력` : '검색 비활성화'}
+                  value={condition.value}
+                  onChange={(e) => {
+                    const newConditions = [...searchConditions];
+                    newConditions[index].value = e.target.value;
+                    setSearchConditions(newConditions);
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && condition.enabled) {
+                      handleSearch();
+                    }
+                  }}
+                  disabled={!condition.enabled}
+                  className="w-[200px]"
+                />
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button onClick={handleSearch}>
+                검색
+              </Button>
+              {searchConditions.some(c => c.enabled || c.value) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSearchConditions(initialSearchConditions);
+                    handleSearch();
+                  }}
+                >
+                  초기화
+                </Button>
+              )}
             </div>
           </div>
 

@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '20')
     const flag = searchParams.get('flag')
-    const searchTerm = searchParams.get('search')
+    const searchTerm = searchParams.get('searchTerm')
     const searchField = searchParams.get('searchField')
 
     if (!companyId || !platformId) {
@@ -68,8 +68,12 @@ export async function GET(request: Request) {
 
     // 검색 조건 추가
     if (searchTerm && searchField) {
-      baseQuery.query += ` AND CONTAINS(c.${searchField}, @searchTerm, true)`
-      baseQuery.parameters.push({ name: "@searchTerm", value: searchTerm })
+      baseQuery.query += ` AND CONTAINS(LOWER(c.${searchField}), LOWER(@searchTerm))`
+      baseQuery.parameters.push({ name: "@searchTerm", value: searchTerm.toLowerCase() })
+
+      // 디버깅을 위한 로그 추가
+      console.log('Search Query:', baseQuery.query)
+      console.log('Search Parameters:', baseQuery.parameters)
     }
 
     // 항상 두 컨테이너의 전체 개수를 조회
