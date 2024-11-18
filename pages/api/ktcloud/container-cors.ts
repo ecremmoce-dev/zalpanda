@@ -2,9 +2,26 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getKTCloudToken } from '@/lib/ktcloud/token';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    // Origin 확인
-    const origin = req.headers.origin!;
+    const { origin } = req.body;
+
+    if (!origin) {
+      throw new Error('Origin is required');
+    }
+
+    // 허용된 origin 목록 검증 (선택사항)
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://yourdomain.com'  // 실제 도메인으로 변경
+    ];
+    
+    if (!allowedOrigins.includes(origin)) {
+      throw new Error('Invalid origin');
+    }
 
     // 1. 토큰 발급 - 공통 함수 사용
     const { token, storageUrl } = await getKTCloudToken();
