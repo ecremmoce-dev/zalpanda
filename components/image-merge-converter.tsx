@@ -294,27 +294,37 @@ export function ImageMergeConverter() {
     try {
       setIsUploading(true);
       
+      // origin 추가
+      const origin = window.location.origin;
+      
       // CORS 설정 적용 및 토큰 가져오기
-      const corsResponse = await fetch('/api/ktcloud/container-cors');
+      const corsResponse = await fetch('/api/ktcloud/container-cors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ origin })
+      });
+      
       if (!corsResponse.ok) {
         throw new Error('CORS 설정 실패');
       }
       
       const { token, storageUrl, containerName } = await corsResponse.json();
-
+      
       // 캔버스를 Blob으로 변환
       const blob = await new Promise<Blob>((resolve) => {
         canvasRef.current?.toBlob((blob) => {
           if (blob) resolve(blob);
         }, 'image/png');
       });
-
+      
       // KT Cloud에 직접 업로드
       const fileName = `merged-${Date.now()}.png`;
       const uploadUrl = `${storageUrl}/${containerName}/${itemCode}/${fileName}`;
-
+      
       console.log('Uploading to:', uploadUrl);
-
+      
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         headers: {
@@ -326,7 +336,7 @@ export function ImageMergeConverter() {
         },
         body: blob
       });
-
+      
       if (!uploadResponse.ok) {
         const errorText = await uploadResponse.text();
         console.error('Upload failed:', {
@@ -336,12 +346,12 @@ export function ImageMergeConverter() {
         });
         throw new Error(`이미지 업로드 실패: ${uploadResponse.status} - ${errorText}`);
       }
-
+      
       // 업로드된 이미지 URL 설정
       const imageUrl = `${storageUrl}/${containerName}/${itemCode}/${fileName}`;
       setUploadedUrl(`<img src="${imageUrl}" alt="merged image" />`);
       setShowUrlDialog(true);
-
+      
     } catch (error) {
       console.error('Upload error:', error);
       alert(error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.');
