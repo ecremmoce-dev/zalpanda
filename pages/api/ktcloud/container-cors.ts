@@ -4,7 +4,7 @@ import { getKTCloudToken } from '@/lib/ktcloud/token';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Origin 확인
-    const origin = req.headers.origin || 'http://localhost:3000';
+    const origin = req.headers.origin!;
 
     // 1. 토큰 발급 - 공통 함수 사용
     const { token, storageUrl } = await getKTCloudToken();
