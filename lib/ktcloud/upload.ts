@@ -12,7 +12,7 @@ export async function uploadImageToKTCloud({
   fileName: string;
   itemCode: string;
 }): Promise<string> {
-  const containerName = ktCloudConfig.storageName
+  const containerName = process.env.NEXT_PUBLIC_KT_CLOUD_STORAGE_NAME
   const objectPath = `${itemCode}/${fileName}`
   
   try {
