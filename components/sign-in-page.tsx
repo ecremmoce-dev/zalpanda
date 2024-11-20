@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ImageIcon, Zap, Scissors } from "lucide-react"
-import { createClient } from "@/utils/supabase/client";
+import { supabase } from "@/utils/supabase/client";
 
 // 테스트용 임시 계정
 const TEST_ACCOUNT = {
@@ -17,7 +17,6 @@ const TEST_ACCOUNT = {
 }
 
 export function SignInPage() {
-  const supabase = createClient()
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
@@ -36,12 +35,10 @@ export function SignInPage() {
       const { error } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
-      });
+      })
 
       if (error) {
         setError(error.message)
-      } else {
-        router.refresh();
       }
     } catch (error) {
       console.error('Login failed:', error)
