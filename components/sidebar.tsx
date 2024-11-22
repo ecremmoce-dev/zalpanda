@@ -27,7 +27,7 @@ import { Separator } from "@/components/ui/separator"
 import { usePathname } from "next/navigation"
 
 export function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname() || ''
 
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
   const [isQoo10MenuOpen, setIsQoo10MenuOpen] = useState(pathname.startsWith('/qoo10'))
@@ -271,6 +271,62 @@ export function Sidebar() {
                   >
                     <Package2 className="h-4 w-4" />
                     상품 목록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/public"
+                  >
+                    <Users className="h-4 w-4" />
+                    공용 상품
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/revision"
+                  >
+                    <Image className="h-4 w-4" />
+                    상품 보정
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/translation/names"
+                  >
+                    <Languages className="h-4 w-4" />
+                    상품 번역
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/category/map/mapping"
+                  >
+                    <Globe className="h-4 w-4" />
+                    카테고리 맵핑
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/options/volume"
+                  >
+                    <Package2 className="h-4 w-4" />
+                    무게 / 크기 일괄등록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/options/stock"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    가격 / 재고 일괄등록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/exchange"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    플랫폼 가격 계산
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/customer"
+                  >
+                    <Users className="h-4 w-4" />
+                    공급사 관리
                   </Link>
                 </div>
               )}
