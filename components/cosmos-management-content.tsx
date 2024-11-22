@@ -709,15 +709,8 @@ export function CosmosManagementContent() {
         // 마지막으로 활성화된 검색 조건만 사용
         const lastCondition = enabledConditions[enabledConditions.length - 1];
         
-        // 필드명을 대문자로 변환하는 매핑
-        const fieldMapping: { [key: string]: string } = {
-          'itemCode': 'ItemCode',
-          'itemTitle': 'ItemTitle',
-          'sellerCode': 'SellerCode'
-        };
-        
-        // 필드명을 대문자로 변환
-        const searchField = fieldMapping[lastCondition.field] || lastCondition.field;
+        // 필드명을 대문자로 시작하게 유지
+        const searchField = lastCondition.field;  // ItemCode, ItemTitle, SellerCode
         searchParams.append('searchField', searchField);
         searchParams.append('searchTerm', lastCondition.value.trim());
         

@@ -1,133 +1,77 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
+import { CompanyRow } from '@/types/supabase'
 
-// GET: 회사 정보 조회 (parentCompanyId 파라미터 추가)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const parentCompanyId = searchParams.get('parentCompanyId')
-
-    // 조회 조건 설정
-    const where = {
-      DeletedAt: null,
-      ...(parentCompanyId ? { ParentCompanyId: parentCompanyId } : { ParentCompanyId: null })
+    
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    let query = supabase
+      .from('Zal_CompanyInfo')
+      .select('*')
+      .is('DeletedAt', null)
+      .order('CreatedAt', { ascending: false })
+    
+    if (parentCompanyId) {
+      query = query.eq('ParentCompanyId', parentCompanyId)
+    } else {
+      query = query.is('ParentCompanyId', null)
     }
 
-    const companies = await prisma.zal_CompanyInfo.findMany({
-      where,
-      select: {
-        Id: true,
-        ParentCompanyId: true,
-        Name: true,
-        BizNum: true,
-        BizType: true,
-        BizClass: true,
-        OwnerName: true,
-        Tel: true,
-        Email: true,
-        ManagerName: true,
-        CreatedAt: true,
-        UpdatedAt: true,
-        DeletedAt: true
-      },
-      orderBy: {
-        CreatedAt: 'desc'
-      }
-    })
+    const { data, error } = await query
 
-    await prisma.$disconnect()
-    return NextResponse.json(companies)
+    if (error) throw error
+    if (!data) return NextResponse.json([])
+
+    const formattedData = data.map((company: CompanyRow) => ({
+      Id: company.Id,
+      Name: company.Name || '',
+      BizNum: company.BizNum || '',
+      OwnerName: company.OwnerName || '',
+      Tel: company.Tel || '',
+      Email: company.Email || '',
+      ManagerName: company.ManagerName || '',
+      CreatedAt: company.CreatedAt,
+      ParentCompanyId: company.ParentCompanyId
+    }))
+
+    return NextResponse.json(formattedData)
   } catch (error) {
     console.error('Failed to fetch companies:', error)
-    await prisma.$disconnect()
-    return NextResponse.json(
-      { error: '회사 정보 조회에 실패했습니다.' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 })
   }
 }
 
-// POST: 새 회사 정보 추가
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    console.log('새 회사 정보 생성:', body)
+    const supabase = createRouteHandlerClient({ cookies })
 
-    const newId = randomUUID().toUpperCase()
-    const parentId = body.ParentCompanyId ? body.ParentCompanyId.toUpperCase() : null
-
-    const company = await prisma.zal_CompanyInfo.create({
-      data: {
-        Id: newId,
-        ParentCompanyId: parentId,
+    const { data, error } = await supabase
+      .from('Zal_CompanyInfo')
+      .insert([{
         Name: body.Name,
         BizNum: body.BizNum,
-        BizType: body.BizType,
-        BizClass: body.BizClass,
         OwnerName: body.OwnerName,
         Tel: body.Tel,
         Email: body.Email,
         ManagerName: body.ManagerName,
-        ManagerTel: body.ManagerTel,
-        ManagerPosition: body.ManagerPosition,
-        ManagerEmail: body.ManagerEmail,
-        CreatedAt: new Date(),
-      },
-    });
+        ParentCompanyId: body.ParentCompanyId || null,
+        UpdatedAt: new Date().toISOString()
+      }])
+      .select()
+      .single()
 
-    console.log('새 회사가 성공적으로 생성되었습니다. ID:', company.Id)
-    return NextResponse.json(company)
+    if (error) throw error
+
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('API 오류:', error)
-    return NextResponse.json(
-      { error: '회사 생성에 실패했습니다.' }, 
-      { status: 500 }
-    )
-  }
-}
-
-// PUT: 회사 정보 수정
-export async function PUT(request: Request) {
-  try {
-    const body = await request.json()
-    console.log('회사 정보 수정:', body)
-
-    if (!body.Id) {
-      return NextResponse.json(
-        { error: '회사 ID가 필요합니다.' },
-        { status: 400 }
-      )
-    }
-
-    const company = await prisma.zal_CompanyInfo.update({
-      where: {
-        Id: body.Id
-      },
-      data: {
-        Name: body.Name,
-        BizNum: body.BizNum,
-        BizType: body.BizType,
-        BizClass: body.BizClass,
-        OwnerName: body.OwnerName,
-        Tel: body.Tel,
-        Email: body.Email,
-        ManagerName: body.ManagerName,
-        ManagerTel: body.ManagerTel,
-        ManagerPosition: body.ManagerPosition,
-        ManagerEmail: body.ManagerEmail,
-        UpdatedAt: new Date(),
-      }
-    })
-
-    console.log('회사 정보가 성공적으로 수정되었습니다. ID:', company.Id)
-    return NextResponse.json(company)
-  } catch (error) {
-    console.error('API 오류:', error)
-    return NextResponse.json(
-      { error: '회사 정보 수정에 실패했습니다.' },
-      { status: 500 }
-    )
+    console.error('Failed to create company:', error)
+    return NextResponse.json({ error: 'Failed to create company' }, { status: 500 })
   }
 }
 

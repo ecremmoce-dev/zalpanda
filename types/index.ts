@@ -1,17 +1,16 @@
 export interface Company {
   Id: string;
-  Name: string | null;
-  NameEn: string | null;
-  BizNum: string | null;
-  BizType: string | null;
-  BizClass: string | null;
-  OwnerName: string | null;
-  Tel: string | null;
-  Email: string | null;
-  ManagerName: string | null;
+  Name: string;
+  BizNum: string;
+  OwnerName: string;
+  Tel: string;
+  Email: string;
+  ManagerName: string;
   CreatedAt: string;
-  platforms?: Platform[];
+  ParentCompanyId?: string | null;
   isExpanded?: boolean;
+  platforms?: Platform[];
+  suppliers?: Company[];
 }
 
 export interface Platform {
@@ -22,4 +21,7 @@ export interface Platform {
   IsActive: boolean;
   LastSyncDate: string | null;
   CreatedAt: string;
-} 
+}
+
+// Company 타입을 Supplier로도 사용
+export type Supplier = Company; 
