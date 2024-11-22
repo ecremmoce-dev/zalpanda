@@ -1,99 +1,93 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 
-// GET: 특정 회사 정보 조회
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('Fetching company with ID:', params.id)
+    const supabase = createRouteHandlerClient({ cookies })
     
-    const company = await prisma.zal_CompanyInfo.findUnique({
-      where: {
-        Id: params.id,
-        DeletedAt: null
-      }
-    })
+    const { data, error } = await supabase
+      .from('Zal_CompanyInfo')
+      .select('*')
+      .eq('Id', params.id)
+      .is('DeletedAt', null)
+      .single()
 
-    if (!company) {
-      return NextResponse.json({ error: '업체를 찾을 수 없습니다.' }, { status: 404 })
+    if (error) throw error
+
+    const formattedData = {
+      Id: data.Id.toString(),
+      Name: data.Name || '',
+      BizNum: data.BizNum || '',
+      OwnerName: data.OwnerName || '',
+      Tel: data.Tel || '',
+      Email: data.Email || '',
+      ManagerName: data.ManagerName || '',
+      CreatedAt: data.CreatedAt
     }
 
-    console.log('회사 정보를 성공적으로 조회했습니다.')
-    return NextResponse.json(company)
+    return NextResponse.json(formattedData)
   } catch (error) {
-    console.error('API 오류:', error)
-    return NextResponse.json(
-      { error: '업체 정보 조회에 실패했습니다.' }, 
-      { status: 500 }
-    )
+    console.error('Failed to fetch company:', error)
+    return NextResponse.json({ error: 'Failed to fetch company' }, { status: 500 })
   }
 }
 
-// PUT: 회사 정보 수정
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json()
-    console.log('회사 정보 업데이트:', params.id)
-    console.log('업데이트 데이터:', body)
+    const supabase = createRouteHandlerClient({ cookies })
 
-    const updatedCompany = await prisma.zal_CompanyInfo.update({
-      where: {
-        Id: params.id,
-      },
-      data: {
+    const { data, error } = await supabase
+      .from('Zal_CompanyInfo')
+      .update({
         Name: body.Name,
-        NameEn: body.NameEn,
         BizNum: body.BizNum,
-        BizType: body.BizType,
-        BizClass: body.BizClass,
         OwnerName: body.OwnerName,
         Tel: body.Tel,
         Email: body.Email,
         ManagerName: body.ManagerName,
-        UpdatedAt: new Date()
-      }
-    })
+        UpdatedAt: new Date().toISOString()
+      })
+      .eq('Id', params.id)
+      .select()
+      .single()
 
-    console.log('회사 정보가 성공적으로 업데이트되었습니다.')
-    return NextResponse.json(updatedCompany)
+    if (error) throw error
+
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('API 오류:', error)
-    return NextResponse.json(
-      { error: '회사 정보 업데이트에 실패했습니다.' }, 
-      { status: 500 }
-    )
+    console.error('Failed to update company:', error)
+    return NextResponse.json({ error: 'Failed to update company' }, { status: 500 })
   }
 }
 
-// DELETE: 회사 정보 삭제 (소프트 삭제)
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('회사 정보 삭제:', params.id)
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    const { error } = await supabase
+      .from('Zal_CompanyInfo')
+      .update({
+        DeletedAt: new Date().toISOString(),
+        UpdatedAt: new Date().toISOString()
+      })
+      .eq('Id', params.id)
 
-    await prisma.zal_CompanyInfo.update({
-      where: {
-        Id: params.id
-      },
-      data: {
-        DeletedAt: new Date()
-      }
-    })
+    if (error) throw error
 
-    console.log('회사 정보가 성공적으로 삭제되었습니다.')
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ message: 'Company deleted successfully' })
   } catch (error) {
-    console.error('API 오류:', error)
-    return NextResponse.json(
-      { error: '회사 정보 삭제에 실패했습니다.' }, 
-      { status: 500 }
-    )
+    console.error('Failed to delete company:', error)
+    return NextResponse.json({ error: 'Failed to delete company' }, { status: 500 })
   }
 } 

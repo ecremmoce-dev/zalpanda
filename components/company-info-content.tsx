@@ -35,11 +35,21 @@ export function CompanyInfoContent() {
   const fetchCompanies = async () => {
     try {
       const response = await fetch('/api/company')
+      if (!response.ok) {
+        throw new Error('Failed to fetch companies')
+      }
       const data = await response.json()
-      setCompanies(data.map((company: Company) => ({ ...company, isExpanded: false })))
+      
+      // 응답이 배열인지 확인하고 처리
+      const companiesData = Array.isArray(data) ? data : []
+      setCompanies(companiesData.map((company: Company) => ({ 
+        ...company, 
+        isExpanded: false 
+      })))
       setIsLoading(false)
     } catch (error) {
       console.error('Failed to fetch companies:', error)
+      setCompanies([])  // 오류 발생 시 빈 배열로 설정
       setIsLoading(false)
     }
   }
@@ -47,8 +57,9 @@ export function CompanyInfoContent() {
   const fetchPlatforms = async (companyId: string) => {
     try {
       const response = await fetch(`/api/company/${companyId}/platform`)
+      if (!response.ok) throw new Error('Failed to fetch platforms')
       const data = await response.json()
-      return data
+      return Array.isArray(data) ? data : []
     } catch (error) {
       console.error('Failed to fetch platforms:', error)
       return []
@@ -355,7 +366,7 @@ export function CompanyInfoContent() {
                           )}
                         </div>
 
-                        {/* 기존 플랫폼 정보 */}
+                        {/* 기존 플���폼 정보 */}
                         <div className="p-6 bg-gray-50 rounded-lg shadow-inner">
                           <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-700">플랫폼 정보</h3>
@@ -496,7 +507,7 @@ export function CompanyInfoContent() {
                 setSupplierToEdit(null);
                 setParentCompanyId(null);
                 
-                alert(supplierToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
+                alert(supplierToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등���되었습니다.');
                 
                 await fetchCompanies();
               } catch (error) {

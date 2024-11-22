@@ -1,76 +1,69 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { randomUUID } from 'crypto'
+import { PlatformRow } from '@/types/supabase'
 
-// GET: 특정 회사의 플랫폼 목록 조회
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const platforms = await prisma.zal_CompanyPlatform.findMany({
-      where: {
-        CompanyId: params.id,
-        DeletedAt: null
-      },
-      orderBy: {
-        CreatedAt: 'desc'
-      }
-    })
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    const { data, error } = await supabase
+      .from('Zal_CompanyPlatform')
+      .select('*')
+      .eq('CompanyId', params.id)
+      .is('DeletedAt', null)
+      .order('CreatedAt', { ascending: false })
 
-    return NextResponse.json(platforms)
+    if (error) throw error
+    if (!data) return NextResponse.json([])
+
+    const formattedData = data.map((platform: PlatformRow) => ({
+      Id: platform.Id,
+      CompanyId: platform.CompanyId,
+      Platform: platform.Platform,
+      SellerId: platform.SellerId || '',
+      IsActive: platform.IsActive,
+      LastSyncDate: platform.LastSyncDate,
+      CreatedAt: platform.CreatedAt
+    }))
+
+    return NextResponse.json(formattedData)
   } catch (error) {
-    console.error('플랫폼 정보 조회 실패:', error)
-    return NextResponse.json(
-      { error: '플랫폼 정보 조회에 실패했습니다.' },
-      { status: 500 }
-    )
+    console.error('Failed to fetch platforms:', error)
+    return NextResponse.json({ error: 'Failed to fetch platforms' }, { status: 500 })
   }
 }
 
-// POST: 새 플랫폼 정보 추가
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json()
-    console.log('새 플랫폼 정보 생성:', body)
-    
-    // 필수 필드 검증
-    if (!body.Platform || !body.SellerId) {
-      return NextResponse.json(
-        { error: '플랫폼과 판매자 ID는 필수입니다.' },
-        { status: 400 }
-      )
-    }
+    const supabase = createRouteHandlerClient({ cookies })
 
-    const platform = await prisma.zal_CompanyPlatform.create({
-      data: {
-        Id: randomUUID(),
+    const { data, error } = await supabase
+      .from('Zal_CompanyPlatform')
+      .insert([{
         CompanyId: params.id,
         Platform: body.Platform,
         SellerId: body.SellerId,
-        Password: body.Password || null,
-        ApiKey: body.ApiKey || null,
-        SecretKey: body.SecretKey || null,
-        AccessToken: body.AccessToken || null,
-        RefreshToken: body.RefreshToken || null,
-        TokenExpiryDate: body.TokenExpiryDate ? new Date(body.TokenExpiryDate) : null,
-        IsActive: true,
-        Memo: body.Memo || null,
-        CreatedAt: new Date(),
-        UpdatedAt: new Date()
-      }
-    })
+        ApiKey: body.ApiKey,
+        SecretKey: body.SecretKey,
+        IsActive: body.IsActive || true,
+        UpdatedAt: new Date().toISOString()
+      }])
+      .select()
+      .single()
 
-    console.log('플랫폼 정보가 성공적으로 생성되었습니다. ID:', platform.Id)
-    return NextResponse.json(platform)
+    if (error) throw error
+
+    return NextResponse.json(data)
   } catch (error) {
-    console.error('플랫폼 정보 생성 실패:', error)
-    return NextResponse.json(
-      { error: '플랫폼 정보 생성에 실패했습니다.' },
-      { status: 500 }
-    )
+    console.error('Failed to create platform:', error)
+    return NextResponse.json({ error: 'Failed to create platform' }, { status: 500 })
   }
 } 
