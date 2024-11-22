@@ -1,7 +1,7 @@
 'use client'
 
 import { Sidebar } from "@/components/sidebar"
-import { ProductPublic } from "@/components/product-public"
+import SupplierProductPage from "@/components/product-public"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 
@@ -18,7 +18,7 @@ export default function ProductPublicPage() {
           <h1 className="font-semibold">공용 상품</h1>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-          <ProductPublic />
+          <SupplierProductPage />
         </main>
       </div>
     </div>
