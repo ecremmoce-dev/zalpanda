@@ -8,7 +8,8 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Sidebar } from "@/components/sidebar"
-
+import { supabase } from "@/utils/supabase/client"
+import { useEffect } from "react"
 const qoo10SubMenus = [
   {
     title: '상품관리',
@@ -28,6 +29,24 @@ const qoo10SubMenus = [
 ]
 
 export function Dashboard() {
+  console.log(123);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data, error } = await supabase.auth.getUser();
+
+      console.log(data);
+
+      if (error) {
+        console.log("error", error);
+      } else {
+        console.log("data", data);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
       <Sidebar />
