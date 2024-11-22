@@ -40,6 +40,8 @@ export function SignInPage() {
       if (error) {
         setError(error.message)
       }
+
+      router.refresh()
     } catch (error) {
       console.error('Login failed:', error)
       setError('로그인 중 오류가 발생했습니다.')

@@ -13,14 +13,6 @@ const checkAuth = () => {
 }
 
 export default function ProductsPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!checkAuth()) {
-      router.push('/login')
-    }
-  }, [router])
-
   return (
     <div className="min-h-screen w-full">
       <div className="flex flex-col">

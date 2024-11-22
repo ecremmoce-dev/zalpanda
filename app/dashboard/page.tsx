@@ -13,14 +13,5 @@ const checkAuth = () => {
 }
 
 export default function DashboardPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // 로그인 상태 체크
-    if (!checkAuth()) {
-      router.push('/login')
-    }
-  }, [router])
-
   return <Dashboard />
 } 
