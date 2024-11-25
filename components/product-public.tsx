@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useRouter } from "next/navigation"
 
 // Mock data for suppliers
 const supplierData = [
@@ -50,6 +51,7 @@ const productData = [
 ]
 
 export default function SupplierProductPage() {
+  const router = useRouter()
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [filteredProducts, setFilteredProducts] = useState(productData)
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
@@ -58,6 +60,10 @@ export default function SupplierProductPage() {
     setSelectedSupplier(supplierName)
     setFilteredProducts(productData.filter(product => product.supplier === supplierName))
     setIsSupplierTableExpanded(false)
+  }
+
+  const handleEdit = (id: string) => {
+    router.push(`/product/public/${id}`)
   }
 
   // Supplier columns
@@ -101,8 +107,12 @@ export default function SupplierProductPage() {
     { accessorKey: "registrationDate", header: "등록일" },
     {
       id: "actions",
-      cell: () => (
-        <Button variant="ghost" size="sm">
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleEdit(row.original.id.toString())}
+        >
           Edit
         </Button>
       ),
