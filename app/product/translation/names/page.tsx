@@ -1,7 +1,7 @@
 'use client'
 
 import { Sidebar } from "@/components/sidebar"
-import { ProductTranslationNames } from "@/components/product-translation-names"
+import ProductTranslation from "@/components/product-translation-names"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 
@@ -18,7 +18,7 @@ export default function ProductTranslationNamesPage() {
           <h1 className="font-semibold">상품 번역</h1>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6">
-          <ProductTranslationNames />
+          <ProductTranslation />
         </main>
       </div>
     </div>

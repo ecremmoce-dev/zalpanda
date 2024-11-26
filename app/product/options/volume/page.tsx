@@ -1,7 +1,7 @@
 'use client'
 
 import { Sidebar } from "@/components/sidebar"
-import { ProductOptionsVolume } from "@/components/product-options-volume"
+import ProductOptionsVolume from "@/components/product-options-volume"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 
