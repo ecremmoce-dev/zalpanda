@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function PUT(
@@ -8,20 +7,48 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
+
+    // 플랫폼 타입 검증
+    const allowedPlatforms = ['QOO10', 'SHOPEE', 'LAZADA', 'AMAZON', 'RAKUTEN', 'COUPANG']
+    if (!allowedPlatforms.includes(body.platform)) {
+      return NextResponse.json({ error: 'Invalid platform type' }, { status: 400 })
+    }
+
+    // 중복 체크 (다른 레코드에서 같은 플랫폼을 사용하고 있는지)
+    const { data: existingPlatform, error: checkError } = await supabase
+      .from('company_platform')
+      .select('id')
+      .eq('companyid', params.id)
+      .eq('platform', body.platform)
+      .neq('id', params.platformId)
+      .is('deleted', null)
+      .single()
+
+    if (existingPlatform) {
+      return NextResponse.json(
+        { error: '이미 등록된 플랫폼입니다.' },
+        { status: 400 }
+      )
+    }
 
     const { data, error } = await supabase
-      .from('Zal_CompanyPlatform')
+      .from('company_platform')
       .update({
-        Platform: body.Platform,
-        SellerId: body.SellerId,
-        ApiKey: body.ApiKey,
-        SecretKey: body.SecretKey,
-        IsActive: body.IsActive,
-        UpdatedAt: new Date().toISOString()
+        platform: body.platform,
+        sellerid: body.sellerid,
+        apikey: body.apikey,
+        secretkey: body.secretkey,
+        accesstoken: body.accesstoken,
+        refreshtoken: body.refreshtoken,
+        tokenexpirydate: body.tokenexpirydate,
+        isactive: body.isactive,
+        lastsyncdate: body.lastsyncdate,
+        memo: body.memo,
+        updated: new Date().toISOString(),
       })
-      .eq('Id', params.platformId)
-      .eq('CompanyId', params.id)
+      .eq('id', params.platformId)
+      .eq('companyid', params.id)
       .select()
       .single()
 
@@ -39,16 +66,16 @@ export async function DELETE(
   { params }: { params: { id: string, platformId: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
+    const supabase = await createClient()
+
     const { error } = await supabase
-      .from('Zal_CompanyPlatform')
+      .from('company_platform')
       .update({
-        DeletedAt: new Date().toISOString(),
-        UpdatedAt: new Date().toISOString()
+        deleted: new Date().toISOString(),
+        updated: new Date().toISOString(),
       })
-      .eq('Id', params.platformId)
-      .eq('CompanyId', params.id)
+      .eq('id', params.platformId)
+      .eq('companyid', params.id)
 
     if (error) throw error
 
@@ -57,4 +84,4 @@ export async function DELETE(
     console.error('Failed to delete platform:', error)
     return NextResponse.json({ error: 'Failed to delete platform' }, { status: 500 })
   }
-} 
+}

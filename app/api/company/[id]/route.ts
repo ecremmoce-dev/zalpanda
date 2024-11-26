@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -7,29 +6,21 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
     
     const { data, error } = await supabase
-      .from('Zal_CompanyInfo')
-      .select('*')
-      .eq('Id', params.id)
-      .is('DeletedAt', null)
+      .from('company')
+      .select(`
+        *,
+        company_platform (*),
+        supplies:company_supply (*)
+      `)
+      .eq('id', params.id)
+      .is('deleted', null)
       .single()
 
     if (error) throw error
-
-    const formattedData = {
-      Id: data.Id.toString(),
-      Name: data.Name || '',
-      BizNum: data.BizNum || '',
-      OwnerName: data.OwnerName || '',
-      Tel: data.Tel || '',
-      Email: data.Email || '',
-      ManagerName: data.ManagerName || '',
-      CreatedAt: data.CreatedAt
-    }
-
-    return NextResponse.json(formattedData)
+    return NextResponse.json(data)
   } catch (error) {
     console.error('Failed to fetch company:', error)
     return NextResponse.json({ error: 'Failed to fetch company' }, { status: 500 })
@@ -42,25 +33,18 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('Zal_CompanyInfo')
+      .from('company')
       .update({
-        Name: body.Name,
-        BizNum: body.BizNum,
-        OwnerName: body.OwnerName,
-        Tel: body.Tel,
-        Email: body.Email,
-        ManagerName: body.ManagerName,
-        UpdatedAt: new Date().toISOString()
+        ...body,
+        updated: new Date().toISOString()
       })
-      .eq('Id', params.id)
+      .eq('id', params.id)
       .select()
-      .single()
 
     if (error) throw error
-
     return NextResponse.json(data)
   } catch (error) {
     console.error('Failed to update company:', error)
@@ -73,18 +57,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    
+    const supabase = await createClient()
+
     const { error } = await supabase
-      .from('Zal_CompanyInfo')
+      .from('company')
       .update({
-        DeletedAt: new Date().toISOString(),
-        UpdatedAt: new Date().toISOString()
+        deletedate: new Date().toISOString(),
+        updatedate: new Date().toISOString()
       })
-      .eq('Id', params.id)
+      .eq('id', params.id)
 
     if (error) throw error
-
     return NextResponse.json({ message: 'Company deleted successfully' })
   } catch (error) {
     console.error('Failed to delete company:', error)

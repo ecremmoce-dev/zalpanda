@@ -15,7 +15,8 @@ import { PlusCircle, ChevronDown, ChevronRight, Edit, Trash } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
 import { CompanyForm } from './company-form'
 import { PlatformForm } from './platform-form'
-import { Company, Platform, Supplier } from '@/types'
+import { SupplyForm } from './supply-form'
+import { Company, Platform, Supplier, CompanySupply } from '@/types'
 
 export function CompanyInfoContent() {
   const [companies, setCompanies] = useState<Company[]>([])
@@ -27,6 +28,8 @@ export function CompanyInfoContent() {
   const [isSupplierDialogOpen, setIsSupplierDialogOpen] = useState(false)
   const [parentCompanyId, setParentCompanyId] = useState<string | null>(null)
   const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null)
+  const [supplyToEdit, setSupplyToEdit] = useState<CompanySupply | null>(null)
+  const [isSupplyDialogOpen, setIsSupplyDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchCompanies()
@@ -66,31 +69,40 @@ export function CompanyInfoContent() {
     }
   }
 
-  const fetchSuppliers = async (parentCompanyId: string) => {
+  const fetchSuppliers = async (companyId: string) => {
     try {
-      const response = await fetch(`/api/company?parentCompanyId=${parentCompanyId}`)
-      if (!response.ok) throw new Error('Failed to fetch suppliers')
+      const response = await fetch(`/api/company/${companyId}/supply`)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch suppliers')
+      }
       const data = await response.json()
-      return data
+      
+      // 데이터가 배열인지 확인하고 처리
+      const supplies = Array.isArray(data) ? data : []
+      console.log('Fetched supplies:', supplies)  // 디버깅용
+      return supplies
     } catch (error) {
       console.error('Failed to fetch suppliers:', error)
+      // 오류 발생 시 빈 배열 반환
       return []
     }
   }
 
   const handleRowClick = async (companyId: string) => {
     setCompanies(companies.map(company => {
-      if (company.Id === companyId) {
+      if (company.id === companyId) {
         const newIsExpanded = !company.isExpanded
         if (newIsExpanded) {
           // 플랫폼 정보와 공급업체 정보 모두 로드
           Promise.all([
             fetchPlatforms(companyId),
             fetchSuppliers(companyId)
-          ]).then(([platforms, suppliers]) => {
+          ]).then(([platforms, supplies]) => {
+            console.log('Loaded supplies:', supplies)  // 디버깅용
             setCompanies(prevCompanies => prevCompanies.map(prevCompany => 
-              prevCompany.Id === companyId 
-                ? { ...prevCompany, platforms, suppliers, isExpanded: true }
+              prevCompany.id === companyId 
+                ? { ...prevCompany, platforms, supplies, isExpanded: true }
                 : prevCompany
             ))
           })
@@ -102,7 +114,7 @@ export function CompanyInfoContent() {
   }
 
   const handleAddPlatform = (companyId: string) => {
-    setSelectedCompany(companies.find(c => c.Id === companyId) || null)
+    setSelectedCompany(companies.find(c => c.id === companyId) || null)
     setIsPlatformDialogOpen(true)
   }
 
@@ -117,7 +129,7 @@ export function CompanyInfoContent() {
       // 플랫폼 목록 새로고침
       const platforms = await fetchPlatforms(companyId)
       setCompanies(prevCompanies => prevCompanies.map(company => 
-        company.Id === companyId 
+        company.id === companyId 
           ? { ...company, platforms }
           : company
       ))
@@ -127,7 +139,7 @@ export function CompanyInfoContent() {
   }
 
   const handleEditCompany = (company: Company) => {
-    fetch(`/api/company/${company.Id}`)
+    fetch(`/api/company/${company.id}`)
       .then(response => response.json())
       .then(data => {
         setSelectedCompany(data);
@@ -145,12 +157,12 @@ export function CompanyInfoContent() {
       setSelectedCompany(null);
       await fetchCompanies();
       
-      alert('업체 정보가 성공적으로 수정되었습니다.');
+      alert('업체 보가 성공적으로 수정되었습니다.');
       
       if (parentCompanyId) {
         const suppliers = await fetchSuppliers(parentCompanyId);
         setCompanies(prevCompanies => prevCompanies.map(company => 
-          company.Id === parentCompanyId
+          company.id === parentCompanyId
             ? { ...company, suppliers }
             : company
         ));
@@ -179,26 +191,65 @@ export function CompanyInfoContent() {
     }
   }
 
-  const handleEditPlatform = (companyId: string, platform: Platform) => {
-    setSelectedCompany(companies.find(c => c.Id === companyId) || null)
-    setPlatformToEdit(platform)
+  const handleEditPlatform = (companyId: string, platform: any) => {
+    // 서버 데이터의 필드명을 폼 컴포넌트의 필드명으로 변환
+    const formattedPlatform = {
+      Id: platform.id,
+      Platform: platform.platform,
+      SellerId: platform.sellerid,
+      Password: platform.password,
+      ApiKey: platform.apikey,
+      SecretKey: platform.secretkey,
+      AccessToken: platform.accesstoken,
+      RefreshToken: platform.refreshtoken,
+      TokenExpiryDate: platform.tokenexpirydate,
+      IsActive: platform.isactive,
+      Memo: platform.memo
+    }
+    
+    setSelectedCompany(companies.find(c => c.id === companyId) || null)
+    setPlatformToEdit(formattedPlatform)
     setIsPlatformDialogOpen(true)
   }
 
-  const handleAddSupplier = (companyId: string) => {
-    setParentCompanyId(companyId);
-    setIsSupplierDialogOpen(true);
+  const handleAddSupply = (companyId: string) => {
+    setSelectedCompany(companies.find(c => c.id === companyId) || null);
+    setIsSupplyDialogOpen(true);
+  };
+
+  const handleEditSupply = (supply: CompanySupply) => {
+    setSelectedCompany(companies.find(c => c.id === supply.companyid) || null);
+    setSupplyToEdit(supply);
+    setIsSupplyDialogOpen(true);
+  };
+
+  const handleDeleteSupply = async (companyId: string, supplyId: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/company/${companyId}/supply/${supplyId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete supply');
+
+      // 공급업체 목록 새로고침
+      const supplies = await fetchSuppliers(companyId);
+      setCompanies(prevCompanies => prevCompanies.map(company => 
+        company.id === companyId 
+          ? { ...company, supplies }
+          : company
+      ));
+    } catch (error) {
+      console.error('Failed to delete supply:', error);
+      alert('공급업체 삭제에 실패했습니다.');
+    }
   };
 
   const handleNewCompany = () => {
     setSelectedCompany(null);
     setParentCompanyId(null);
     setIsDialogOpen(true);
-  };
-
-  const handleEditSupplier = (supplier: Supplier) => {
-    setSupplierToEdit(supplier);
-    setIsSupplierDialogOpen(true);
   };
 
   return (
@@ -248,19 +299,19 @@ export function CompanyInfoContent() {
           </TableHeader>
           <TableBody>
             {companies.map((company) => (
-              <React.Fragment key={company.Id}>
+              <React.Fragment key={company.id}>
                 <TableRow className="cursor-pointer hover:bg-gray-100">
-                  <TableCell onClick={() => handleRowClick(company.Id)}>
+                  <TableCell onClick={() => handleRowClick(company.id)}>
                     {company.isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   </TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.Name}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.BizNum}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.OwnerName}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.Tel}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.Email}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>{company.ManagerName}</TableCell>
-                  <TableCell onClick={() => handleRowClick(company.Id)}>
-                    {new Date(company.CreatedAt).toLocaleDateString()}
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.name}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.biznum}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.ownername}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.tel}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.email}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>{company.managername}</TableCell>
+                  <TableCell onClick={() => handleRowClick(company.id)}>
+                    {new Date(company.created).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -277,8 +328,8 @@ export function CompanyInfoContent() {
                       </Button>
                       <Button 
                         variant="ghost" 
-                        size="icon" 
-                        onClick={() => handleDeleteCompany(company.Id)}
+                        size="icon"
+                        onClick={() => handleDeleteCompany(company.id)}
                       >
                         <Trash className="w-4 h-4" />
                       </Button>
@@ -287,7 +338,7 @@ export function CompanyInfoContent() {
                   </TableCell>
                 </TableRow>
                 {company.isExpanded && (
-                  <TableRow key={`${company.Id}-expanded`}>
+                  <TableRow key={`${company.id}-expanded`}>
                     <TableCell colSpan={9}>
                       <div className="space-y-6">
                         {/* 공급업체 목록 */}
@@ -297,14 +348,14 @@ export function CompanyInfoContent() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleAddSupplier(company.Id)}
+                              onClick={() => handleAddSupply(company.id)}
                             >
                               <PlusCircle className="w-4 h-4 mr-2" />
                               공급업체 추가
                             </Button>
                           </div>
                           
-                          {!company.suppliers || company.suppliers.length === 0 ? (
+                          {!company.supplies || company.supplies.length === 0 ? (
                             <div className="text-center py-8 text-gray-500">
                               등록된 공급업체가 없습니다
                             </div>
@@ -313,30 +364,34 @@ export function CompanyInfoContent() {
                               <Table>
                                 <TableHeader>
                                   <TableRow className="bg-gray-100">
-                                    <TableHead>업체명</TableHead>
+                                    <TableHead>공급업체명</TableHead>
                                     <TableHead>사업자번호</TableHead>
-                                    <TableHead>대표자</TableHead>
                                     <TableHead>연락처</TableHead>
                                     <TableHead>이메일</TableHead>
                                     <TableHead>담당자</TableHead>
+                                    <TableHead>담당자 연락처</TableHead>
+                                    <TableHead>결제조건</TableHead>
+                                    <TableHead>통화</TableHead>
                                     <TableHead>등록일</TableHead>
                                     <TableHead className="w-[100px] text-right">관리</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {company.suppliers?.map((supplier: Supplier) => (
+                                  {company.supplies?.map((supply) => (
                                     <TableRow 
-                                      key={supplier.Id}
+                                      key={supply.id}
                                       className="hover:bg-gray-50 transition-colors"
                                     >
-                                      <TableCell className="font-medium">{supplier.Name}</TableCell>
-                                      <TableCell>{supplier.BizNum || '-'}</TableCell>
-                                      <TableCell>{supplier.OwnerName || '-'}</TableCell>
-                                      <TableCell>{supplier.Tel || '-'}</TableCell>
-                                      <TableCell>{supplier.Email || '-'}</TableCell>
-                                      <TableCell>{supplier.ManagerName || '-'}</TableCell>
+                                      <TableCell className="font-medium">{supply.supplyname}</TableCell>
+                                      <TableCell>{supply.businessnumber || '-'}</TableCell>
+                                      <TableCell>{supply.contact || '-'}</TableCell>
+                                      <TableCell>{supply.email || '-'}</TableCell>
+                                      <TableCell>{supply.managername || '-'}</TableCell>
+                                      <TableCell>{supply.managertel || '-'}</TableCell>
+                                      <TableCell>{supply.paymentterms || '-'}</TableCell>
+                                      <TableCell>{supply.currency || 'KRW'}</TableCell>
                                       <TableCell>
-                                        {new Date(supplier.CreatedAt).toLocaleDateString()}
+                                        {new Date(supply.created).toLocaleDateString()}
                                       </TableCell>
                                       <TableCell>
                                         <div className="flex justify-end gap-2">
@@ -344,7 +399,7 @@ export function CompanyInfoContent() {
                                             variant="ghost" 
                                             size="icon"
                                             className="hover:bg-gray-100"
-                                            onClick={() => handleEditCompany(supplier)}
+                                            onClick={() => handleEditSupply(supply)}
                                           >
                                             <Edit className="w-4 h-4 text-gray-600" />
                                           </Button>
@@ -352,7 +407,7 @@ export function CompanyInfoContent() {
                                             variant="ghost" 
                                             size="icon"
                                             className="hover:bg-red-100"
-                                            onClick={() => handleDeleteCompany(supplier.Id)}
+                                            onClick={() => handleDeleteSupply(company.id, supply.id)}
                                           >
                                             <Trash className="w-4 h-4 text-red-600" />
                                           </Button>
@@ -366,14 +421,14 @@ export function CompanyInfoContent() {
                           )}
                         </div>
 
-                        {/* 기존 플���폼 정보 */}
+                        {/* 기존 플랫폼 정보 */}
                         <div className="p-6 bg-gray-50 rounded-lg shadow-inner">
                           <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-700">플랫폼 정보</h3>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleAddPlatform(company.Id)}
+                              onClick={() => handleAddPlatform(company.id)}
                             >
                               <PlusCircle className="w-4 h-4 mr-2" />
                               새 플랫폼 추가
@@ -391,6 +446,11 @@ export function CompanyInfoContent() {
                                   <TableRow className="bg-gray-100">
                                     <TableHead>플랫폼</TableHead>
                                     <TableHead>판매자 ID</TableHead>
+                                    <TableHead>API Key</TableHead>
+                                    <TableHead>Secret Key</TableHead>
+                                    <TableHead>Access Token</TableHead>
+                                    <TableHead>Refresh Token</TableHead>
+                                    <TableHead>토큰 만료일</TableHead>
                                     <TableHead className="w-[100px]">상태</TableHead>
                                     <TableHead>마지막 동기화</TableHead>
                                     <TableHead>등록일</TableHead>
@@ -400,29 +460,39 @@ export function CompanyInfoContent() {
                                 <TableBody>
                                   {company.platforms?.map((platform) => (
                                     <TableRow 
-                                      key={platform.Id}
+                                      key={platform.id}
                                       className="hover:bg-gray-50 transition-colors"
                                     >
-                                      <TableCell className="font-medium">{platform.Platform}</TableCell>
-                                      <TableCell>{platform.SellerId}</TableCell>
+                                      <TableCell className="font-medium">{platform.platform}</TableCell>
+                                      <TableCell>{platform.sellerid}</TableCell>
+                                      <TableCell>{platform.apikey}</TableCell>
+                                      <TableCell>{platform.secretkey}</TableCell>
+                                      <TableCell>{platform.accesstoken}</TableCell>
+                                      <TableCell>{platform.refreshtoken}</TableCell>
                                       <TableCell>
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                          ${platform.IsActive 
-                                            ? 'bg-green-100 text-green-700' 
-                                            : 'bg-gray-100 text-gray-700'
-                                          }`}
-                                        >
-                                          {platform.IsActive ? '활성' : '비활성'}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell>
-                                        {platform.LastSyncDate 
-                                          ? new Date(platform.LastSyncDate).toLocaleString()
+                                        {platform.tokenexpirydate 
+                                          ? new Date(platform.tokenexpirydate).toLocaleString()
                                           : '-'
                                         }
                                       </TableCell>
                                       <TableCell>
-                                        {new Date(platform.CreatedAt).toLocaleDateString()}
+                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                          ${platform.isactive 
+                                            ? 'bg-green-100 text-green-700' 
+                                            : 'bg-gray-100 text-gray-700'
+                                          }`}
+                                        >
+                                          {platform.isactive ? '활성' : '비활성'}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell>
+                                        {platform.lastsyncdate 
+                                          ? new Date(platform.lastsyncdate).toLocaleString()
+                                          : '-'
+                                        }
+                                      </TableCell>
+                                      <TableCell>
+                                        {new Date(platform.created).toLocaleDateString()}
                                       </TableCell>
                                       <TableCell>
                                         <div className="flex justify-end gap-2">
@@ -430,7 +500,7 @@ export function CompanyInfoContent() {
                                             variant="ghost" 
                                             size="icon"
                                             className="hover:bg-gray-100"
-                                            onClick={() => handleEditPlatform(company.Id, platform)}
+                                            onClick={() => handleEditPlatform(company.id, platform)}
                                           >
                                             <Edit className="w-4 h-4 text-gray-600" />
                                           </Button>
@@ -438,7 +508,7 @@ export function CompanyInfoContent() {
                                             variant="ghost" 
                                             size="icon"
                                             className="hover:bg-red-100"
-                                            onClick={() => handleDeletePlatform(company.Id, platform.Id)}
+                                            onClick={() => handleDeletePlatform(company.id, platform.id)}
                                           >
                                             <Trash className="w-4 h-4 text-red-600" />
                                           </Button>
@@ -469,15 +539,15 @@ export function CompanyInfoContent() {
             </DialogTitle>
           </DialogHeader>
           <PlatformForm 
-            companyId={selectedCompany?.Id || ''}
+            companyId={selectedCompany?.id || ''}
             initialData={platformToEdit}
             onSuccess={() => {
               setIsPlatformDialogOpen(false)
               setPlatformToEdit(null)
               if (selectedCompany) {
-                fetchPlatforms(selectedCompany.Id).then(platforms => {
+                fetchPlatforms(selectedCompany.id).then(platforms => {
                   setCompanies(prevCompanies => prevCompanies.map(company => 
-                    company.Id === selectedCompany.Id 
+                    company.id === selectedCompany.id 
                       ? { ...company, platforms }
                       : company
                   ))
@@ -507,12 +577,49 @@ export function CompanyInfoContent() {
                 setSupplierToEdit(null);
                 setParentCompanyId(null);
                 
-                alert(supplierToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등���되었습니다.');
+                alert(supplierToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
                 
                 await fetchCompanies();
               } catch (error) {
                 console.error('Failed to refresh after supplier update:', error);
                 alert('업체 목록 새로고침에 실패했습니다.');
+              }
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {supplyToEdit ? '공급업체 정보 수정' : '공급업체 등록'}
+            </DialogTitle>
+            <DialogDescription>
+              {supplyToEdit ? '공급업체 정보를 수정해주세요.' : '새로운 공급업체 정보를 입력해주세요.'}
+            </DialogDescription>
+          </DialogHeader>
+          <SupplyForm 
+            companyId={selectedCompany?.id || ''}
+            initialData={supplyToEdit}
+            onSuccess={async () => {
+              try {
+                setIsSupplyDialogOpen(false);
+                setSupplyToEdit(null);
+                
+                if (selectedCompany) {
+                  const supplies = await fetchSuppliers(selectedCompany.id);
+                  setCompanies(prevCompanies => prevCompanies.map(company => 
+                    company.id === selectedCompany.id 
+                      ? { ...company, supplies }
+                      : company
+                  ));
+                }
+                
+                alert(supplyToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
+              } catch (error) {
+                console.error('Failed to refresh after supply update:', error);
+                alert('공급업체 목록 새로고침에 실패했습니다.');
               }
             }}
           />

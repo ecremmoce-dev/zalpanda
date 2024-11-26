@@ -1,48 +1,75 @@
-export type CompanyRow = {
-  Id: string
-  ParentCompanyId: string | null
-  Name: string | null
-  NameEn: string | null
-  BizNum: string | null
-  BizType: string | null
-  BizClass: string | null
-  BizRegistNum: string | null
-  OwnerName: string | null
-  Post: string | null
-  Addr: string | null
-  AddrEn: string | null
-  Addr2: string | null
-  Addr2En: string | null
-  Tel: string | null
-  Email: string | null
-  Fax: string | null
-  WebSite: string | null
-  ManagerName: string | null
-  ManagerTel: string | null
-  ManagerPosition: string | null
-  ManagerEmail: string | null
-  Memo: string | null
-  ReceivingAccount: string | null
-  ReceivingBank: string | null
-  CreatedAt: string
-  UpdatedAt: string | null
-  DeletedAt: string | null
+export type Company = {
+  id: string
+  parentcompanyid?: string | null
+  name?: string
+  nameen?: string
+  biznum?: string
+  biztype?: string
+  bizclass?: string
+  bizregistnum?: string
+  ownername?: string
+  post?: string
+  addr?: string
+  addren?: string
+  addr2?: string
+  addr2en?: string
+  tel?: string
+  email?: string
+  fax?: string
+  website?: string
+  managername?: string
+  managertel?: string
+  managerposition?: string
+  manageremail?: string
+  memo?: string
+  receivingaccount?: string
+  receivingbank?: string
+  created: string
+  updated?: string
+  deleted?: string
+  platforms?: CompanyPlatform[]
+  supplies?: CompanySupply[]
+  isExpanded?: boolean
 }
 
-export type PlatformRow = {
-  Id: string
-  CompanyId: string
-  Platform: string
-  SellerId: string | null
-  ApiKey: string | null
-  SecretKey: string | null
-  AccessToken: string | null
-  RefreshToken: string | null
-  TokenExpiryDate: string | null
-  IsActive: boolean
-  LastSyncDate: string | null
-  Memo: string | null
-  CreatedAt: string
-  UpdatedAt: string
-  DeletedAt: string | null
+export type Platform = 'QOO10' | 'SHOPEE' | 'LAZADA' | 'AMAZON' | 'RAKUTEN' | 'COUPANG'
+
+export type CompanyPlatform = {
+  id: string
+  companyid: string
+  platform: Platform
+  sellerid: string | null
+  apikey: string | null
+  secretkey: string | null
+  accesstoken: string | null
+  refreshtoken: string | null
+  tokenexpirydate: string | null
+  isactive: boolean
+  lastsyncdate: string | null
+  memo: string | null
+  created: string
+  updated: string
+  deleted: string | null
+}
+
+export type CompanySupply = {
+  id: string
+  companyid: string
+  supplyname: string
+  contact?: string
+  address?: string
+  businessnumber?: string
+  email?: string
+  fax?: string
+  website?: string
+  managername?: string
+  managertel?: string
+  manageremail?: string
+  bankaccount?: string
+  bankname?: string
+  paymentterms?: string
+  currency?: string
+  notes?: string
+  created: string
+  updated: string
 } 
