@@ -1,7 +1,7 @@
 'use client'
 
 import { Sidebar } from "@/components/sidebar"
-import { ProductRevision } from "@/components/product-revision"
+import ProductRevision from "@/components/product-revision"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 
