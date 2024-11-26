@@ -25,17 +25,21 @@ interface PlatformFormProps {
 }
 
 export function PlatformForm({ companyId, initialData, onSuccess }: PlatformFormProps) {
+  const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     Platform: initialData?.Platform || '',
     SellerId: initialData?.SellerId || '',
     Password: initialData?.Password || '',
     ApiKey: initialData?.ApiKey || '',
     SecretKey: initialData?.SecretKey || '',
-    Memo: initialData?.Memo || '',
-    IsActive: initialData?.IsActive ?? true
+    AccessToken: initialData?.AccessToken || '',
+    RefreshToken: initialData?.RefreshToken || '',
+    TokenExpiryDate: initialData?.TokenExpiryDate || '',
+    IsActive: initialData?.IsActive ?? true,
+    Memo: initialData?.Memo || ''
   })
 
-  // 초기 데이터가 있을 경우 폼 데이터 설정
+  // 초기 데이터가 변경될 때 폼 데이터 업데이트
   useEffect(() => {
     if (initialData) {
       setFormData({
@@ -44,19 +48,18 @@ export function PlatformForm({ companyId, initialData, onSuccess }: PlatformForm
         Password: initialData.Password || '',
         ApiKey: initialData.ApiKey || '',
         SecretKey: initialData.SecretKey || '',
-        Memo: initialData.Memo || '',
-        IsActive: initialData.IsActive
+        AccessToken: initialData.AccessToken || '',
+        RefreshToken: initialData.RefreshToken || '',
+        TokenExpiryDate: initialData.TokenExpiryDate || '',
+        IsActive: initialData.IsActive,
+        Memo: initialData.Memo || ''
       })
     }
   }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!formData.Platform || !formData.SellerId) {
-      alert('플랫폼과 판매자 ID는 필수입니다.')
-      return
-    }
+    setIsLoading(true)
 
     try {
       const url = initialData 
@@ -65,19 +68,40 @@ export function PlatformForm({ companyId, initialData, onSuccess }: PlatformForm
       
       const method = initialData ? 'PUT' : 'POST'
 
+      // 서버로 전송할 때는 소문자 필드명으로 변환하고 빈 값 처리
+      const requestBody = {
+        platform: formData.Platform,
+        sellerid: formData.SellerId,
+        password: formData.Password || null,
+        apikey: formData.ApiKey || null,
+        secretkey: formData.SecretKey || null,
+        accesstoken: formData.AccessToken || null,
+        refreshtoken: formData.RefreshToken || null,
+        // 빈 문자열인 경우 null로 설정
+        tokenexpirydate: formData.TokenExpiryDate || null,
+        isactive: formData.IsActive,
+        memo: formData.Memo || null
+      }
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       })
 
-      if (!response.ok) throw new Error('Failed to save platform')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save platform')
+      }
 
       onSuccess()
     } catch (error) {
       console.error('Failed to submit platform:', error)
+      alert('플랫폼 정보 저장에 실패했습니다.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -152,7 +176,13 @@ export function PlatformForm({ companyId, initialData, onSuccess }: PlatformForm
         <Label>사용 여부</Label>
       </div>
 
-      <Button type="submit" className="w-full">등록</Button>
+      <Button
+        type="submit"
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? '저장 중...' : (initialData ? '수정' : '등록')}
+      </Button>
     </form>
   )
 } 
