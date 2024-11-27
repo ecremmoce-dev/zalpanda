@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { supabase } from "@/utils/supabase/client";
+import { useUserDataStore } from "@/store/modules";
 
 export default function SupplierProductPage() {
   const [supplierData, setSupplierData] = useState<any[]>([])
@@ -40,34 +41,11 @@ export default function SupplierProductPage() {
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
 
-  const [userData, setUserData] = useState<any>(null)
+  const { user } = useUserDataStore();
 
   useEffect(() => {
-    fetchInitialData()
-  }, [])
-
-  const fetchInitialData = async () => {
-    const { data, error } = await supabase.auth.getUser()
-    if (!error) {
-      await fetchUserData(data.user)
-    }
-  }
-
-  const fetchUserData = async (user: any) => {
-    const companyAccount = await supabase.from('company_account')
-      .select('*')
-      .eq('supabaseuserid', user.id)
-    
-    if (!companyAccount.error) {
-      const { data, error } = await supabase.from('account_company')
-        .select('*')
-        .eq('accountid', companyAccount.data[0].id)
-
-        if (!error) {
-          fetchSupplierData(data[0].companyid)
-        }
-    }
-  }
+    if (user) fetchSupplierData(user!.companyid)
+  }, [user])
 
   const fetchSupplierData = async (companyid: string) => {
     try {
@@ -95,7 +73,6 @@ export default function SupplierProductPage() {
       .order('createdat', { ascending: false })
 
     if (!error) {
-      console.log(data);
       setSelectedSupplier(supplierName)
       setFilteredProducts(data)
     }
