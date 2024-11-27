@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -23,61 +23,151 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChevronDown, ChevronRight, Search, Download } from 'lucide-react'
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useRouter } from "next/navigation"
-
-// Mock data for suppliers
-const supplierData = [
-  { id: 1, name: 'ecremmoce', company: 'ecremmoce', manager: '이코머스', registrationDate: '2023-07-20 14:10:32' },
-  { id: 2, name: '울티모', company: 'ultimo', manager: '전강생품', registrationDate: '2023-08-05 09:23:42' },
-  { id: 3, name: '줄리엣컴퍼니', company: 'jully and color', manager: '채선', registrationDate: '2023-08-05 09:29:58' },
-  { id: 4, name: '바네코코', company: 'baniaco', manager: 'baniaco', registrationDate: '2023-08-10 11:35:01' },
-  { id: 5, name: 'ROCKCAKE', company: 'ROCKCAKE', manager: '특카이크', registrationDate: '2023-08-10 13:57:57' },
-]
-
-// Mock data for products
-const productData = [
-  { id: 1, sku: '5550330059', name: '이니수 꼴래겐시기 2개묶X맨즈X(푸른)/짙날 부유 실물형 컨체커기 둡생축제 푸시', price: 13440, supplier: '울티모', stock: 52, registrationDate: '2023-12-12 13:59:36' },
-  { id: 2, sku: '6877363442', name: '이니수 비나 여성 향낭더뉴 TOP X 스페스 치지꽉 락선생 피마닌 타타', price: 26250, supplier: '울티모', stock: 23, registrationDate: '2023-12-12 13:59:36' },
-  { id: 3, sku: '7085472469', name: '이니수 워프 만사서딩 150ml X 2백스 치지꽉 수용성 물려진', price: 56400, supplier: '울티모', stock: 33, registrationDate: '2023-12-12 13:59:36' },
-  { id: 4, sku: '7222595476', name: '이니수 스털 제털 바스트 430조코조롭 마실향물결 안계좀기제모 V존저석 역소윰', price: 71000, supplier: '울티모', stock: 21, registrationDate: '2023-12-12 13:59:36' },
-  { id: 5, sku: '7672734032', name: '폴리고제폐워 퓨전한 백수으롭 70ml/530달 국내산 100%', price: 28800, supplier: '울티모', stock: 32, registrationDate: '2023-12-12 13:59:36' },
-]
+import { supabase } from "@/utils/supabase/client";
 
 export default function SupplierProductPage() {
-  const router = useRouter()
+  const [supplierData, setSupplierData] = useState<any[]>([])
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
-  const [filteredProducts, setFilteredProducts] = useState(productData)
+  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
 
-  const handleSupplierSelect = (supplierName: string) => {
-    setSelectedSupplier(supplierName)
-    setFilteredProducts(productData.filter(product => product.supplier === supplierName))
-    setIsSupplierTableExpanded(false)
+  const [userData, setUserData] = useState<any>(null)
+
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
+
+  const fetchInitialData = async () => {
+    const { data, error } = await supabase.auth.getUser()
+    if (!error) {
+      await fetchUserData(data.user)
+    }
   }
 
-  const handleEdit = (id: string) => {
-    router.push(`/product/public/${id}`)
+  const fetchUserData = async (user: any) => {
+    const companyAccount = await supabase.from('company_account')
+      .select('*')
+      .eq('supabaseuserid', user.id)
+    
+    if (!companyAccount.error) {
+      const { data, error } = await supabase.from('account_company')
+        .select('*')
+        .eq('accountid', companyAccount.data[0].id)
+
+        if (!error) {
+          fetchSupplierData(data[0].companyid)
+        }
+    }
+  }
+
+  const fetchSupplierData = async (companyid: string) => {
+    try {
+      const { data, error } = await supabase.from('company_supply')
+        .select('*')
+        .eq('companyid', companyid)
+
+      if (error) throw error;
+      
+      setSupplierData(data)
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
+    // const { data, error } = await supabase
+    //   .from('item_customer_maps')
+    //   .select(`
+    //     *,
+    //     items!itemid(variationsku)
+    //   `)
+    //   .eq('companyid', companyid)
+    //   .eq('itemcustomerid', itemCustomerId)
+
+    const { data, error } = await supabase
+      .from('item_customer_maps')
+      .select(`
+        *,
+        items!inner(*)
+      `)
+      .eq('companyid', companyid)
+      .eq('itemcustomerid', itemCustomerId)
+
+    // const { data, error } = await supabase
+    //   .from('item_customer_maps')
+    //   .select()
+    //   .eq('companyid', companyid)
+    //   .eq('itemcustomerid', itemCustomerId)
+    //   .then(async ({ data, error }) => {
+    //     if (error) return { data: null, error }
+        
+    //     // 조인을 위한 itemid 배열 생성
+    //     const itemIds = data.map(item => item.itemid)
+        
+    //     // items 테이블에서 관련 데이터 조회
+    //     const { data: itemsData, error: itemsError } = await supabase
+    //       .from('items')
+    //       .select('id, variationsku')
+    //       .in('id', itemIds)
+        
+    //     if (itemsError) return { data: null, error: itemsError }
+        
+    //     // 데이터 병합
+    //     const mergedData = data.map(map => ({
+    //       ...map,
+    //       variationsku: itemsData.find(item => item.id === map.itemid)?.variationsku
+    //     }))
+        
+    //     return { data: mergedData, error: null }
+    //   })
+
+    if (!error) {
+      console.log(data);
+      setSelectedSupplier(supplierName)
+      setFilteredProducts(data)
+    }
+  }
+
+  const handleSupplierSelect = (row: any) => {
+    const { name: supplierName, id: itemCustomerId, companyid } = row;
+    
+    fetchProductData(itemCustomerId, companyid, supplierName);
+  }
+
+  const handleSupplierSearch = () => {
+    // Implement the search logic here
+    console.log("Searching for:", supplierSearchTerm)
+  }
+
+  const handleProductRegistration = (method: string) => {
+    // Implement the product registration logic here
+    console.log("Registering product via:", method)
+  }
+
+  const handleDownloadList = () => {
+    // Implement the download logic here
+    console.log("Downloading list")
   }
 
   // Supplier columns
   const supplierColumns: ColumnDef<typeof supplierData[0]>[] = [
-    { accessorKey: "id", header: "번호" },
-    { accessorKey: "name", header: "코드" },
-    { accessorKey: "company", header: "회사명" },
-    { accessorKey: "manager", header: "담당일" },
-    { accessorKey: "registrationDate", header: "등록일" },
+    { accessorKey: "supplyname", header: "회사명" },
+    { accessorKey: "managername", header: "담당자" },
+    { accessorKey: "created", header: "등록일" },
     {
       id: "actions",
       cell: ({ row }) => (
         <Button
-          onClick={() => handleSupplierSelect(row.original.name)}
+          onClick={() => handleSupplierSelect(row.original)}
           variant="outline"
           size="sm"
         >
@@ -88,57 +178,76 @@ export default function SupplierProductPage() {
   ]
 
   // Product columns
-  const productColumns: ColumnDef<typeof productData[0]>[] = [
-    { accessorKey: "id", header: "번호" },
-    { accessorKey: "sku", header: "SKU" },
-    {
-      accessorKey: "image",
-      header: "이미지",
-      cell: () => <div className="w-10 h-10 bg-gray-200 rounded"></div>,
-    },
-    { accessorKey: "name", header: "상품명" },
-    {
-      accessorKey: "price",
-      header: "공급가 (원)",
-      cell: ({ row }) => row.original.price.toLocaleString(),
-    },
-    { accessorKey: "supplier", header: "공급사" },
-    { accessorKey: "stock", header: "재고 (개)" },
-    { accessorKey: "registrationDate", header: "등록일" },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleEdit(row.original.id.toString())}
-        >
-          Edit
-        </Button>
-      ),
-    },
+  const productColumns = [
+    //{ accessorKey: "id", header: "번호" },
+    { accessorKey: "variationsku", header: "SKU" },
+    // {
+    //   accessorKey: "image",
+    //   header: "이미지",
+    //   cell: () => <div className="w-10 h-10 bg-gray-200 rounded"></div>,
+    // },
+    // { accessorKey: "name", header: "상품명" },
+    // {
+    //   accessorKey: "price",
+    //   header: "공급가 (원)",
+    //   cell: ({ row }: { row: any }) => row.original.price.toLocaleString(),
+    // },
+    // { accessorKey: "supplier", header: "공급사" },
+    // { accessorKey: "stock", header: "재고 (개)" },
+    // { accessorKey: "registrationDate", header: "등록일" },
+    // {
+    //   id: "actions",
+    //   cell: () => (
+    //     <Button variant="ghost" size="sm">
+    //       Edit
+    //     </Button>
+    //   ),
+    // },
   ]
 
   return (
     <div className="container mx-auto p-4 space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold mb-4">공급사</h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-        >
-          {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-        </Button>
-      </div>
-      {isSupplierTableExpanded && (
-        <DataTable columns={supplierColumns} data={supplierData} />
-      )}
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-2xl font-bold">공급사</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+          >
+            {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isSupplierTableExpanded && (
+            <DataTable 
+              columns={supplierColumns}
+              data={supplierData}
+              searchTerm={supplierSearchTerm}
+              onSearchTermChange={setSupplierSearchTerm}
+              onSearch={handleSupplierSearch}
+              onDownloadList={handleDownloadList}
+              onProductRegistration={handleProductRegistration}
+              showActionButtons={true}
+            />
+          )}
+        </CardContent>
+      </Card>
 
-      <h2 className="text-xl font-bold mt-8 mb-4">
-        {selectedSupplier ? `${selectedSupplier} 공용상품` : '공용상품'}
-      </h2>
-      <DataTable columns={productColumns} data={filteredProducts} />
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">
+            {selectedSupplier ? `${selectedSupplier} 공용상품` : '공용상품'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable 
+            columns={productColumns}
+            data={filteredProducts}
+            showActionButtons={false}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -146,11 +255,23 @@ export default function SupplierProductPage() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  searchTerm?: string
+  onSearchTermChange?: (term: string) => void
+  onSearch?: () => void
+  onDownloadList?: () => void
+  onProductRegistration?: (method: string) => void
+  showActionButtons: boolean
 }
 
 function DataTable<TData, TValue>({
   columns,
   data,
+  searchTerm = "",
+  onSearchTermChange,
+  onSearch,
+  onDownloadList,
+  onProductRegistration,
+  showActionButtons,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -178,42 +299,44 @@ function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Filter..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns
+      {showActionButtons && (
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center">
+            <Input
+              placeholder="Filter..."
+              value={searchTerm}
+              onChange={(event) => onSearchTermChange?.(event.target.value)}
+              className="max-w-sm mr-2"
+            />
+            <Button onClick={onSearch}>
+              <Search className="h-4 w-4 mr-2" />
+              검색
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                )
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">상품 등록</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("직접 입력")}>
+                  직접 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("Url 입력")}>
+                  Url 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("파일 업로드")}>
+                  파일 업로드
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={onDownloadList}>
+              <Download className="mr-2 h-4 w-4" />
+              목록 다운로드
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
