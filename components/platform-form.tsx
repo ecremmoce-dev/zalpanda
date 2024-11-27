@@ -77,7 +77,6 @@ export function PlatformForm({ companyId, initialData, onSuccess }: PlatformForm
         secretkey: formData.SecretKey || null,
         accesstoken: formData.AccessToken || null,
         refreshtoken: formData.RefreshToken || null,
-        // 빈 문자열인 경우 null로 설정
         tokenexpirydate: formData.TokenExpiryDate || null,
         isactive: formData.IsActive,
         memo: formData.Memo || null

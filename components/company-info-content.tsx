@@ -465,10 +465,26 @@ export function CompanyInfoContent() {
                                     >
                                       <TableCell className="font-medium">{platform.platform}</TableCell>
                                       <TableCell>{platform.sellerid}</TableCell>
-                                      <TableCell>{platform.apikey}</TableCell>
-                                      <TableCell>{platform.secretkey}</TableCell>
-                                      <TableCell>{platform.accesstoken}</TableCell>
-                                      <TableCell>{platform.refreshtoken}</TableCell>
+                                      <TableCell>
+                                        <div className="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap" title={platform.apikey}>
+                                          {platform.apikey}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap" title={platform.secretkey}>
+                                          {platform.secretkey}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap" title={platform.accesstoken}>
+                                          {platform.accesstoken}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap" title={platform.refreshtoken}>
+                                          {platform.refreshtoken}
+                                        </div>
+                                      </TableCell>
                                       <TableCell>
                                         {platform.tokenexpirydate 
                                           ? new Date(platform.tokenexpirydate).toLocaleString()
