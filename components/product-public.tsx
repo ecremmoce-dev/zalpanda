@@ -84,51 +84,15 @@ export default function SupplierProductPage() {
   }
 
   const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
-    // const { data, error } = await supabase
-    //   .from('item_customer_maps')
-    //   .select(`
-    //     *,
-    //     items!itemid(variationsku)
-    //   `)
-    //   .eq('companyid', companyid)
-    //   .eq('itemcustomerid', itemCustomerId)
-
     const { data, error } = await supabase
-      .from('item_customer_maps')
+      .from('items')
       .select(`
         *,
-        items!inner(*)
+        stocks!inner(*)
       `)
       .eq('companyid', companyid)
-      .eq('itemcustomerid', itemCustomerId)
-
-    // const { data, error } = await supabase
-    //   .from('item_customer_maps')
-    //   .select()
-    //   .eq('companyid', companyid)
-    //   .eq('itemcustomerid', itemCustomerId)
-    //   .then(async ({ data, error }) => {
-    //     if (error) return { data: null, error }
-        
-    //     // 조인을 위한 itemid 배열 생성
-    //     const itemIds = data.map(item => item.itemid)
-        
-    //     // items 테이블에서 관련 데이터 조회
-    //     const { data: itemsData, error: itemsError } = await supabase
-    //       .from('items')
-    //       .select('id, variationsku')
-    //       .in('id', itemIds)
-        
-    //     if (itemsError) return { data: null, error: itemsError }
-        
-    //     // 데이터 병합
-    //     const mergedData = data.map(map => ({
-    //       ...map,
-    //       variationsku: itemsData.find(item => item.id === map.itemid)?.variationsku
-    //     }))
-        
-    //     return { data: mergedData, error: null }
-    //   })
+      .eq('supplyid', itemCustomerId)
+      .order('createdat', { ascending: false })
 
     if (!error) {
       console.log(data);
@@ -181,28 +145,23 @@ export default function SupplierProductPage() {
   const productColumns = [
     //{ accessorKey: "id", header: "번호" },
     { accessorKey: "variationsku", header: "SKU" },
-    // {
-    //   accessorKey: "image",
-    //   header: "이미지",
-    //   cell: () => <div className="w-10 h-10 bg-gray-200 rounded"></div>,
-    // },
-    // { accessorKey: "name", header: "상품명" },
-    // {
-    //   accessorKey: "price",
-    //   header: "공급가 (원)",
-    //   cell: ({ row }: { row: any }) => row.original.price.toLocaleString(),
-    // },
-    // { accessorKey: "supplier", header: "공급사" },
-    // { accessorKey: "stock", header: "재고 (개)" },
-    // { accessorKey: "registrationDate", header: "등록일" },
-    // {
-    //   id: "actions",
-    //   cell: () => (
-    //     <Button variant="ghost" size="sm">
-    //       Edit
-    //     </Button>
-    //   ),
-    // },
+    {
+      accessorKey: "thumbnailurl",
+      header: "이미지",
+      cell: ({ row }: { row: any }) => <img className="w-10 h-10 bg-gray-200 rounded" src={row.original.thumbnailurl || ""} />,
+    },
+    { accessorKey: "name", header: "상품명" },
+    {
+      accessorKey: "consumerprice",
+      header: "공급가 (원)",
+      cell: ({ row }: { row: any }) => row.original.consumerprice.toLocaleString(),
+    },
+    { 
+      accessorKey: "stocks.nowstock",
+      header: "재고(개)",
+      cell: ({ row }: { row: any }) => row.original.stocks.nowstock.toLocaleString(),
+    },
+    { accessorKey: "createdat", header: "등록일" },
   ]
 
   return (
