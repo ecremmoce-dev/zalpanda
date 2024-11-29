@@ -42,6 +42,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/utils/supabase/client";
 import { useUserDataStore } from "@/store/modules";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import ProductDetail from "@/components/product-public-detail"
 
 interface Supplier {
   id: number
@@ -63,12 +71,13 @@ interface Product {
   updatedat: string
   createdat: string
   category?: string
-  stocks?: {
+  stocks: {
     nowstock: number
   }
 }
 
 const categories = ['전체', '의류', '식품', '전자제품', '가구', '화장품', '사무용품']
+const DEFAULT_IMAGE = 'https://via.placeholder.com/150'
 
 export default function SupplierProductManagement() {
   const [userData, setUserData] = useState<any>(null)
@@ -80,6 +89,12 @@ export default function SupplierProductManagement() {
   const [selectedCategory, setSelectedCategory] = useState('전체')
   const [selectedProducts, setSelectedProducts] = useState<number[]>([])
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
+  const [editingContent, setEditingContent] = useState<string>('')
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(0);
 
   const { user } = useUserDataStore();
 
@@ -103,6 +118,8 @@ export default function SupplierProductManagement() {
 
   const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
     try {
+      console.log('Fetching products with params:', { itemCustomerId, companyid, supplierName });
+      
       const { data, error } = await supabase
         .from('items')
         .select(`
@@ -123,7 +140,17 @@ export default function SupplierProductManagement() {
         .eq('supplyid', itemCustomerId)
         .order('createdat', { ascending: false })
 
+      console.log('Raw DB response:', data);
+      console.log('DB error if any:', error);
+
       if (error) throw error;
+
+      const formattedData = data.map(item => ({
+        ...item,
+        stocks: item.stocks ? (item.stocks[0] || { nowstock: 0 }) : { nowstock: 0 }
+      }));
+
+      console.log('Formatted data:', formattedData);
 
       setSelectedSupplier({
         id: parseInt(itemCustomerId),
@@ -134,7 +161,7 @@ export default function SupplierProductManagement() {
         registrationDate: new Date().toISOString()
       });
       
-      setProducts(data);
+      setProducts(formattedData);
     } catch (error) {
       console.error('Failed to fetch products:', error);
       alert('상품 목록을 불러오는데 실패했습니다.');
@@ -145,6 +172,39 @@ export default function SupplierProductManagement() {
     const { supplyname: supplierName, id: itemCustomerId, companyid } = row;
     fetchProductData(itemCustomerId, companyid, supplierName);
   }
+
+  const handleEditContent = async (productId: string, newContent: string) => {
+    try {
+      const { error } = await supabase
+        .from('items')
+        .update({ content: newContent })
+        .eq('id', productId)
+
+      if (error) throw error;
+
+      setProducts(products.map(product => 
+        product.id === productId 
+          ? { ...product, content: newContent }
+          : product
+      ))
+      
+      setEditingProductId(null)
+      setEditingContent('')
+      setIsEditDialogOpen(false)
+    } catch (error) {
+      console.error('Failed to update content:', error)
+      alert('본문 수정에 실패했습니다.')
+    }
+  }
+
+  const handleProductSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setProductSearch(event.target.value);
+  };
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   const supplierColumns: ColumnDef<any>[] = [
     { accessorKey: "supplyname", header: "회사명" },
@@ -193,9 +253,13 @@ export default function SupplierProductManagement() {
       cell: ({ row }) => (
         <div className="flex items-center justify-center">
           <img
-            src={row.original.thumbnailurl || '/placeholder.svg'}
+            src={row.original.thumbnailurl || DEFAULT_IMAGE}
             alt={row.original.name || '상품 이미지'}
             className="w-16 h-16 object-cover rounded"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = DEFAULT_IMAGE;
+            }}
           />
         </div>
       ),
@@ -204,8 +268,8 @@ export default function SupplierProductManagement() {
       accessorKey: "originalname",
       header: "원본 상품명",
       cell: ({ row }) => (
-        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.originalname || row.original.name}>
-          {row.original.originalname || row.original.name || '-'}
+        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.originalname }>
+          {row.original.originalname  || '-'}
         </div>
       )
     },
@@ -213,7 +277,11 @@ export default function SupplierProductManagement() {
       accessorKey: "name",
       header: "보정 상품명",
       cell: ({ row }) => (
-        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.name}>
+        <div 
+          className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:text-blue-500" 
+          title={row.original.name}
+          onClick={() => handleProductClick(row.original.id)}
+        >
           {row.original.name || '-'}
         </div>
       )
@@ -246,110 +314,241 @@ export default function SupplierProductManagement() {
         />
       ),
     },
-    { accessorKey: "id", header: "#" },
-    { accessorKey: "sku", header: "SKU" },
+    { 
+      accessorKey: "variationsku",
+      header: "SKU",
+      cell: ({ row }) => row.original.variationsku || '-'
+    },
     {
-      accessorKey: "image",
+      accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <img
-          src={row.original.image}
-          alt={row.original.originalName}
-          className="w-16 h-16 object-cover rounded"
-        />
+        <div className="flex items-center justify-center">
+          <img
+            src={row.original.thumbnailurl || DEFAULT_IMAGE}
+            alt={row.original.name}
+            className="w-16 h-16 object-cover rounded"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = DEFAULT_IMAGE;
+            }}
+          />
+        </div>
       ),
     },
-    { accessorKey: "originalDescription", header: "원본 본문" },
-    { accessorKey: "correctedDescription", header: "보정 본문" },
-    { accessorKey: "lastModified", header: "마지막 수정일" },
+    { 
+      accessorKey: "originalcontent",
+      header: "원본 본문",
+      cell: ({ row }) => (
+        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.originalcontent}>
+          {row.original.originalcontent || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "content",
+      header: "보정 본문",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
+            {row.original.content || '-'}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingProductId(row.original.id)
+              setEditingContent(row.original.content || '')
+              setIsEditDialogOpen(true)
+            }}
+          >
+            수정
+          </Button>
+        </div>
+      )
+    },
+    { 
+      accessorKey: "updatedat",
+      header: "마지막 수정일",
+      cell: ({ row }) => {
+        const date = row.original.updatedat || row.original.createdat
+        return date ? new Date(date).toLocaleString('ko-KR') : '-'
+      }
+    }
   ]
 
-  return (
-    <div className="container mx-auto p-4 space-y-8">
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-          >
-            {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isSupplierTableExpanded && (
-            <DataTable 
-              columns={supplierColumns}
-              data={supplierData}
-              searchTerm={supplierSearch}
-              onSearchTermChange={setSupplierSearch}
-              showActionButtons={false}
-            />
-          )}
-        </CardContent>
-      </Card>
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+  };
 
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">
-            {selectedSupplier ? `${selectedSupplier.company} 상품 목록` : '상품 목록'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="product-name-correction" className="w-full">
-            <div className="flex justify-between items-center mb-4">
-              <TabsList className="grid w-auto grid-cols-2">
-                <TabsTrigger value="product-name-correction">상품명 보정</TabsTrigger>
-                <TabsTrigger value="product-description-correction">상품 본문 보정</TabsTrigger>
-              </TabsList>
-              <div className="flex space-x-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" disabled={selectedProducts.length === 0}>
-                      Options
-                      <MoreHorizontal className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem>원문 {`>`} 보정 옮기기</DropdownMenuItem>
-                    <DropdownMenuItem>정리하기</DropdownMenuItem>
-                    <DropdownMenuItem>되돌리기</DropdownMenuItem>
-                    <DropdownMenuItem>Replace</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="default">저장</Button>
+  const handleProductClick = (productId: string) => {
+    setSelectedProductId(productId);
+    setIsDetailDialogOpen(true);
+  };
+
+  return (
+    <>
+      <div className="container mx-auto p-4 space-y-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+            >
+              {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {isSupplierTableExpanded && (
+              <DataTable 
+                columns={supplierColumns}
+                data={supplierData}
+                searchTerm={supplierSearch}
+                onSearchTermChange={setSupplierSearch}
+                showActionButtons={false}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold">
+              {selectedSupplier ? `${selectedSupplier.company} 상품 목록` : '상품 목록'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="product-name-correction" className="w-full">
+              <div className="flex justify-between items-center mb-4">
+                <TabsList className="grid w-auto grid-cols-2">
+                  <TabsTrigger value="product-name-correction">상품명 보정</TabsTrigger>
+                  <TabsTrigger value="product-description-correction">상품 본문 보정</TabsTrigger>
+                </TabsList>
+                <div className="flex space-x-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" disabled={selectedProducts.length === 0}>
+                        Options
+                        <MoreHorizontal className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem>원문 {`>`} 보정 옮기기</DropdownMenuItem>
+                      <DropdownMenuItem>정리하기</DropdownMenuItem>
+                      <DropdownMenuItem>되돌리기</DropdownMenuItem>
+                      <DropdownMenuItem>Replace</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="default">저장</Button>
+                </div>
+              </div>
+
+              <TabsContent value="product-name-correction">
+                <Input
+                  type="text"
+                  value={productSearch}
+                  onChange={handleProductSearch}
+                  placeholder="SKU 또는 상품명을 입력하세요"
+                  className="mb-4"
+                />
+                <DataTable 
+                  columns={productColumns}
+                  data={filteredProducts}
+                  searchTerm={productSearch}
+                  onSearchTermChange={setProductSearch}
+                  showActionButtons={true}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  currentPage={currentPage}
+                  onPageChange={handlePageChange}
+                />
+              </TabsContent>
+              <TabsContent value="product-description-correction">
+                <DataTable 
+                  columns={productDescriptionColumns}
+                  data={products}
+                  searchTerm={productSearch}
+                  onSearchTermChange={setProductSearch}
+                  showActionButtons={true}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  currentPage={currentPage}
+                  onPageChange={handlePageChange}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-[1200px] h-[800px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>보정 본문 수정</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 grid grid-cols-2 gap-6 py-4 overflow-hidden">
+            <div className="flex flex-col h-full">
+              <label className="text-sm font-medium mb-2">원본 본문</label>
+              <div className="flex-1 p-4 bg-gray-50 rounded-md overflow-y-auto whitespace-pre-wrap">
+                {products.find(p => p.id === editingProductId)?.originalcontent || '-'}
               </div>
             </div>
+            <div className="flex flex-col h-full">
+              <label className="text-sm font-medium mb-2">보정 본문</label>
+              <textarea
+                defaultValue={editingContent}
+                onChange={(e) => {
+                  e.currentTarget.value = e.currentTarget.value
+                  setEditingContent(e.currentTarget.value)
+                }}
+                className="flex-1 p-4 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ 
+                  minHeight: '600px',
+                  lineHeight: '1.5',
+                  fontSize: '16px'
+                }}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false)
+                setEditingProductId(null)
+                setEditingContent('')
+              }}
+            >
+              취소
+            </Button>
+            <Button 
+              onClick={() => editingProductId && handleEditContent(editingProductId, editingContent)}
+            >
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            <TabsContent value="product-name-correction">
-              <DataTable 
-                columns={productColumns}
-                data={products}
-                searchTerm={productSearch}
-                onSearchTermChange={setProductSearch}
-                showActionButtons={true}
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onCategoryChange={setSelectedCategory}
-              />
-            </TabsContent>
-            <TabsContent value="product-description-correction">
-              <DataTable 
-                columns={productDescriptionColumns}
-                data={products}
-                searchTerm={productSearch}
-                onSearchTermChange={setProductSearch}
-                showActionButtons={true}
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onCategoryChange={setSelectedCategory}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-[1600px] max-h-[95vh] overflow-y-auto p-8">
+          <DialogHeader>
+            <DialogTitle>상품 상세 정보</DialogTitle>
+          </DialogHeader>
+          {selectedProductId && (
+            <ProductDetail 
+              productId={selectedProductId} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
@@ -362,6 +561,8 @@ interface DataTableProps<TData, TValue> {
   categories?: string[]
   selectedCategory?: string
   onCategoryChange?: (category: string) => void
+  currentPage?: number
+  onPageChange?: (page: number) => void
 }
 
 function DataTable<TData, TValue>({
@@ -373,6 +574,8 @@ function DataTable<TData, TValue>({
   categories,
   selectedCategory,
   onCategoryChange,
+  currentPage,
+  onPageChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -395,6 +598,10 @@ function DataTable<TData, TValue>({
       columnFilters,
       columnVisibility,
       rowSelection,
+      pagination: {
+        pageIndex: currentPage || 0,
+        pageSize: 10,
+      },
     },
   })
 
@@ -412,7 +619,7 @@ function DataTable<TData, TValue>({
             {categories && onCategoryChange && (
               <Select value={selectedCategory} onValueChange={onCategoryChange}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="���테고리 선택" />
+                  <SelectValue placeholder="테고리 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
@@ -498,15 +705,27 @@ function DataTable<TData, TValue>({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.previousPage()}
+            onClick={() => {
+              const newPage = table.getState().pagination.pageIndex - 1;
+              onPageChange && onPageChange(newPage);
+              table.previousPage();
+            }}
             disabled={!table.getCanPreviousPage()}
           >
             Previous
           </Button>
+          <span className="mx-2">
+            Page {table.getState().pagination.pageIndex + 1} of{' '}
+            {table.getPageCount()}
+          </span>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.nextPage()}
+            onClick={() => {
+              const newPage = table.getState().pagination.pageIndex + 1;
+              onPageChange && onPageChange(newPage);
+              table.nextPage();
+            }}
             disabled={!table.getCanNextPage()}
           >
             Next
