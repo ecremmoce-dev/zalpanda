@@ -251,8 +251,9 @@ export default function ProductRegistration() {
   const fetchCrawlingProductList = async (id: string) => {
     try {
       const { data, error } = await supabase.from('crawlingproductlist')
-        .select('*')
-        .eq('que_id', id)
+      .select('*')
+      .eq('que_id', id)
+      .order('detail_status', { ascending: false, nullsFirst: false })
 
       if (error) throw error;
 
@@ -676,7 +677,7 @@ export default function ProductRegistration() {
       </Tabs>
       
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-[70vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>상품 상세 정보</DialogTitle>
           </DialogHeader>
