@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -22,40 +22,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ChevronDown, ChevronRight, X, ExternalLink, ChevronUp } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
-// Mock data for suppliers
-const suppliers = [
-  { id: 1, name: 'ecoffmerce', originalName: 'ecoffmerce', manager: '이상민', date: '2023-07-20 14:10:22' },
-  { id: 2, name: 'ulshna', originalName: 'ulshna', manager: '신경세', date: '2023-06-05 09:23:42' },
-  { id: 3, name: '졸리영양간', originalName: 'jolly and color', manager: '정현', date: '2023-08-09 20:58:06' },
-  { id: 4, name: '바렐레코', originalName: 'bareleco', manager: 'bareleco', date: '2023-06-10 11:35:01' },
-  { id: 5, name: 'ROCKECAKE', originalName: 'ROCKECAKE', manager: '박케이크', date: '2023-06-10 13:37:57' },
-]
-
-// Mock data for products
-const mockProducts = [
-  { 
-    id: 1, 
-    name: '청년당, 오프로드 KC 등받 자동차 청년당, 여의 자동차 청년당, 어린이 소년 선물',
-    sku: 'a111111',
-    image: '/placeholder.svg',
-    category: '자동차용품'
-  },
-  { 
-    id: 2, 
-    name: '언더아머 UA 퍼포먼스 웨이트드 & 슬리브드 - 운동용 액세서리',
-    sku: '707282249',
-    image: '/placeholder.svg',
-    category: '스포츠용품'
-  },
-  { 
-    id: 3, 
-    name: '잉그로리 반응형 플레이어 디자인 쇼핑몰 제작',
-    sku: '3583481362',
-    image: '/placeholder.svg',
-    category: '서비스'
-  },
-]
+import { supabase } from "@/utils/supabase/client";
+import { useUserDataStore } from "@/store/modules";
 
 type CountryLanguagePair = {
   country: string;
@@ -92,9 +60,9 @@ const initialPlatformSelections: PlatformSelection[] = [
 ]
 
 export default function ProductTranslation() {
-  const [selectedSupplier, setSelectedSupplier] = useState<number | null>(null)
+  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [platformSelections, setPlatformSelections] = useState<PlatformSelection[]>(initialPlatformSelections)
-  const [products, setProducts] = useState<typeof mockProducts>([])
+  const [products, setProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<number[]>([])
   const [expandedRows, setExpandedRows] = useState<number[]>([])
   const [isSupplierCardExpanded, setIsSupplierCardExpanded] = useState(true)
@@ -102,6 +70,46 @@ export default function ProductTranslation() {
   const [categoryFilter, setCategoryFilter] = useState('전체')
   const [nameFilter, setNameFilter] = useState('')
   const [categories, setCategories] = useState(['전체', '자동차용품', '스포츠용품', '서비스'])
+  const [supplierData, setSupplierData] = useState<any[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10 // 페이지당 아이템 수
+
+  const { user } = useUserDataStore();
+
+  useEffect(() => {
+    if (user) fetchSupplierData(user!.companyid)
+  }, [user])
+
+  const fetchSupplierData = async (companyid: string) => {
+    try {
+      const { data, error } = await supabase.from('company_supply')
+        .select('*')
+        .eq('companyid', companyid)
+
+      if (error) throw error;
+      
+      setSupplierData(data)
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const fetchProductData = async (itemCustomerId: string, companyid: string) => {
+    const { data, error } = await supabase
+      .from('items')
+      .select(`
+        *,
+        stocks!inner(*)
+      `)
+      .eq('companyid', companyid)
+      .eq('supplyid', itemCustomerId)
+      .order('createdat', { ascending: false })
+
+    if (!error) {
+      setSelectedSupplier(itemCustomerId)
+      setProducts(data)
+    }
+  }
 
   const toggleSupplierCard = () => setIsSupplierCardExpanded(!isSupplierCardExpanded)
 
@@ -145,9 +153,10 @@ export default function ProductTranslation() {
     setPlatformSelections(newPlatformSelections)
   }
 
-  const handleSupplierSelect = (supplierId: number) => {
-    setSelectedSupplier(supplierId)
-    setProducts(mockProducts)
+  const handleSupplierSelect = (row: any) => {
+    const { id: itemCustomerId, companyid } = row;
+
+    fetchProductData(itemCustomerId, companyid);
   }
 
   const handleProductSelect = (productId: number) => {
@@ -158,11 +167,17 @@ export default function ProductTranslation() {
     )
   }
 
-  const handleSelectAllProducts = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      setSelectedProducts(filteredProducts.map(product => product.id))
+  const handleSelectAllProducts = (checked: boolean) => {
+    if (checked) {
+      const currentPageIds = currentItems.map(product => product.id)
+      setSelectedProducts(prev => 
+        [...new Set([...prev, ...currentPageIds])]
+      )
     } else {
-      setSelectedProducts([])
+      const currentPageIds = currentItems.map(product => product.id)
+      setSelectedProducts(prev => 
+        prev.filter(id => !currentPageIds.includes(id))
+      )
     }
   }
 
@@ -178,6 +193,28 @@ export default function ProductTranslation() {
     (categoryFilter === '전체' || product.category === categoryFilter) &&
     product.name.toLowerCase().includes(nameFilter.toLowerCase())
   )
+
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+    setExpandedRows([]) // 페이지 변경시 확장된 행 초기화
+  }
+
+  // 페이지네이션 헬퍼 함수 추가
+  const getPageNumbers = (current: number, total: number) => {
+    if (total <= 3) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    if (current <= 2) return [1, 2, 3];
+    if (current >= total - 1) return [total - 2, total - 1, total];
+
+    return [current - 1, current, current + 1];
+  };
 
   return (
     <div className="container mx-auto p-4 space-y-8">
@@ -202,27 +239,23 @@ export default function ProductTranslation() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>공급사</TableHead>
-                  <TableHead>원문명</TableHead>
-                  <TableHead>관리자</TableHead>
+                  <TableHead>회사명</TableHead>
+                  <TableHead>담당자</TableHead>
                   <TableHead>등록일</TableHead>
                   <TableHead className="text-right">선택</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {suppliers.map((supplier) => (
+                {supplierData.map((supplier) => (
                   <TableRow key={supplier.id}>
-                    <TableCell>{supplier.id}</TableCell>
-                    <TableCell>{supplier.name}</TableCell>
-                    <TableCell>{supplier.originalName}</TableCell>
-                    <TableCell>{supplier.manager}</TableCell>
-                    <TableCell>{supplier.date}</TableCell>
+                    <TableCell>{supplier.supplyname}</TableCell>
+                    <TableCell>{supplier.managername}</TableCell>
+                    <TableCell>{supplier.created}</TableCell>
                     <TableCell className="text-right">
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleSupplierSelect(supplier.id)}
+                        onClick={() => handleSupplierSelect(supplier)}
                       >
                         선택
                       </Button>
@@ -376,7 +409,9 @@ export default function ProductTranslation() {
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="select-all"
-                  checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                  checked={currentItems.length > 0 && currentItems.every(product => 
+                    selectedProducts.includes(product.id)
+                  )}
                   onCheckedChange={handleSelectAllProducts}
                 />
                 <label htmlFor="select-all" className="text-sm font-medium">
@@ -384,7 +419,7 @@ export default function ProductTranslation() {
                 </label>
               </div>
               <div className="space-y-2">
-                {filteredProducts.map((product) => (
+                {currentItems.map((product) => (
                   <div key={product.id} className="border rounded-lg">
                     <div className="flex items-start p-4 gap-4">
                       <Checkbox
@@ -393,7 +428,7 @@ export default function ProductTranslation() {
                         className="mt-1"
                       />
                       <img
-                        src={product.image}
+                        src={product.thumbnailurl}
                         alt=""
                         className="w-16 h-16 object-cover rounded"
                       />
@@ -414,10 +449,7 @@ export default function ProductTranslation() {
                               <p className="font-medium line-clamp-2">{product.name}</p>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              SKU: {product.sku}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Category: {product.category}
+                              SKU: {product.variationsku}
                             </p>
                           </div>
                           <Button variant="ghost" size="icon">
@@ -442,6 +474,36 @@ export default function ProductTranslation() {
                     )}
                   </div>
                 ))}
+              </div>
+              <div className="flex items-center justify-center space-x-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  이전
+                </Button>
+                
+                {getPageNumbers(currentPage, totalPages).map((pageNum) => (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  다음
+                </Button>
               </div>
             </div>
           ) : (
