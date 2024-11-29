@@ -512,7 +512,36 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
             <div className="p-6">
               <div className="space-y-8">
                 <ProductEditPage
-                  initialData={productData}
+                  initialData={{
+                    id: productData.id,
+                    name: productData.name,
+                    content: productData.content,
+                    contenthtml: productData.content, // HTML 내용도 전달
+                    originalcontent: productData.content, // 원본 내용도 전달
+                    weight: productData.weight || 0,
+                    width: productData.width || 0,
+                    length: productData.length || 0,
+                    height: productData.height || 0,
+                    hscode: productData.hscode || '',
+                    barcode: productData.barcode || '',
+                    consumerprice: productData.consumerprice || 0,
+                    status: productData.status || '',
+                    size: productData.size || '',
+                    color: productData.color || '',
+                    material: productData.material || '',
+                    options: optionData || [], // 옵션 데이터 전달
+                    categorypath: productData.categorypath || '',
+                    // 추가 데이터
+                    brandname: productData.brandname || '',
+                    purchaseprice: productData.purchaseprice || 0,
+                    currentstock: productData.currentstock || 0,
+                    safetystock: productData.safetystock || 0,
+                    supplyname: productData.supplyname || '',
+                    noticeinfo: productData.noticeinfo || '',
+                    memo: productData.memo || '',
+                    thumbnailurl: productData.thumbnailurl || '',
+                    variationsku: productData.variationsku || ''
+                  }}
                   onSave={async (formData) => {
                     try {
                       const { error } = await supabase
@@ -528,6 +557,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                           barcode: formData.barcode,
                           consumerprice: formData.consumerprice,
                           status: formData.status,
+                          brandname: formData.brandname,
+                          memo: formData.memo
                         })
                         .eq('id', productId);
 
@@ -543,6 +574,11 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                               size: option.size,
                               material: option.material,
                               purchaseprice: option.purchaseprice,
+                              noticeinfo: option.noticeinfo,
+                              groupname: option.groupname,
+                              groupvalue: option.groupvalue,
+                              packageunit: option.packageunit,
+                              weightunit: option.weightunit
                             })
                             .eq('id', option.id);
 
@@ -554,6 +590,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                       setIsEditDialogOpen(false);
                       // 상품 정보 새로고침
                       fetchProductDetail();
+                      fetchOptionData(productId);
                     } catch (error) {
                       console.error('Failed to update product:', error);
                       alert('상품 수정에 실패했습니다.');
