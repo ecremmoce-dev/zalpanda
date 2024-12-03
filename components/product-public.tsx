@@ -34,6 +34,13 @@ import {
 import { supabase } from "@/utils/supabase/client";
 import { useUserDataStore } from "@/store/modules";
 import { useRouter } from 'next/navigation'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import ProductDetail from "@/components/product-public-detail"
 
 export default function SupplierProductPage() {
   const [supplierData, setSupplierData] = useState<any[]>([])
@@ -41,6 +48,8 @@ export default function SupplierProductPage() {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
 
   const { user } = useUserDataStore();
   const router = useRouter()
@@ -101,6 +110,11 @@ export default function SupplierProductPage() {
     console.log("Downloading list")
   }
 
+  const handleProductClick = (productId: string) => {
+    setSelectedProductId(productId);
+    setIsDetailDialogOpen(true);
+  };
+
   // Supplier columns
   const supplierColumns: ColumnDef<typeof supplierData[0]>[] = [
     { accessorKey: "supplyname", header: "회사명" },
@@ -123,13 +137,45 @@ export default function SupplierProductPage() {
   // Product columns
   const productColumns = [
     //{ accessorKey: "id", header: "번호" },
-    { accessorKey: "variationsku", header: "SKU" },
+    { 
+      accessorKey: "variationsku", 
+      header: "SKU",
+      cell: ({ row }: { row: any }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku}
+        </div>
+      )
+    },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
-      cell: ({ row }: { row: any }) => <img className="w-10 h-10 bg-gray-200 rounded" src={row.original.thumbnailurl || ""} />,
+      cell: ({ row }: { row: any }) => (
+        <div 
+          className="cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          <img 
+            className="w-10 h-10 bg-gray-200 rounded hover:opacity-80 transition-opacity" 
+            src={row.original.thumbnailurl || ""} 
+          />
+        </div>
+      ),
     },
-    { accessorKey: "name", header: "상품명" },
+    { 
+      accessorKey: "name", 
+      header: "상품명",
+      cell: ({ row }: { row: any }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.name}
+        </div>
+      )
+    },
     {
       accessorKey: "consumerprice",
       header: "공급가 (원)",
@@ -144,49 +190,64 @@ export default function SupplierProductPage() {
   ]
 
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-          >
-            {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isSupplierTableExpanded && (
+    <>
+      <div className="container mx-auto p-4 space-y-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+            >
+              {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {isSupplierTableExpanded && (
+              <DataTable 
+                columns={supplierColumns}
+                data={supplierData}
+                searchTerm={supplierSearchTerm}
+                onSearchTermChange={setSupplierSearchTerm}
+                onSearch={handleSupplierSearch}
+                onDownloadList={handleDownloadList}
+                onProductRegistration={handleProductRegistration}
+                showActionButtons={true}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold">
+              {selectedSupplier ? `${selectedSupplier} 공용상품` : '공용상품'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <DataTable 
-              columns={supplierColumns}
-              data={supplierData}
-              searchTerm={supplierSearchTerm}
-              onSearchTermChange={setSupplierSearchTerm}
-              onSearch={handleSupplierSearch}
-              onDownloadList={handleDownloadList}
-              onProductRegistration={handleProductRegistration}
-              showActionButtons={true}
+              columns={productColumns}
+              data={filteredProducts}
+              showActionButtons={false}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-[1600px] max-h-[95vh] overflow-y-auto p-8">
+          <DialogHeader>
+            <DialogTitle>상품 상세 정보</DialogTitle>
+          </DialogHeader>
+          {selectedProductId && (
+            <ProductDetail 
+              productId={selectedProductId}
             />
           )}
-        </CardContent>
-      </Card>
-
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">
-            {selectedSupplier ? `${selectedSupplier} 공용상품` : '공용상품'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable 
-            columns={productColumns}
-            data={filteredProducts}
-            showActionButtons={false}
-          />
-        </CardContent>
-      </Card>
-    </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
