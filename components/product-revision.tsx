@@ -50,6 +50,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
+import { useSupplierStore } from "@/store/modules/supplierStore"
 
 interface Supplier {
   id: number
@@ -83,7 +84,6 @@ const DEFAULT_IMAGE = 'https://via.placeholder.com/150'
 export default function SupplierProductManagement() {
   const [userData, setUserData] = useState<any>(null)
   const [supplierData, setSupplierData] = useState<any[]>([])
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [supplierSearch, setSupplierSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
@@ -98,10 +98,20 @@ export default function SupplierProductManagement() {
   const [currentPage, setCurrentPage] = useState(0);
 
   const { user } = useUserDataStore();
+  const { selectedSupplier, setSelectedSupplier } = useSupplierStore();
 
   useEffect(() => {
-    if (user) fetchSupplierData(user!.companyid)
-  }, [user])
+    const initializeData = async () => {
+      if (user) {
+        await fetchSupplierData(user.companyid)
+        if (selectedSupplier?.id) {
+          await fetchProductData(selectedSupplier.id, user.companyid)
+        }
+      }
+    }
+    
+    initializeData()
+  }, [user, selectedSupplier])
 
   const fetchSupplierData = async (companyid: string) => {
     try {
@@ -117,9 +127,9 @@ export default function SupplierProductManagement() {
     }
   }
 
-  const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
+  const fetchProductData = async (supplyid: string | number, companyid: string) => {
     try {
-      console.log('Fetching products with params:', { itemCustomerId, companyid, supplierName });
+      console.log('Fetching products with params:', { supplyid, companyid });
       
       const { data, error } = await supabase
         .from('items')
@@ -139,11 +149,8 @@ export default function SupplierProductManagement() {
           )
         `)
         .eq('companyid', companyid)
-        .eq('supplyid', itemCustomerId)
+        .eq('supplyid', supplyid.toString())
         .order('createdat', { ascending: false })
-
-      console.log('Raw DB response:', data);
-      console.log('DB error if any:', error);
 
       if (error) throw error;
 
@@ -154,16 +161,6 @@ export default function SupplierProductManagement() {
       }));
 
       console.log('Formatted data:', formattedData);
-
-      setSelectedSupplier({
-        id: parseInt(itemCustomerId),
-        company: supplierName,
-        code: '',
-        website: '',
-        brand: '',
-        registrationDate: new Date().toISOString()
-      });
-      
       setProducts(formattedData);
     } catch (error) {
       console.error('Failed to fetch products:', error);
@@ -171,9 +168,19 @@ export default function SupplierProductManagement() {
     }
   }
 
-  const handleSupplierSelect = (row: any) => {
-    const { supplyname: supplierName, id: itemCustomerId, companyid } = row;
-    fetchProductData(itemCustomerId, companyid, supplierName);
+  const handleSupplierSelect = async (supplier: any) => {
+    if (user && supplier && supplier.id) {
+      const { supplyname, id, companyid } = supplier
+      setSelectedSupplier({
+        id,
+        supplyname,
+        managername: supplier.managername,
+        created: supplier.created,
+        companyid
+      })
+      
+      await fetchProductData(id, user.companyid)
+    }
   }
 
   const handleEditContent = async (productId: string, newContent: string, newContentHtml: string) => {
@@ -221,10 +228,10 @@ export default function SupplierProductManagement() {
       cell: ({ row }) => (
         <Button
           onClick={() => handleSupplierSelect(row.original)}
-          variant="outline"
+          variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
           size="sm"
         >
-          선택
+          {selectedSupplier?.id === row.original.id ? "선택됨" : "선택"}
         </Button>
       ),
     },
