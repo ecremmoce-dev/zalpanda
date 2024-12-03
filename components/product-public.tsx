@@ -235,6 +235,7 @@ export default function SupplierProductPage() {
         </Card>
       </div>
 
+
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-[1600px] max-h-[95vh] overflow-y-auto p-8">
           <DialogHeader>
