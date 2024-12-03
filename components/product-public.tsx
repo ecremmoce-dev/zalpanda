@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { supabase } from "@/utils/supabase/client";
 import { useUserDataStore } from "@/store/modules";
+import { useRouter } from 'next/navigation'
 
 export default function SupplierProductPage() {
   const [supplierData, setSupplierData] = useState<any[]>([])
@@ -42,6 +43,7 @@ export default function SupplierProductPage() {
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
 
   const { user } = useUserDataStore();
+  const router = useRouter()
 
   useEffect(() => {
     if (user) fetchSupplierData(user!.companyid)
@@ -90,8 +92,8 @@ export default function SupplierProductPage() {
   }
 
   const handleProductRegistration = (method: string) => {
-    // Implement the product registration logic here
-    console.log("Registering product via:", method)
+    // router.push(`/product/public/new?type=${method}`)
+    router.push(`/product/public/new`)
   }
 
   const handleDownloadList = () => {
@@ -255,13 +257,13 @@ function DataTable<TData, TValue>({
                 <Button variant="outline" size="sm">상품 등록</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("직접 입력")}>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("direct")}>
                   직접 입력
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("Url 입력")}>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("url")}>
                   Url 입력
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("파일 업로드")}>
+                <DropdownMenuItem onSelect={() => onProductRegistration?.("upload")}>
                   파일 업로드
                 </DropdownMenuItem>
               </DropdownMenuContent>
