@@ -25,6 +25,7 @@ interface ProductDetail {
   memo: string
   thumbnailurl: string
   content: string
+  contenthtml: string
   brandname: string
   purchaseprice: number
   consumerprice: number
@@ -81,6 +82,11 @@ interface ItemImage {
   hasGroupAlias: boolean
   groupalias: string | null
   createdat: string
+}
+
+// 인터페이스 추가
+interface NoticeInfo {
+  [key: string]: string;
 }
 
 export default function ProductDetail({ productId }: ProductDetailProps) {
@@ -193,14 +199,15 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           memo,
           thumbnailurl,
           content,
+          contenthtml,
           brandname,
           consumerprice,
+          noticeinfo,
           status,
           item_options!left (
             purchaseprice,
             color,
             material,
-            noticeinfo,
             size
           ),
           stocks!left (
@@ -250,10 +257,10 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
       const formattedData: ProductDetail = {
         ...data,
+        contenthtml: data.contenthtml || '',
         purchaseprice: data.item_options?.[0]?.purchaseprice || 0,
         color: data.item_options?.[0]?.color || '',
         material: data.item_options?.[0]?.material || '',
-        noticeinfo: data.item_options?.[0]?.noticeinfo || '',
         size: data.item_options?.[0]?.size || '',
         currentstock: data.stocks?.[0]?.nowstock || 0,
         safetystock: data.stocks?.[0]?.safetystock || 0,
@@ -284,7 +291,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     <div className="container mx-auto py-2">
       <Card className="bg-card">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">상품 상세</CardTitle>
+          <CardTitle className="text-2xl font-bold">기본 정보</CardTitle>
           <div className="flex items-center space-x-2">
             <Button 
               variant="outline" 
@@ -367,19 +374,66 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
             <Separator />
             <div className="grid gap-4">
               <h3 className="text-lg font-semibold">고시정보</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">사이즈</h4>
-                  <p className="text-sm text-muted-foreground">{productData.size || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">색상</h4>
-                  <p className="text-sm text-muted-foreground">{productData.color || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">소재</h4>
-                  <p className="text-sm text-muted-foreground">{productData.material || '-'}</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(() => {
+                  let noticeData: NoticeInfo = {};
+                  try {
+                    noticeData = productData.noticeinfo ? JSON.parse(productData.noticeinfo) : {};
+                  } catch (e) {
+                    console.error('Failed to parse noticeinfo:', e);
+                  }
+
+                  // 표시하고 싶은 필드 순서 정의
+                  const priorityFields = [
+                    '상품번호',
+                    '상품상태',
+                    '원산지',
+                    '제조자(사)',
+                    '제조국',
+                    '제조연월',
+                    '제품소재',
+                    '색상',
+                    '치수',
+                    '세탁방법 및 취급시 주의사항',
+                    '품질보증기준',
+                    'A/S 책임자와 전화번호',
+                    'A/S 안내',
+                    '영수증발급'
+                  ];
+
+                  // 우선순위가 있는 필드를 먼저 표시
+                  const priorityEntries = priorityFields
+                    .filter(field => noticeData[field])
+                    .map(field => [field, noticeData[field]]);
+
+                  // 나머지 필드 표시 (우선순위에 없는 필드들)
+                  const remainingEntries = Object.entries(noticeData)
+                    .filter(([key, value]) => 
+                      !priorityFields.includes(key) && 
+                      value && 
+                      value !== '해당사항 없음' && 
+                      !value.includes('상세정보 확���') && 
+                      !value.includes('상세설명참조') && 
+                      !value.includes('상품상세참조') && 
+                      !value.includes('상품상세페이지 참조')
+                    );
+
+                  // 모든 항목 합치기
+                  const allEntries = [...priorityEntries, ...remainingEntries];
+
+                  return allEntries.length > 0 ? (
+                    allEntries.map(([key, value], index) => (
+                      <div key={index}>
+                        <h4 className="text-sm font-medium">{key}</h4>
+                        <p className="text-sm text-muted-foreground break-words">{value}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center text-muted-foreground">
+                      고시정보가 없습니다.
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             {thumbnailImages.length > 0 && (
@@ -387,25 +441,36 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                 <Separator />
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">상품 이미지</h3>
-                  <Carousel className="w-full max-w-xl mx-auto">
-                    <CarouselContent>
-                      {thumbnailImages.map((image, index) => (
-                        <CarouselItem key={image.id}>
-                          <div className="p-1">
-                            <div className="relative aspect-square overflow-hidden rounded-lg">
-                              <img
-                                src={image.url}
-                                alt={`상품 이미지 ${index + 1}`}
-                                className="object-contain w-full h-full max-h-[300px]"
-                              />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                    {thumbnailImages.map((image, index) => (
+                      <Dialog key={image.id}>
+                        <DialogTrigger asChild>
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white text-sm">클릭하여 확대</span>
                             </div>
+                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                              {index + 1}
+                            </span>
                           </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious />
-                    <CarouselNext />
-                  </Carousel>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <div className="relative aspect-[3/4] max-h-[600px]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-contain w-full h-full"
+                            />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -516,8 +581,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     id: productData.id,
                     name: productData.name,
                     content: productData.content,
-                    contenthtml: productData.content, // HTML 내용도 전달
-                    originalcontent: productData.content, // 원본 내용도 전달
+                    contenthtml: productData.contenthtml,
+                    originalcontent: productData.content,
                     weight: productData.weight || 0,
                     width: productData.width || 0,
                     length: productData.length || 0,
@@ -529,9 +594,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     size: productData.size || '',
                     color: productData.color || '',
                     material: productData.material || '',
-                    options: optionData || [], // 옵션 데이터 전달
+                    options: optionData || [],
                     categorypath: productData.categorypath || '',
-                    // 추가 데이터
                     brandname: productData.brandname || '',
                     purchaseprice: productData.purchaseprice || 0,
                     currentstock: productData.currentstock || 0,
@@ -549,6 +613,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                         .update({
                           name: formData.name,
                           content: formData.content,
+                          contenthtml: formData.contenthtml,
                           weight: formData.weight,
                           width: formData.width,
                           length: formData.length,

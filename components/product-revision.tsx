@@ -67,6 +67,7 @@ interface Product {
   name: string
   originalname: string
   content: string
+  contenthtml: string
   originalcontent: string
   updatedat: string
   createdat: string
@@ -129,6 +130,7 @@ export default function SupplierProductManagement() {
           name,
           originalname,
           content,
+          contenthtml,
           originalcontent,
           updatedat,
           createdat,
@@ -147,6 +149,7 @@ export default function SupplierProductManagement() {
 
       const formattedData = data.map(item => ({
         ...item,
+        contenthtml: item.contenthtml || '',
         stocks: item.stocks ? (item.stocks[0] || { nowstock: 0 }) : { nowstock: 0 }
       }));
 
@@ -173,18 +176,21 @@ export default function SupplierProductManagement() {
     fetchProductData(itemCustomerId, companyid, supplierName);
   }
 
-  const handleEditContent = async (productId: string, newContent: string) => {
+  const handleEditContent = async (productId: string, newContent: string, newContentHtml: string) => {
     try {
       const { error } = await supabase
         .from('items')
-        .update({ content: newContent })
+        .update({ 
+          content: newContent,
+          contenthtml: newContentHtml
+        })
         .eq('id', productId)
 
       if (error) throw error;
 
       setProducts(products.map(product => 
         product.id === productId 
-          ? { ...product, content: newContent }
+          ? { ...product, content: newContent, contenthtml: newContentHtml }
           : product
       ))
       
@@ -245,17 +251,27 @@ export default function SupplierProductManagement() {
     { 
       accessorKey: "variationsku",
       header: "SKU",
-      cell: ({ row }) => row.original.variationsku || '-'
+      cell: ({ row }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku || '-'}
+        </div>
+      )
     },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <div 
+          className="flex items-center justify-center cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           <img
             src={row.original.thumbnailurl || DEFAULT_IMAGE}
             alt={row.original.name || '상품 이미지'}
-            className="w-16 h-16 object-cover rounded"
+            className="w-16 h-16 object-cover rounded hover:opacity-80 transition-opacity"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = DEFAULT_IMAGE;
@@ -268,8 +284,12 @@ export default function SupplierProductManagement() {
       accessorKey: "originalname",
       header: "원본 상품명",
       cell: ({ row }) => (
-        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.originalname }>
-          {row.original.originalname  || '-'}
+        <div 
+          className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:text-blue-500"
+          title={row.original.originalname}
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.originalname || '-'}
         </div>
       )
     },
@@ -317,17 +337,27 @@ export default function SupplierProductManagement() {
     { 
       accessorKey: "variationsku",
       header: "SKU",
-      cell: ({ row }) => row.original.variationsku || '-'
+      cell: ({ row }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku || '-'}
+        </div>
+      )
     },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <div 
+          className="flex items-center justify-center cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           <img
             src={row.original.thumbnailurl || DEFAULT_IMAGE}
             alt={row.original.name}
-            className="w-16 h-16 object-cover rounded"
+            className="w-16 h-16 object-cover rounded hover:opacity-80 transition-opacity"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = DEFAULT_IMAGE;
@@ -528,7 +558,7 @@ export default function SupplierProductManagement() {
               취소
             </Button>
             <Button 
-              onClick={() => editingProductId && handleEditContent(editingProductId, editingContent)}
+              onClick={() => editingProductId && handleEditContent(editingProductId, editingContent, '')}
             >
               저장
             </Button>

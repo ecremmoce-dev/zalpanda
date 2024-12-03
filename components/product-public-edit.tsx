@@ -43,28 +43,42 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-// ProductEditPageProps 타입 정의 추가
+// ProductEditPageProps 타입 수정
 interface ProductEditPageProps {
   initialData: {
+    id?: string;
+    variationsku?: string;
     name?: string;
-    content?: string;
-    contenthtml?: string;
-    originalcontent?: string;
+    hscode?: string;
+    barcode?: string;
     weight?: number;
     width?: number;
     length?: number;
     height?: number;
-    hscode?: string;
-    barcode?: string;
+    memo?: string;
+    thumbnailurl?: string;
+    content?: string;
+    contenthtml?: string;
+    brandname?: string;
     consumerprice?: number;
     status?: string;
-    size?: string;
     color?: string;
     material?: string;
-    options?: any[];
+    noticeinfo?: string;
+    size?: string;
+    currentstock?: number;
+    safetystock?: number;
+    producturl?: string;
+    customerid?: string;
+    customername?: string;
+    categorymapid?: string;
+    categoryid?: string;
     categorypath?: string;
-    id?: string;
-    supplyname?: string;
+    groupname?: string;
+    groupvalue?: string;
+    purchaseprice?: number;
+    packageunit?: string;
+    weightunit?: string;
   };
   onSave: (data: any) => void;
   onCancel: () => void;
@@ -93,6 +107,11 @@ interface Category {
   parentcategoryid: string | null;
   pathname: string;
   platform: string;
+}
+
+// 컴포넌트 상단에 인터페이스 추가
+interface NoticeInfo {
+  [key: string]: string;
 }
 
 // 아이콘 버튼들을 포함하는 공통 컴포넌트 생성
@@ -199,15 +218,32 @@ const DraggableImage = ({ image, index, moveImage }: {
   );
 };
 
-// Option 인터페이스 추가
+// Option 인터페이스 수정
 interface Option {
   id: string;
-  optionName: string;
-  optionValue: string;
-  code: string;
-  quantity: number;
-  price: number;
-  discountPrice: number;
+  itemid?: string;
+  variationsku?: string;
+  consumerprice?: number;
+  purchaseprice?: number;
+  groupname?: string;
+  groupvalue?: string;
+  color?: string;
+  material?: string;
+  noticeinfo?: string;
+  size?: string;
+  voproductid?: string;
+  expirationday?: number;
+  feature?: string;
+  packageunit?: string;
+  weightunit?: string;
+  createdat?: string;
+  updatedat?: string;
+  currentstock?: number;
+  safetystock?: number;
+  code?: string;
+  quantity?: number;
+  price?: number;
+  discountPrice?: number;
 }
 
 // DraggableContentImage 컴포넌트 수정
@@ -286,12 +322,21 @@ const DraggableContentImage = React.memo(({ image, index, moveImage }: {
   );
 });
 
+// UUID 생성 함수 추가
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export default function ProductEditPage({ initialData, onSave, onCancel }: ProductEditPageProps) {
   const [formData, setFormData] = React.useState({
     name: initialData?.name || '',
     content: initialData?.content || '',
     contenthtml: initialData?.contenthtml || '',
-    originalcontent: initialData?.originalcontent || '',
+    memo: initialData?.memo || '',
     weight: initialData?.weight || 0,
     width: initialData?.width || 0,
     length: initialData?.length || 0,
@@ -303,7 +348,13 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     size: initialData?.size || '',
     color: initialData?.color || '',
     material: initialData?.material || '',
-    options: initialData?.options || []
+    brandname: initialData?.brandname || '',
+    noticeinfo: initialData?.noticeinfo || '',
+    variationsku: initialData?.variationsku || '',
+    producturl: initialData?.producturl || '',
+    purchaseprice: initialData?.purchaseprice || 0,
+    packageunit: initialData?.packageunit || '',
+    weightunit: initialData?.weightunit || ''
   });
 
   const [isCategoryExpanded, setIsCategoryExpanded] = React.useState(true);
@@ -314,10 +365,15 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
 
   // 입력 핸들러
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    console.log(`Updating ${field}:`, value);
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [field]: value
+      };
+      console.log('Updated formData:', newData);
+      return newData;
+    });
   };
 
   const [thumbnailImages, setThumbnailImages] = React.useState<Image[]>([]);
@@ -352,7 +408,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         hasGroupAlias: img.groupalias !== null
       }));
 
-      // 이미지 타입별로 분류
+      // 이미지 타별로 분류
       const thumbnails = formattedData.filter(img => img.type === 'THUMBNAIL');
       const contents = formattedData.filter(img => img.type === 'MAIN_CONTENT');
 
@@ -399,7 +455,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
           return;
         }
 
-        console.log('Raw Categories:', allCategories); // 디버깅용 로그
+        //console.log('Raw Categories:', allCategories); // 디버깅용 로그
 
         // depth 값을 0부터 시작하도록 수정
         const formattedCategories = allCategories
@@ -565,63 +621,55 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     });
   }, []);
 
-  // 옵션 상태 추가
-  const [options, setOptions] = React.useState<Option[]>([
-    { 
-      id: '1',
-      optionName: "색상", 
-      optionValue: "베이지", 
-      code: "2956993733",
-      quantity: 10,
-      price: 1000000,
-      discountPrice: 1000000
-    },
-    { 
-      id: '2',
-      optionName: "색상", 
-      optionValue: "화이트", 
-      code: "2956993734",
-      quantity: 10,
-      price: 1000000,
-      discountPrice: 1000000
-    },
-    { 
-      id: '3',
-      optionName: "사이즈", 
-      optionValue: "S", 
-      code: "2956993735",
-      quantity: 10,
-      price: 1000000,
-      discountPrice: 1000000
-    },
-    { 
-      id: '4',
-      optionName: "사이즈", 
-      optionValue: "M", 
-      code: "2956993736",
-      quantity: 10,
-      price: 1000000,
-      discountPrice: 1000000
-    }
-  ]);
+  // 옵션 상태 추기화 수정
+  const [options, setOptions] = React.useState<Option[]>(initialData?.options || []);
 
-  // 옵션 추가 함수
+  // 옵션 추가 함수 수정
   const handleAddOption = () => {
     const newOption: Option = {
-      id: `${Date.now()}`, // 임시 ID 생성
-      optionName: "",
-      optionValue: "",
-      code: "",
-      quantity: 0,
-      price: 0,
-      discountPrice: 0
+      id: generateUUID(), // UUID 사용
+      itemid: initialData.id,
+      variationsku: '',
+      consumerprice: 0,
+      purchaseprice: 0,
+      groupname: '',
+      groupvalue: '',
+      color: '',
+      material: '',
+      size: '',
+      currentstock: 0,
+      safetystock: 0,
+      packageunit: '',
+      weightunit: ''
     };
     setOptions([...options, newOption]);
   };
 
-  // 옵션 삭제 함수
-  const handleDeleteOption = (id: string) => {
-    setOptions(options.filter(option => option.id !== id));
+  // 옵션 삭제 함수 수정
+  const handleDeleteOption = async (id: string) => {
+    try {
+      // 삭제 확인
+      if (!window.confirm('이 옵션을 삭제하시겠습니까?')) {
+        return;
+      }
+
+      // 1. item_options 테이블에서 옵션 삭제
+      const { error: optionError } = await supabase
+        .from('item_options')
+        .delete()
+        .eq('id', id);
+
+      if (optionError) throw optionError;
+
+      // 2. UI에서 옵션 제거
+      setOptions(options.filter(option => option.id !== id));
+
+      // 성공 메시지 표시
+      alert('옵션이 성공적으로 삭제되었습니다.');
+    } catch (error) {
+      console.error('Failed to delete option:', error);
+      alert('옵션 삭제에 실패했습니다.');
+    }
   };
 
   // 옵션 수정 함수
@@ -632,6 +680,90 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         : option
     ));
   };
+
+  // initialData가 변될 때마다 로그 출력
+  React.useEffect(() => {
+    console.log('Initial Data:', initialData);
+    console.log('Initial contenthtml:', initialData?.contenthtml);
+  }, [initialData]);
+
+  // 상태 추가 (포넌트 최상단 상태 선언부에 추가)
+  const [isContentExpanded, setIsContentExpanded] = React.useState(true);
+
+  // 상품 설명 에디터 부분 수정
+  <div className="space-y-2">
+    <div className="flex justify-between items-center">
+      <Label>상품 설명</Label>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="text-blue-500"
+        onClick={() => setIsContentExpanded(prev => !prev)}
+      >
+        {isContentExpanded ? '접기' : '펼치기'}
+      </Button>
+    </div>
+    {isContentExpanded && (
+      <Tabs defaultValue="edit" className="w-full">
+        <TabsList>
+          <TabsTrigger value="edit">본문 편집</TabsTrigger>
+          <TabsTrigger value="original">본문 원본</TabsTrigger>
+          <TabsTrigger value="html">본문 HTML</TabsTrigger>
+        </TabsList>
+        <TabsContent value="edit">
+          <div className="space-y-4">
+            <Textarea 
+              value={formData.content}
+              onChange={(e) => handleInputChange('content', e.target.value)}
+              className="min-h-[200px]"
+              placeholder="상품 설명을 입력하세요"
+            />
+          </div>
+        </TabsContent>
+        <TabsContent value="original">
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg min-h-[200px] whitespace-pre-wrap">
+              {formData.content}
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="html">
+          <div className="space-y-4">
+            <div className="relative">
+              <Textarea 
+                value={formData.contenthtml}
+                onChange={(e) => {
+                  console.log('HTML Content Changed:', e.target.value);
+                  handleInputChange('contenthtml', e.target.value);
+                }}
+                className="min-h-[200px] font-mono text-sm"
+                placeholder="HTML 코드를 입력하세요"
+              />
+              <div className="absolute top-2 right-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    console.log('Current HTML Content:', formData.contenthtml);
+                    const previewWindow = window.open('', '_blank');
+                    previewWindow?.document.write(formData.contenthtml);
+                  }}
+                >
+                  미리보기
+                </Button>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div 
+                className="prose max-w-none"
+                dangerouslySetInnerHTML={{ __html: formData.contenthtml }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    )}
+  </div>
 
   // 이미지 섹션 수정
   return (
@@ -670,7 +802,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         }}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="1차 카테고리" />
+                          <SelectValue placeholder="1차 테고리" />
                         </SelectTrigger>
                         <SelectContent>
                           {categories
@@ -732,7 +864,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         <SelectContent>
                           {categories
                             .filter(c => {
-                              console.log('Checking category:', c, 'against parent:', selectedSecondCategory?.id); // 디버깅용 로그
+                              //console.log('Checking category:', c, 'against parent:', selectedSecondCategory?.id); // 버깅용 로그
                               return c.depth === 2 && c.parentcategoryid === selectedSecondCategory?.id;
                             })
                             .map(category => (
@@ -794,7 +926,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                     </div>
 
                     <div className="space-y-2">
-                      <Label>선택한 카테고리</Label>
+                      <Label>선택한 카테고</Label>
                       <div className="flex flex-wrap gap-2">
                         {(selectedCategory || initialData.categorypath) && (
                           <Badge variant="secondary" className="px-3 py-1">
@@ -824,7 +956,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
             )}
           </section>
 
-          {/* 기본 정보 섹션 */}
+          {/* 기 정보 섹션 */}
           <section className="space-y-4">
             <h2 className="text-lg font-semibold">기본 정보</h2>
             <div className="grid gap-4">
@@ -834,87 +966,108 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                   id="title" 
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="상품명을 입력하세요" 
+                  placeholder="상품명을 력하세요" 
                 />
               </div>
               
-              {/* 상 설명 에디터 */}
-              <div className="space-y-2">
-                <Label>상품 설명</Label>
-                <Tabs defaultValue="edit" className="w-full">
-                  <TabsList>
-                    <TabsTrigger value="edit">본문 편집</TabsTrigger>
-                    <TabsTrigger value="original">본문 원본</TabsTrigger>
-                    <TabsTrigger value="html">본문 HTML</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="edit">
-                    <div className="space-y-4">
+              {/* 세정보 섹션 */}
+              <div className="space-y-4">
+                {/* 상세정보 헤더 */}
+                <div className="flex justify-between items-center border-b pb-2">
+                  <h2 className="text-lg font-semibold">상세정보</h2>
+                  <Button 
+                    variant="link" 
+                    className="text-blue-500"
+                    onClick={() => setIsContentExpanded(prev => !prev)}
+                  >
+                    {isContentExpanded ? '접기' : '펼치기'}
+                  </Button>
+                </div>
+                
+                {isContentExpanded && (
+                  <div className="space-y-4">
+                    {/* 상품 설명 */}
+                    <div className="space-y-2">
+                      <Label>상품 설명</Label>
+                      <Tabs defaultValue="edit" className="w-full">
+                        <TabsList>
+                          <TabsTrigger value="edit">본문 편집</TabsTrigger>
+                          <TabsTrigger value="original">본문 원본</TabsTrigger>
+                          <TabsTrigger value="html">본문 HTML</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="edit">
+                          <div className="space-y-4">
+                            <Textarea 
+                              value={formData.content}
+                              onChange={(e) => handleInputChange('content', e.target.value)}
+                              className="min-h-[200px]"
+                              placeholder="상품 설명을 입력하세요"
+                            />
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="original">
+                          <div className="space-y-4">
+                            <div className="p-4 bg-gray-50 rounded-lg min-h-[200px] whitespace-pre-wrap">
+                              {formData.content}
+                            </div>
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="html">
+                          <div className="space-y-4">
+                            <div className="relative">
+                              <Textarea 
+                                value={formData.contenthtml}
+                                onChange={(e) => {
+                                  console.log('HTML Content Changed:', e.target.value);
+                                  handleInputChange('contenthtml', e.target.value);
+                                }}
+                                className="min-h-[200px] font-mono text-sm"
+                                placeholder="HTML 코드를 입력하세요"
+                              />
+                              <div className="absolute top-2 right-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    console.log('Current HTML Content:', formData.contenthtml);
+                                    const previewWindow = window.open('', '_blank');
+                                    previewWindow?.document.write(formData.contenthtml);
+                                  }}
+                                >
+                                  미리보기
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <div 
+                                className="prose max-w-none"
+                                dangerouslySetInnerHTML={{ __html: formData.contenthtml }}
+                              />
+                            </div>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+
+                    {/* 보완할 방법 */}
+                    <div className="space-y-2">
+                      <Label>보완할 방법</Label>
                       <Textarea 
-                        value={formData.content}
-                        onChange={(e) => handleInputChange('content', e.target.value)}
-                        className="min-h-[200px]"
-                        placeholder="상품 설명을 입력하세요"
+                        placeholder="보완할 방법을 입력하세요" 
+                        className="min-h-[100px]"
                       />
                     </div>
-                  </TabsContent>
-                  <TabsContent value="original">
-                    <div className="space-y-4">
-                      <div className="p-4 bg-gray-50 rounded-lg min-h-[200px] whitespace-pre-wrap">
-                        {formData.content}
-                      </div>
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="html">
-                    <div className="space-y-4">
-                      <div className="relative">
-                        <Textarea 
-                          value={formData.contenthtml}
-                          onChange={(e) => {
-                            handleInputChange('contenthtml', e.target.value);
-                          }}
-                          className="min-h-[200px] font-mono text-sm"
-                          placeholder="HTML 코드를 입력하세요"
-                        />
-                        <div className="absolute top-2 right-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              const previewWindow = window.open('', '_blank');
-                              previewWindow?.document.write(formData.contenthtml);
-                            }}
-                          >
-                            미리보기
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <div 
-                          className="prose max-w-none"
-                          dangerouslySetInnerHTML={{ __html: formData.contenthtml }}
-                        />
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
 
-              {/* 보완할 방법을 입력하세요 */}
-              <div className="space-y-2">
-                <Label>보완할 방법</Label>
-                <Textarea 
-                  placeholder="보완할 방법을 입력하세요" 
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              {/* 보완할 내용을 입력하세요 */}
-              <div className="space-y-2">
-                <Label>보완할 내용</Label>
-                <Textarea 
-                  placeholder="보완할 내용을 입력하세요" 
-                  className="min-h-[100px]"
-                />
+                    {/* 보완할 내용 */}
+                    <div className="space-y-2">
+                      <Label>보완할 내용</Label>
+                      <Textarea 
+                        placeholder="보완할 내용을 입력하세요" 
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -960,29 +1113,61 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>가로(Length)</Label>
-                    <Input type="number" placeholder="0" />
-                    <span className="text-sm text-muted-foreground">cm</span>
+                    <Input 
+                      type="number" 
+                      value={formData.length}
+                      onChange={(e) => handleInputChange('length', Number(e.target.value))}
+                      placeholder="0" 
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.packageunit || 'cm'}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     <Label>세로(Width)</Label>
-                    <Input type="number" placeholder="0" />
-                    <span className="text-sm text-muted-foreground">cm</span>
+                    <Input 
+                      type="number" 
+                      value={formData.width}
+                      onChange={(e) => handleInputChange('width', Number(e.target.value))}
+                      placeholder="0" 
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.packageunit || 'cm'}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     <Label>높이(Height)</Label>
-                    <Input type="number" placeholder="0" />
-                    <span className="text-sm text-muted-foreground">cm</span>
+                    <Input 
+                      type="number" 
+                      value={formData.height}
+                      onChange={(e) => handleInputChange('height', Number(e.target.value))}
+                      placeholder="0" 
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.packageunit || 'cm'}
+                    </span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>무게</Label>
-                    <Input type="number" placeholder="0" />
-                    <span className="text-sm text-muted-foreground">kg</span>
+                    <Input 
+                      type="number" 
+                      value={formData.weight}
+                      onChange={(e) => handleInputChange('weight', Number(e.target.value))}
+                      placeholder="0" 
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {formData.weightunit || 'kg'}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     <Label>부피무게</Label>
-                    <Input type="number" placeholder="0" disabled />
+                    <Input 
+                      type="number" 
+                      value={(formData.length * formData.width * formData.height) / 6000}
+                      disabled 
+                    />
                     <span className="text-sm text-muted-foreground">kg</span>
                   </div>
                 </div>
@@ -1010,30 +1195,40 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                     <path d="M 50,120 L 30,100" />
                     
                     {/* Labels */}
-                    <text x="15" y="60" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>width</text>
-                    <text x="80" y="140" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>length</text>
-                    <text x="160" y="60" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>height</text>
+                    <text x="15" y="60" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>
+                      {formData.width}{formData.packageunit || 'cm'}
+                    </text>
+                    <text x="80" y="140" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>
+                      {formData.length}{formData.packageunit || 'cm'}
+                    </text>
+                    <text x="160" y="60" className="text-xs" style={{ stroke: 'none', fill: '#6B7280' }}>
+                      {formData.height}{formData.packageunit || 'cm'}
+                    </text>
                   </svg>
                 </div>
                 <div className="bg-gray-600 text-white p-4 rounded-lg text-sm space-y-4 min-w-[300px]">
                   <div className="flex items-center justify-center gap-2">
-                    <span>가로(Length)</span>
+                    <span>{formData.length || 0}</span>
                     <span>x</span>
-                    <span>로(Width)</span>
+                    <span>{formData.width || 0}</span>
                     <span>x</span>
-                    <span>높이(Height)</span>
+                    <span>{formData.height || 0}</span>
                     <span>/</span>
                     <span>6,000</span>
                     <span>=</span>
+                    <span>{((formData.length * formData.width * formData.height) / 6000).toFixed(2)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-8 text-center">
                     <div>
                       <div className="text-gray-300">무게</div>
-                      <div>0kg</div>
+                      <div>{formData.weight || 0}{formData.weightunit || 'kg'}</div>
                     </div>
                     <div>
                       <div className="text-gray-300">부피무게</div>
-                      <div>0kg</div>
+                      <div>
+                        {((formData.length * formData.width * formData.height) / 6000).toFixed(2)}
+                        {formData.weightunit || 'kg'}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1048,51 +1243,98 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
               <CardContent className="p-6">
                 <div className="grid gap-6">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">상품코드</Label>
-                      <div className="text-sm font-medium">612999506</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">상품태</Label>
-                      <div className="text-sm font-medium">신상</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">원산지</Label>
-                      <div className="text-sm font-medium">국내산(자체 가공품)</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">제조연월</Label>
-                      <div className="text-sm font-medium">상세명참조</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">제조자(수입자)</Label>
-                      <div className="text-sm font-medium">상세설명참조</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">취급시 주의사항</Label>
-                      <div className="text-sm font-medium">상세설명참조</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">품질보증기준</Label>
-                      <div className="text-sm font-medium">상세설명참조</div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-muted-foreground">A/S 책임자와 전화번호</Label>
-                      <div className="text-sm font-medium">상세설명참조 (000)</div>
-                    </div>
+                    {(() => {
+                      let noticeData: NoticeInfo = {};
+                      try {
+                        // initialData에서 noticeinfo 파싱
+                        noticeData = initialData?.noticeinfo ? JSON.parse(initialData.noticeinfo) : {};
+                        console.log('Parsed Notice Data:', noticeData);
+                      } catch (e) {
+                        console.error('Failed to parse noticeinfo:', e);
+                      }
+
+                      // 모든 필드를 표시 (제외할 필드 목록)
+                      const excludeFields = ['치수', '색상', '제품소재'];
+
+                      // 모든 항목 표시
+                      const entries = Object.entries(noticeData)
+                        .filter(([key]) => !excludeFields.includes(key))
+                        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+
+                      return entries.length > 0 ? (
+                        entries.map(([key, value], index) => (
+                          <div key={index} className="space-y-2">
+                            <Label className="text-sm font-medium text-muted-foreground">
+                              {key}
+                            </Label>
+                            <div className="text-sm font-medium break-words bg-gray-50 p-2 rounded">
+                              {value}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-2 text-center text-muted-foreground">
+                          고시정보가 없습니다.
+                        </div>
+                      );
+                    })()}
                   </div>
+
+                  {/* 사이즈, 색상, 소재 입력 필드 */}
                   <div className="grid gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="size">사이즈</Label>
-                      <Input id="size" placeholder="사이즈를 입력하세요" />
+                      <Input 
+                        id="size" 
+                        value={formData.size}
+                        onChange={(e) => {
+                          handleInputChange('size', e.target.value);
+                          try {
+                            const noticeData = formData.noticeinfo ? JSON.parse(formData.noticeinfo) : {};
+                            noticeData['치수'] = e.target.value;
+                            handleInputChange('noticeinfo', JSON.stringify(noticeData));
+                          } catch (e) {
+                            console.error('Failed to update noticeinfo:', e);
+                          }
+                        }}
+                        placeholder="사이즈를 입력하세요" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="color">색상</Label>
-                      <Input id="color" placeholder="색상을 입력세요" />
+                      <Input 
+                        id="color" 
+                        value={formData.color}
+                        onChange={(e) => {
+                          handleInputChange('color', e.target.value);
+                          try {
+                            const noticeData = formData.noticeinfo ? JSON.parse(formData.noticeinfo) : {};
+                            noticeData['색상'] = e.target.value;
+                            handleInputChange('noticeinfo', JSON.stringify(noticeData));
+                          } catch (e) {
+                            console.error('Failed to update noticeinfo:', e);
+                          }
+                        }}
+                        placeholder="색상을 입력하세요" 
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="material">소재</Label>
-                      <Input id="material" placeholder="소재를 입력하세요" />
+                      <Input 
+                        id="material" 
+                        value={formData.material}
+                        onChange={(e) => {
+                          handleInputChange('material', e.target.value);
+                          try {
+                            const noticeData = formData.noticeinfo ? JSON.parse(formData.noticeinfo) : {};
+                            noticeData['제품소재'] = e.target.value;
+                            handleInputChange('noticeinfo', JSON.stringify(noticeData));
+                          } catch (e) {
+                            console.error('Failed to update noticeinfo:', e);
+                          }
+                        }}
+                        placeholder="소재를 입력하세요" 
+                      />
                     </div>
                   </div>
                 </div>
@@ -1137,51 +1379,56 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                             </TableCell>
                             <TableCell>
                               <Input 
-                                value={option.optionName} 
-                                onChange={(e) => handleOptionChange(option.id, 'optionName', e.target.value)}
+                                value={option.groupname || ''} 
+                                onChange={(e) => handleOptionChange(option.id, 'groupname', e.target.value)}
                                 className="h-8" 
                               />
                             </TableCell>
                             <TableCell>
                               <Input 
-                                value={option.optionValue}
-                                onChange={(e) => handleOptionChange(option.id, 'optionValue', e.target.value)}
+                                value={option.groupvalue || ''}
+                                onChange={(e) => handleOptionChange(option.id, 'groupvalue', e.target.value)}
                                 className="h-8" 
                               />
                             </TableCell>
                             <TableCell>
                               <Input 
-                                value={option.code}
-                                onChange={(e) => handleOptionChange(option.id, 'code', e.target.value)}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                type="number"
-                                value={option.quantity}
-                                onChange={(e) => handleOptionChange(option.id, 'quantity', Number(e.target.value))}
+                                value={option.variationsku || ''}
+                                onChange={(e) => handleOptionChange(option.id, 'variationsku', e.target.value)}
                                 className="h-8" 
                               />
                             </TableCell>
                             <TableCell>
                               <Input 
                                 type="number"
-                                value={option.price}
-                                onChange={(e) => handleOptionChange(option.id, 'price', Number(e.target.value))}
+                                value={option.currentstock || 0}
+                                onChange={(e) => handleOptionChange(option.id, 'currentstock', Number(e.target.value))}
                                 className="h-8" 
                               />
                             </TableCell>
                             <TableCell>
                               <Input 
                                 type="number"
-                                value={option.discountPrice}
-                                onChange={(e) => handleOptionChange(option.id, 'discountPrice', Number(e.target.value))}
+                                value={option.consumerprice || 0}
+                                onChange={(e) => handleOptionChange(option.id, 'consumerprice', Number(e.target.value))}
                                 className="h-8" 
                               />
                             </TableCell>
                             <TableCell>
-                              <Button size="sm" variant="outline" className="w-full">
+                              <Input 
+                                type="number"
+                                value={option.purchaseprice || 0}
+                                onChange={(e) => handleOptionChange(option.id, 'purchaseprice', Number(e.target.value))}
+                                className="h-8" 
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="w-full"
+                                onClick={() => handleApplyOption(option)}
+                              >
                                 적용
                               </Button>
                             </TableCell>
@@ -1217,12 +1464,12 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         <TableBody>
                           {options.map((option, i) => (
                             <TableRow key={option.id}>
-                              <TableCell>{option.optionName}</TableCell>
-                              <TableCell>{option.optionValue}</TableCell>
-                              <TableCell>{option.code}</TableCell>
-                              <TableCell>{`${option.quantity} EA`}</TableCell>
-                              <TableCell>{`${option.price.toLocaleString()} 원`}</TableCell>
-                              <TableCell>{`${option.discountPrice.toLocaleString()} 원`}</TableCell>
+                              <TableCell>{option.groupname}</TableCell>
+                              <TableCell>{option.groupvalue}</TableCell>
+                              <TableCell>{option.variationsku}</TableCell>
+                              <TableCell>{`${option.currentstock} EA`}</TableCell>
+                              <TableCell>{`${option.consumerprice.toLocaleString()} 원`}</TableCell>
+                              <TableCell>{`${option.purchaseprice.toLocaleString()} 원`}</TableCell>
                               <TableCell>수정됨</TableCell>
                             </TableRow>
                           ))}
@@ -1239,3 +1486,62 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     </DndProvider>
   )
 }
+
+// 옵션 저장 함수를 컴포넌트 내부로 이동
+const handleApplyOption = async (option: Option) => {
+  try {
+    // 새로 추가된 옵션인 경우 insert, 기존 옵션인 경우 update
+    const isNewOption = option.id.includes('-'); // UUID 형식인지 확인
+
+    const optionData = {
+      itemid: initialData.id,
+      variationsku: option.variationsku || '',
+      consumerprice: option.consumerprice || 0,
+      purchaseprice: option.purchaseprice || 0,
+      groupname: option.groupname || '',
+      groupvalue: option.groupvalue || '',
+      color: option.color || '',
+      material: option.material || '',
+      size: option.size || '',
+      packageunit: option.packageunit || '',
+      weightunit: option.weightunit || '',
+      createdat: new Date().toISOString(),
+      updatedat: new Date().toISOString()
+    };
+
+    if (isNewOption) {
+      // 새 옵션 추가
+      const { data, error: insertError } = await supabase
+        .from('item_options')
+        .insert(optionData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // UI의 옵션 ID 업데이트
+      if (data) {
+        setOptions(options.map(opt => 
+          opt.id === option.id ? { ...opt, id: data.id } : opt
+        ));
+      }
+    } else {
+      // 기존 옵션 업데이트
+      const { error: updateError } = await supabase
+        .from('item_options')
+        .update({
+          ...optionData,
+          createdat: undefined // createdat은 업데이트하지 않음
+        })
+        .eq('id', option.id);
+
+      if (updateError) throw updateError;
+    }
+
+    // 성공 메시지 표시
+    alert('옵션이 성공적으로 저장되었습니다.');
+  } catch (error) {
+    console.error('Failed to update option:', error);
+    alert('옵션 저장에 실패했습니다.');
+  }
+};
