@@ -29,6 +29,13 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, getFilteredRowModel } from "@tanstack/react-table"
 import { flexRender } from "@tanstack/react-table"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import ProductDetail from "@/components/product-public-detail"
 
 interface Product {
   id: string
@@ -56,6 +63,8 @@ export function ProductOptionsStock() {
   const [sorting, setSorting] = useState([])
   const [columnFilters, setColumnFilters] = useState([])
   const [columnVisibility, setColumnVisibility] = useState({})
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
 
   useEffect(() => {
     const initializeData = async () => {
@@ -144,6 +153,11 @@ export function ProductOptionsStock() {
     setSelectedCategory(value);
   }
 
+  const handleProductClick = (productId: string) => {
+    setSelectedProductId(productId)
+    setIsDetailDialogOpen(true)
+  }
+
   const columns = [
     {
       id: "select",
@@ -171,7 +185,10 @@ export function ProductOptionsStock() {
       accessorKey: "name", 
       header: "상품명",
       cell: ({ row }) => (
-        <div className="max-w-[200px]">
+        <div 
+          className="max-w-[200px] cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           <div className="truncate">
             {row.original.name}
           </div>
@@ -180,18 +197,29 @@ export function ProductOptionsStock() {
     },
     { 
       accessorKey: "variationsku", 
-      header: "SKU"
+      header: "SKU",
+      cell: ({ row }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku || '미등록'}
+        </div>
+      )
     },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <div className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded">
+        <div 
+          className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           {row.original.thumbnailurl ? (
             <img 
               src={row.original.thumbnailurl} 
               alt={row.original.name}
-              className="w-10 h-10 object-cover rounded"
+              className="w-10 h-10 object-cover rounded hover:opacity-80 transition-opacity"
               onError={(e) => {
                 e.currentTarget.src = "/images/no-image.png"
                 e.currentTarget.onerror = null
@@ -250,235 +278,251 @@ export function ProductOptionsStock() {
   }, [table.getSelectedRowModel().rows])
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* 공급사 카드 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>공급사</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <Input
-              placeholder="공급사명을 검색하세요"
-              className="max-w-sm"
-              value={supplierSearchTerm}
-              onChange={(e) => setSupplierSearchTerm(e.target.value)}
-            />
-            <Button size="sm" onClick={handleSupplierSearch}>
-              검색
-            </Button>
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>회사명</TableHead>
-                <TableHead>담당자</TableHead>
-                <TableHead>등록일</TableHead>
-                <TableHead>선택</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {supplierData.length === 0 ? (
+    <>
+      <div className="container mx-auto p-4 space-y-6">
+        {/* 공급사 카드 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>공급사</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2 mb-4">
+              <Input
+                placeholder="공급사명을 검색하세요"
+                className="max-w-sm"
+                value={supplierSearchTerm}
+                onChange={(e) => setSupplierSearchTerm(e.target.value)}
+              />
+              <Button size="sm" onClick={handleSupplierSearch}>
+                검색
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
-                    표시할 공급사가 없습니다.
-                  </TableCell>
+                  <TableHead>회사명</TableHead>
+                  <TableHead>담당자</TableHead>
+                  <TableHead>등록일</TableHead>
+                  <TableHead>선택</TableHead>
                 </TableRow>
-              ) : (
-                supplierData.map((supplier) => (
-                  <TableRow key={supplier.id}>
-                    <TableCell>{supplier.supplyname}</TableCell>
-                    <TableCell>{supplier.managername}</TableCell>
-                    <TableCell>{supplier.created}</TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSupplierSelect(supplier)}
-                        variant={selectedSupplier?.id === supplier.id ? "default" : "outline"}
-                      >
-                        선택
-                      </Button>
+              </TableHeader>
+              <TableBody>
+                {supplierData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">
+                      표시할 공급사가 없습니다.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* 재고/가격 카드 */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-6">
-            {/* 재고 섹션 */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">재고</h2>
-              <div className="flex items-center space-x-4">
-                <Input 
-                  type="text" 
-                  placeholder="재고" 
-                  className="w-24"
-                />
-                <span>EA</span>
-                <Input 
-                  type="text" 
-                  placeholder="추가" 
-                  className="w-24"
-                />
-                <Button variant="outline">차감</Button>
-              </div>
-            </div>
-
-            {/* 가격 섹션 */}
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">가격</h2>
-              <div className="flex items-center space-x-4">
-                <Input 
-                  type="text" 
-                  placeholder="공급가" 
-                  className="w-32"
-                />
-                <span>원</span>
-                <Input 
-                  type="text" 
-                  placeholder="판매가" 
-                  className="w-32"
-                />
-                <span>원</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 가격 조정 섹션 */}
-          <div className="mt-6 space-y-4">
-            <h2 className="text-lg font-semibold">가격 조정</h2>
-            <div className="flex items-center space-x-6">
-              <RadioGroup defaultValue="ALL" className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="ALL" id="ALL" />
-                  <Label htmlFor="ALL">ALL</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="supply" id="supply" />
-                  <Label htmlFor="supply">공급가</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="sell" id="sell" />
-                  <Label htmlFor="sell">판매가</Label>
-                </div>
-              </RadioGroup>
-
-              <div className="flex items-center space-x-2">
-                <Input 
-                  type="text" 
-                  placeholder="가격" 
-                  className="w-24"
-                />
-                <span>%</span>
-                <Button variant="secondary">인상</Button>
-                <Button variant="secondary">인하</Button>
-                <Button variant="default">저장</Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 상품 목록 카드 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>상품 목록</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="카테고리 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="category1">카테고리1</SelectItem>
-                <SelectItem value="category2">카테고리2</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="상품명으로 검색"
-              className="max-w-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Button size="sm">
-              <Search className="h-4 w-4 mr-2" />
-              검색
-            </Button>
-          </div>
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                ) : (
+                  supplierData.map((supplier) => (
+                    <TableRow key={supplier.id}>
+                      <TableCell>{supplier.supplyname}</TableCell>
+                      <TableCell>{supplier.managername}</TableCell>
+                      <TableCell>{supplier.created}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSupplierSelect(supplier)}
+                          variant={selectedSupplier?.id === supplier.id ? "default" : "outline"}
+                        >
+                          선택
+                        </Button>
                       </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        {/* 재고/가격 카드 */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 gap-6">
+              {/* 재고 섹션 */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">재고</h2>
+                <div className="flex items-center space-x-4">
+                  <Input 
+                    type="text" 
+                    placeholder="재고" 
+                    className="w-24"
+                  />
+                  <span>EA</span>
+                  <Input 
+                    type="text" 
+                    placeholder="추가" 
+                    className="w-24"
+                  />
+                  <Button variant="outline">차감</Button>
+                </div>
+              </div>
+
+              {/* 가격 섹션 */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">가격</h2>
+                <div className="flex items-center space-x-4">
+                  <Input 
+                    type="text" 
+                    placeholder="공급가" 
+                    className="w-32"
+                  />
+                  <span>원</span>
+                  <Input 
+                    type="text" 
+                    placeholder="판매가" 
+                    className="w-32"
+                  />
+                  <span>원</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 가격 조정 섹션 */}
+            <div className="mt-6 space-y-4">
+              <h2 className="text-lg font-semibold">가격 조정</h2>
+              <div className="flex items-center space-x-6">
+                <RadioGroup defaultValue="ALL" className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="ALL" id="ALL" />
+                    <Label htmlFor="ALL">ALL</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="supply" id="supply" />
+                    <Label htmlFor="supply">공급가</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="sell" id="sell" />
+                    <Label htmlFor="sell">판매가</Label>
+                  </div>
+                </RadioGroup>
+
+                <div className="flex items-center space-x-2">
+                  <Input 
+                    type="text" 
+                    placeholder="가격" 
+                    className="w-24"
+                  />
+                  <span>%</span>
+                  <Button variant="secondary">인상</Button>
+                  <Button variant="secondary">인하</Button>
+                  <Button variant="default">저장</Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 상품 목록 카드 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>상품 목록</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2 mb-4">
+              <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="카테고리 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="category1">카테고리1</SelectItem>
+                  <SelectItem value="category2">카테고리2</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="상품명으로 검색"
+                className="max-w-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Button size="sm">
+                <Search className="h-4 w-4 mr-2" />
+                검색
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    {supplierProducts.length === 0 ? "공급사를 선택해주세요." : "표시할 상품이 없습니다."}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <div className="flex-1 text-sm text-muted-foreground">
-              {table.getFilteredSelectedRowModel().rows.length} of{" "}
-              {table.getFilteredRowModel().rows.length} row(s) selected.
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      {supplierProducts.length === 0 ? "공급사를 선택해주세요." : "표시할 상품이 없습니다."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <div className="flex-1 text-sm text-muted-foreground">
+                {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                {table.getFilteredRowModel().rows.length} row(s) selected.
+              </div>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                >
+                  이전
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                >
+                  다음
+                </Button>
+              </div>
             </div>
-            <div className="space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                이전
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                다음
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Dialog 추가 */}
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="max-w-[1600px] max-h-[95vh] overflow-y-auto p-8">
+          <DialogHeader>
+            <DialogTitle>상품 상세 정보</DialogTitle>
+          </DialogHeader>
+          {selectedProductId && (
+            <ProductDetail 
+              productId={selectedProductId}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 } 
