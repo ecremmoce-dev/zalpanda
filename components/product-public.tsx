@@ -41,10 +41,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
+import { useSupplierStore } from "@/store/modules/supplierStore"
 
 export default function SupplierProductPage() {
   const [supplierData, setSupplierData] = useState<any[]>([])
-  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
@@ -53,10 +53,21 @@ export default function SupplierProductPage() {
 
   const { user } = useUserDataStore();
   const router = useRouter()
+  const { selectedSupplier, setSelectedSupplier } = useSupplierStore()
 
   useEffect(() => {
-    if (user) fetchSupplierData(user!.companyid)
-  }, [user])
+    const initializeData = async () => {
+      if (user) {
+        await fetchSupplierData(user.companyid)
+        // 선택된 공급사가 있으면 상품 데이터 로드
+        if (selectedSupplier?.id) {
+          await fetchProductData(selectedSupplier.id, user.companyid)
+        }
+      }
+    }
+    
+    initializeData()
+  }, [user]) // selectedSupplier 의존성 제거
 
   const fetchSupplierData = async (companyid: string) => {
     try {
@@ -72,27 +83,58 @@ export default function SupplierProductPage() {
     }
   }
 
-  const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
-    const { data, error } = await supabase
-      .from('items')
-      .select(`
-        *,
-        stocks!inner(*)
-      `)
-      .eq('companyid', companyid)
-      .eq('supplyid', itemCustomerId)
-      .order('createdat', { ascending: false })
+  const fetchProductData = async (itemCustomerId: string, companyid: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('items')
+        .select(`
+          id,
+          variationsku,
+          name,
+          thumbnailurl,
+          consumerprice,
+          stocks!inner(
+            nowstock
+          )
+        `)
+        .eq('companyid', companyid)
+        .eq('supplyid', itemCustomerId)
+        .order('createdat', { ascending: false })
 
-    if (!error) {
-      setSelectedSupplier(supplierName)
-      setFilteredProducts(data)
+      if (error) throw error
+
+      // 필요한 데이터만 가공하여 상태 업데이트
+      const formattedData = data.map(item => ({
+        ...item,
+        stocks: item.stocks || { nowstock: 0 }
+      }))
+
+      setFilteredProducts(formattedData)
+    } catch (error) {
+      console.error('Error fetching products:', error)
+      setFilteredProducts([]) // 에러 시 빈 배열로 초기화
     }
   }
 
-  const handleSupplierSelect = (row: any) => {
-    const { name: supplierName, id: itemCustomerId, companyid } = row;
-    
-    fetchProductData(itemCustomerId, companyid, supplierName);
+  const handleSupplierSelect = async (supplier: any) => {
+    if (user && supplier && supplier.id) {
+      const supplierInfo = {
+        id: supplier.id,
+        supplyname: supplier.supplyname,
+        managername: supplier.managername,
+        created: supplier.created,
+        companyid: supplier.companyid
+      }
+      
+      // 로딩 상태 표시를 위해 빈 배열로 초기화
+      setFilteredProducts([])
+      
+      // 데이터 로드
+      await fetchProductData(supplier.id, user.companyid)
+      
+      // 데이터 로드 후 supplier 정보 설정
+      setSelectedSupplier(supplierInfo)
+    }
   }
 
   const handleSupplierSearch = () => {
@@ -124,9 +166,9 @@ export default function SupplierProductPage() {
       id: "actions",
       cell: ({ row }) => (
         <Button
-          onClick={() => handleSupplierSelect(row.original)}
-          variant="outline"
           size="sm"
+          onClick={() => handleSupplierSelect(row.original)}
+          variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
         >
           선택
         </Button>
