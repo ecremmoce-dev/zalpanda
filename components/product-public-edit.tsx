@@ -969,13 +969,14 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
 
   // handleThumbnailUpload 함수 수정
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !initialData.id) return;
+    if (!e.target.files || !initialData.variationsku || !initialData.id) return;
     
     try {
       setIsUploading(true);
       const files = Array.from(e.target.files);
       
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         // UUID 생성
         const imageId = generateUUID();
         
@@ -1013,8 +1014,8 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         
         // KT Cloud에 직접 업로드
         const fileExt = file.name.split('.').pop();
-        const fileName = `thumbnail-${Date.now()}-${Math.random()}.${fileExt}`;
-        const uploadUrl = `${storageUrl}/${containerName}/${initialData.id}/thumbnails/${fileName}`;
+        const fileName = `thumbnail-${initialData.variationsku}-${thumbnailImages.length + i}.${fileExt}`;
+        const uploadUrl = `${storageUrl}/${containerName}/${initialData.variationsku}/thumbnails/${fileName}`;
         
         console.log('Uploading to:', uploadUrl);
         
@@ -1041,14 +1042,14 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         }
         
         // 업로드된 이미지 URL
-        const imageUrl = `${storageUrl}/${containerName}/${initialData.id}/thumbnails/${fileName}`;
+        const imageUrl = `${storageUrl}/${containerName}/${initialData.variationsku}/thumbnails/${fileName}`;
 
         // DB에 이미지 정보 저장
         const { error: dbError } = await supabase
           .from('item_images')
           .insert({
-            id: imageId, // UUID 사용
-            itemid: initialData.id,
+            id: imageId,
+            itemid: initialData.id,  // variationsku 대신 id 사용
             type: 'THUMBNAIL',
             url: imageUrl,
             index: thumbnailImages.length,
@@ -1073,19 +1074,20 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
 
   // handleContentImageUpload 함수도 동일하게 수정
   const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !initialData.id) return;
+    if (!e.target.files || !initialData.variationsku || !initialData.id) return;
     
     try {
       setIsUploading(true);
       const files = Array.from(e.target.files);
       
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         // UUID 생성
         const imageId = generateUUID();
         
         // 파일 크기 체크 (10MB)
         if (file.size > 10 * 1024 * 1024) {
-          alert('파일 크기는 10MB를 초과할 ���� 없습니다.');
+          alert('파일 크기는 10MB를 초과할 수 없습니다.');
           continue;
         }
 
@@ -1117,8 +1119,8 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         
         // KT Cloud에 직접 업로드
         const fileExt = file.name.split('.').pop();
-        const fileName = `content-${Date.now()}-${Math.random()}.${fileExt}`;
-        const uploadUrl = `${storageUrl}/${containerName}/${initialData.id}/contents/${fileName}`;
+        const fileName = `content-${initialData.variationsku}-${contentImages.length + i}.${fileExt}`;
+        const uploadUrl = `${storageUrl}/${containerName}/${initialData.variationsku}/contents/${fileName}`;
         
         console.log('Uploading to:', uploadUrl);
         
@@ -1145,14 +1147,14 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         }
         
         // 업로드된 이미지 URL
-        const imageUrl = `${storageUrl}/${containerName}/${initialData.id}/contents/${fileName}`;
+        const imageUrl = `${storageUrl}/${containerName}/${initialData.variationsku}/contents/${fileName}`;
 
         // DB에 이미지 정보 저장
         const { error: dbError } = await supabase
           .from('item_images')
           .insert({
-            id: imageId, // UUID 사용
-            itemid: initialData.id,
+            id: imageId,
+            itemid: initialData.id,  // variationsku 대신 id 사용
             type: 'MAIN_CONTENT',
             url: imageUrl,
             index: contentImages.length,
@@ -1811,7 +1813,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         ))
                       ) : (
                         <div className="col-span-2 text-center text-muted-foreground">
-                          고시정보가 없습니다.
+                          고시정보가 없��니다.
                         </div>
                       );
                     })()}
@@ -2145,7 +2147,7 @@ const handleDeleteImage = async (image: Image) => {
 
     if (dbError) throw dbError;
 
-    // 2. KT Cloud에서 이미지 파일 삭제 시도
+    // 2. KT Cloud에서 이미지 파일 삭제
     try {
       const origin = window.location.origin;
       const corsResponse = await fetch('/api/ktcloud/container-cors', {
@@ -2155,42 +2157,50 @@ const handleDeleteImage = async (image: Image) => {
         },
         body: JSON.stringify({ origin })
       });
-
+      
       if (!corsResponse.ok) {
-        console.warn('Failed to get CORS token, but continuing...');
-      } else {
-        const { token, storageUrl, containerName } = await corsResponse.json();
+        throw new Error('CORS 설정 실패');
+      }
+      
+      const { token, storageUrl, containerName } = await corsResponse.json();
 
-        // URL에서 파일 경로 추출 (수정된 부분)
-        const urlMatch = image.url.match(new RegExp(`${containerName}/(.+)`));
-        if (!urlMatch) {
-          console.warn('Invalid file URL format');
-          throw new Error('Invalid file URL format');
-        }
+      // URL에서 파일명 추출
+      const urlParts = image.url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const fileType = image.type === 'THUMBNAIL' ? 'thumbnails' : 'contents';
+      
+      // 삭제할 파일의 전체 경로 구성 (variationsku 사용)
+      const deleteUrl = `${storageUrl}/${containerName}/${initialData.variationsku}/${fileType}/${fileName}`;
+      
+      console.log('Deleting file:', deleteUrl);
 
-        const filePath = urlMatch[1]; // containerName 이후의 전체 경로
+      const deleteResponse = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          'X-Auth-Token': token,
+        },
+      });
 
-        console.log('Deleting file:', filePath); // 디버깅용 로그
-
-        // KT Cloud에서 파일 삭제 시도
-        const deleteResponse = await fetch(`${storageUrl}/${containerName}/${filePath}`, {
-          method: 'DELETE',
-          headers: {
-            'X-Auth-Token': token,
-          },
+      // 204: 성공적으로 삭제됨
+      // 404: 이미 삭제된 경우
+      if (deleteResponse.status !== 204 && deleteResponse.status !== 404) {
+        console.error('Delete response:', {
+          status: deleteResponse.status,
+          statusText: deleteResponse.statusText
         });
-
-        if (!deleteResponse.ok && deleteResponse.status !== 404) {
-          console.warn('File deletion response:', {
-            status: deleteResponse.status,
-            statusText: deleteResponse.statusText
-          });
-          throw new Error(`Failed to delete file: ${deleteResponse.status}`);
+        
+        if (deleteResponse.status === 401) {
+          throw new Error('인증에 실패했습니다');
+        } else if (deleteResponse.status === 403) {
+          throw new Error('권한이 없습니다');
+        } else {
+          throw new Error(`파일 삭제에 실패했습니다: ${deleteResponse.status}`);
         }
       }
+
     } catch (storageError) {
-      // 스토리지 삭제 실패는 경고만 하고 계속 진행
-      console.warn('Storage deletion failed:', storageError);
+      console.error('Storage deletion failed:', storageError);
+      throw storageError;
     }
 
     // 3. UI 업데이트
@@ -2204,6 +2214,6 @@ const handleDeleteImage = async (image: Image) => {
 
   } catch (error) {
     console.error('Failed to delete image:', error);
-    alert('이미지 삭제에 실패했습니다.');
+    alert('이미지 삭제에 실패했습니다: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
   }
 };
