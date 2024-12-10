@@ -61,13 +61,14 @@ export default function SupplierProductPage() {
         await fetchSupplierData(user.companyid)
         // 선택된 공급사가 있으면 상품 데이터 로드
         if (selectedSupplier?.id) {
-          await fetchProductData(selectedSupplier.id, user.companyid)
+          console.log('Loading products for selected supplier:', selectedSupplier)
+          await fetchProductData(selectedSupplier.id.toString(), user.companyid)
         }
       }
     }
     
     initializeData()
-  }, [user]) // selectedSupplier 의존성 제거
+  }, [user, selectedSupplier?.id])
 
   const fetchSupplierData = async (companyid: string) => {
     try {
@@ -83,8 +84,10 @@ export default function SupplierProductPage() {
     }
   }
 
-  const fetchProductData = async (itemCustomerId: string, companyid: string) => {
+  const fetchProductData = async (supplyId: string, companyId: string) => {
     try {
+      console.log('Fetching products for:', { supplyId, companyId }); // 디버깅용 로그
+
       const { data, error } = await supabase
         .from('items')
         .select(`
@@ -93,49 +96,66 @@ export default function SupplierProductPage() {
           name,
           thumbnailurl,
           consumerprice,
-          stocks!inner(
+          createdat,
+          stocks (
             nowstock
           )
         `)
-        .eq('companyid', companyid)
-        .eq('supplyid', itemCustomerId)
-        .order('createdat', { ascending: false })
+        .eq('companyid', companyId)
+        .eq('supplyid', supplyId)
+        .order('createdat', { ascending: false });
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
 
-      // 필요한 데이터만 가공하여 상태 업데이트
+      console.log('Fetched products:', data); // 디버깅용 로그
+
+      // 데이터 가공
       const formattedData = data.map(item => ({
         ...item,
-        stocks: item.stocks || { nowstock: 0 }
-      }))
+        stocks: {
+          nowstock: item.stocks?.[0]?.nowstock || 0
+        }
+      }));
 
-      setFilteredProducts(formattedData)
+      setFilteredProducts(formattedData);
     } catch (error) {
-      console.error('Error fetching products:', error)
-      setFilteredProducts([]) // 에러 시 빈 배열로 초기화
+      console.error('Error in fetchProductData:', error);
+      setFilteredProducts([]);
     }
-  }
+  };
 
   const handleSupplierSelect = async (supplier: any) => {
-    if (user && supplier && supplier.id) {
+    try {
+      if (!user || !supplier || !supplier.id) {
+        console.error('Invalid supplier or user data');
+        return;
+      }
+
+      console.log('Selected supplier:', supplier); // 디버깅용 로그
+
+      // 공급사 정보 설정
       const supplierInfo = {
         id: supplier.id,
         supplyname: supplier.supplyname,
         managername: supplier.managername,
         created: supplier.created,
         companyid: supplier.companyid
-      }
+      };
+
+      // 선택된 공급사 정보 업데이트
+      setSelectedSupplier(supplierInfo);
       
-      // 로딩 상태 표시를 위해 빈 배열로 초기화
-      setFilteredProducts([])
-      
-      // 데이터 로드
-      await fetchProductData(supplier.id, user.companyid)
-      
-      // 데이터 로드 후 supplier 정보 설정
-      setSelectedSupplier(supplierInfo)
+      // 상품 데이터 로드
+      await fetchProductData(supplier.id.toString(), user.companyid);
+
+    } catch (error) {
+      console.error('Error in handleSupplierSelect:', error);
+      setFilteredProducts([]);
     }
-  }
+  };
 
   const handleSupplierSearch = () => {
     // Implement the search logic here
@@ -178,7 +198,6 @@ export default function SupplierProductPage() {
 
   // Product columns
   const productColumns = [
-    //{ accessorKey: "id", header: "번호" },
     { 
       accessorKey: "variationsku", 
       header: "SKU",
@@ -202,6 +221,7 @@ export default function SupplierProductPage() {
           <img 
             className="w-10 h-10 bg-gray-200 rounded hover:opacity-80 transition-opacity" 
             src={row.original.thumbnailurl || ""} 
+            alt=""
           />
         </div>
       ),
@@ -221,14 +241,27 @@ export default function SupplierProductPage() {
     {
       accessorKey: "consumerprice",
       header: "공급가 (원)",
-      cell: ({ row }: { row: any }) => row.original.consumerprice.toLocaleString(),
+      cell: ({ row }: { row: any }) => {
+        const price = row.original.consumerprice;
+        return price ? price.toLocaleString() : '0';
+      },
     },
     { 
       accessorKey: "stocks.nowstock",
       header: "재고(개)",
-      cell: ({ row }: { row: any }) => row.original.stocks.nowstock.toLocaleString(),
+      cell: ({ row }: { row: any }) => {
+        const stock = row.original.stocks?.nowstock;
+        return stock ? stock.toLocaleString() : '0';
+      },
     },
-    { accessorKey: "createdat", header: "등록일" },
+    { 
+      accessorKey: "createdat", 
+      header: "등록일",
+      cell: ({ row }: { row: any }) => {
+        const date = row.original.createdat;
+        return date ? new Date(date).toLocaleDateString() : '-';
+      }
+    },
   ]
 
   return (
@@ -264,7 +297,7 @@ export default function SupplierProductPage() {
         <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold">
-              {selectedSupplier ? `${selectedSupplier} 공용상품` : '공용상품'}
+              {selectedSupplier ? `${selectedSupplier.supplyname} 공용상품` : '공용상품'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -352,7 +385,7 @@ function DataTable<TData, TValue>({
             />
             <Button onClick={onSearch}>
               <Search className="h-4 w-4 mr-2" />
-              검색
+              ��색
             </Button>
           </div>
           <div className="flex items-center space-x-2">
