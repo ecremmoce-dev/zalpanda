@@ -43,6 +43,18 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
+// Image 인터페이스 수정
+interface Image {
+  id: string;
+  index: number;
+  type: string;
+  url: string;
+  groupseq: number;
+  has_group_alias: boolean;
+  groupalias: string | null;
+  createdat: string;
+}
+
 // ProductEditPageProps 타입 수정
 interface ProductEditPageProps {
   initialData: {
@@ -79,21 +91,10 @@ interface ProductEditPageProps {
     purchaseprice?: number;
     packageunit?: string;
     weightunit?: string;
+    options?: Option[];
   };
   onSave: (data: any) => void;
   onCancel: () => void;
-}
-
-// 이미지 인터페이스 수정
-interface Image {
-  id: string;
-  index: number;
-  type: string;
-  url: string;
-  groupseq: number;
-  has_group_alias: boolean;
-  groupalias: string | null;
-  createdat: string;
 }
 
 // Category 인터페이스 추가
@@ -332,7 +333,35 @@ const generateUUID = () => {
 };
 
 export default function ProductEditPage({ initialData, onSave, onCancel }: ProductEditPageProps) {
-  const [formData, setFormData] = React.useState({
+  // formData 타입 확장
+  interface FormData {
+    name: string;
+    content: string;
+    contenthtml: string;
+    memo: string;
+    weight: number;
+    width: number;
+    length: number;
+    height: number;
+    hscode: string;
+    barcode: string;
+    consumerprice: number;
+    status: string;
+    size: string;
+    color: string;
+    material: string;
+    brandname: string;
+    noticeinfo: string;
+    variationsku: string;
+    producturl: string;
+    purchaseprice: number;
+    packageunit: string;
+    weightunit: string;
+    currentstock?: number;
+    safetystock?: number;
+  }
+
+  const [formData, setFormData] = React.useState<FormData>({
     name: initialData?.name || '',
     content: initialData?.content || '',
     contenthtml: initialData?.contenthtml || '',
@@ -354,7 +383,9 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     producturl: initialData?.producturl || '',
     purchaseprice: initialData?.purchaseprice || 0,
     packageunit: initialData?.packageunit || '',
-    weightunit: initialData?.weightunit || ''
+    weightunit: initialData?.weightunit || '',
+    currentstock: initialData?.currentstock || 0,
+    safetystock: initialData?.safetystock || 0
   });
 
   const [isCategoryExpanded, setIsCategoryExpanded] = React.useState(true);
@@ -402,13 +433,13 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
 
       if (error) throw error;
 
-      // hasGroupAlias 필드 추가하여 데이터 변환
+      // 데이터 변환
       const formattedData = data.map(img => ({
         ...img,
-        hasGroupAlias: img.groupalias !== null
+        has_group_alias: img.groupalias !== null
       }));
 
-      // 이미지 타별로 분류
+      // 이미지 타입별로 분류
       const thumbnails = formattedData.filter(img => img.type === 'THUMBNAIL');
       const contents = formattedData.filter(img => img.type === 'MAIN_CONTENT');
 
@@ -465,7 +496,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
             is_leaf: !allCategories.some(c => c.parentcategoryid === category.id)
           }));
 
-        console.log('Formatted Categories:', formattedCategories); // 디버깅용 로그
+        console.log('Formatted Categories:', formattedCategories); // 디버깅용 그
 
         setCategories(formattedCategories);
 
@@ -521,7 +552,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
   const [selectedFourthCategory, setSelectedFourthCategory] = React.useState<Category | null>(null);
   const [selectedFifthCategory, setSelectedFifthCategory] = React.useState<Category | null>(null);
 
-  // 선택된 카테고리 표시 부분 수정
+  // ��택된 카테고리 표시 부분 수정
   const selectedCategoryPath = React.useMemo(() => {
     if (!selectedCategory) {
       return initialData.categorypath || '';
@@ -606,7 +637,10 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
       const draggedImage = newImages[dragIndex];
       newImages.splice(dragIndex, 1);
       newImages.splice(hoverIndex, 0, draggedImage);
-      return newImages;
+      return newImages.map((img, index) => ({
+        ...img,
+        index: index
+      }));
     });
   }, []);
 
@@ -617,7 +651,10 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
       const draggedImage = newImages[dragIndex];
       newImages.splice(dragIndex, 1);
       newImages.splice(hoverIndex, 0, draggedImage);
-      return newImages;
+      return newImages.map((img, index) => ({
+        ...img,
+        index: index
+      }));
     });
   }, []);
 
@@ -687,10 +724,10 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     console.log('Initial contenthtml:', initialData?.contenthtml);
   }, [initialData]);
 
-  // 상태 추가 (포넌트 최상단 상태 선언부에 추가)
+  // ���태 추가 (포넌트 최상단 상태 선언부에 추가)
   const [isContentExpanded, setIsContentExpanded] = React.useState(true);
 
-  // 상품 설명 에디터 부분 수정
+  // 상 설명 에디터 부분 수정
   <div className="space-y-2">
     <div className="flex justify-between items-center">
       <Label>상품 설명</Label>
@@ -706,7 +743,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     {isContentExpanded && (
       <Tabs defaultValue="edit" className="w-full">
         <TabsList>
-          <TabsTrigger value="edit">본문 편집</TabsTrigger>
+          <TabsTrigger value="edit">문 편집</TabsTrigger>
           <TabsTrigger value="original">본문 원본</TabsTrigger>
           <TabsTrigger value="html">본문 HTML</TabsTrigger>
         </TabsList>
@@ -765,13 +802,419 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     )}
   </div>
 
+  // handleApplySingleProduct 함수를 컴포넌트 내부로 이동
+  const handleApplySingleProduct = async () => {
+    try {
+      if (!initialData?.id) {
+        alert('상품 ID가 없습니다.');
+        return;
+      }
+
+      // 1. items 테이블 업데이트 (가격 정보)
+      const { error: itemError } = await supabase
+        .from('items')
+        .update({
+          variationsku: formData.variationsku,
+          consumerprice: formData.consumerprice,    // 판매가
+          purchaseprice: formData.purchaseprice,    // 공급가
+          updatedat: new Date().toISOString()
+        })
+        .eq('id', initialData.id);
+
+      if (itemError) {
+        console.error('Failed to update item:', itemError);
+        throw itemError;
+      }
+
+      // 2. stocks 테이블 업데이트 (재고 정보)
+      const stockData = {
+        itemid: initialData.id,
+        variationsku: formData.variationsku,
+        nowstock: formData.currentstock || 0,       // 현재 재고
+        safetystock: formData.safetystock || 0,     // 안전 재고
+        updatedat: new Date().toISOString()
+      };
+
+      // stocks 테이블에 해당 itemid가 있는지 확인
+      const { data: existingStock, error: checkError } = await supabase
+        .from('stocks')
+        .select('id')
+        .eq('itemid', initialData.id)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116는 데이터가 없는 경우
+        throw checkError;
+      }
+
+      // 기존 재고 데이터가 있으면 update, 없으면 insert
+      const { error: stockError } = existingStock
+        ? await supabase
+            .from('stocks')
+            .update({
+              nowstock: stockData.nowstock,
+              safetystock: stockData.safetystock,
+              updatedat: stockData.updatedat
+            })
+            .eq('itemid', initialData.id)
+        : await supabase
+            .from('stocks')
+            .insert({
+              ...stockData,
+              id: crypto.randomUUID(),
+              createdat: new Date().toISOString()
+            });
+
+      if (stockError) {
+        console.error('Failed to update stock:', stockError);
+        throw stockError;
+      }
+
+      alert('상품 정보가 성공적으로 저장되었습니다.');
+
+      // 3. 데이터 새로고침
+      const { data: updatedData, error: fetchError } = await supabase
+        .from('items')
+        .select(`
+          *,
+          stocks!left (
+            nowstock,
+            safetystock
+          )
+        `)
+        .eq('id', initialData.id)
+        .single();
+
+      if (fetchError) {
+        console.error('Failed to fetch updated data:', fetchError);
+        throw fetchError;
+      }
+
+      // 4. 폼 데이터 업데이트
+      if (updatedData) {
+        setFormData(prev => ({
+          ...prev,
+          variationsku: updatedData.variationsku,
+          consumerprice: updatedData.consumerprice,
+          purchaseprice: updatedData.purchaseprice,
+          currentstock: updatedData.stocks?.nowstock || 0,
+          safetystock: updatedData.stocks?.safetystock || 0
+        }));
+      }
+
+    } catch (error) {
+      console.error('Failed to update single product:', error);
+      alert('상품 정보 저장에 실패했습니다.');
+    }
+  };
+
+  // 이미지 순서 저장 함수 추가
+  const saveImageOrder = async () => {
+    try {
+      // 썸네일 이미지 순 업데이트
+      for (const image of thumbnailImages) {
+        const { error: thumbnailError } = await supabase
+          .from('item_images')
+          .update({ index: image.index })
+          .eq('id', image.id);
+
+        if (thumbnailError) throw thumbnailError;
+      }
+
+      // 상세 이미지 순서 업데이트
+      for (const image of contentImages) {
+        const { error: contentError } = await supabase
+          .from('item_images')
+          .update({ index: image.index })
+          .eq('id', image.id);
+
+        if (contentError) throw contentError;
+      }
+
+      alert('이미지 순서가 저장되었습니다.');
+    } catch (error) {
+      console.error('Failed to save image order:', error);
+      alert('이미지 순서 저장에 실패했습니다.');
+    }
+  };
+
+  // 기존 onSave 함수 수정
+  const handleSave = async () => {
+    try {
+      // 이미지 순서 저장
+      await saveImageOrder();
+      
+      // 기존 저장 로직 실행
+      onSave(formData);
+    } catch (error) {
+      console.error('Failed to save:', error);
+      alert('저장에 실패했습니다.');
+    }
+  };
+
+  // 이미지 업로드 핸들러 수정
+  const [isUploading, setIsUploading] = React.useState(false);
+
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !initialData.id) return;
+    
+    try {
+      setIsUploading(true);
+      const files = Array.from(e.target.files);
+      
+      for (const file of files) {
+        // 파일 크기 체크 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          alert('파일 크기는 10MB를 초과할 수 없습니다.');
+          continue;
+        }
+
+        // 파일을 Blob으로 변환
+        const blob = new Blob([file], { type: file.type });
+        
+        // origin 추가
+        const origin = window.location.origin;
+        
+        // CORS 설정 적용 및 토큰 가져오기
+        const corsResponse = await fetch('/api/ktcloud/container-cors', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ origin })
+        });
+        
+        if (!corsResponse.ok) {
+          const errorText = await corsResponse.text();
+          console.error('CORS Response:', {
+            status: corsResponse.status,
+            text: errorText
+          });
+          throw new Error('CORS 설정 실패');
+        }
+        
+        const { token, storageUrl, containerName } = await corsResponse.json();
+        
+        // KT Cloud에 직접 업로드
+        const fileExt = file.name.split('.').pop();
+        const fileName = `thumbnail-${Date.now()}-${Math.random()}.${fileExt}`;
+        const uploadUrl = `${storageUrl}/${containerName}/${initialData.id}/thumbnails/${fileName}`;
+        
+        console.log('Uploading to:', uploadUrl);
+        
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'X-Auth-Token': token,
+            'Content-Type': file.type,
+            'Content-Length': blob.size.toString(),
+            'X-Object-Meta-Width': 'auto',
+            'X-Object-Meta-Height': 'auto'
+          },
+          body: blob
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Upload failed:', {
+            status: uploadResponse.status,
+            headers: Object.fromEntries(uploadResponse.headers.entries()),
+            body: errorText
+          });
+          throw new Error(`이미지 업로드 실패: ${uploadResponse.status} - ${errorText}`);
+        }
+        
+        // 업로드된 이미지 URL
+        const imageUrl = `${storageUrl}/${containerName}/${initialData.id}/thumbnails/${fileName}`;
+
+        // DB에 이미지 정보 저장
+        const { error: dbError } = await supabase
+          .from('item_images')
+          .insert({
+            itemid: initialData.id,
+            type: 'THUMBNAIL',
+            url: imageUrl,
+            index: thumbnailImages.length,
+            language: 'ko',
+            createdat: new Date().toISOString()
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      // 이미지 목록 새로고침
+      await fetchImageData(initialData.id);
+      alert('이미지가 성공적으로 업로드되었습니다.');
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !initialData.id) return;
+    
+    try {
+      setIsUploading(true);
+      const files = Array.from(e.target.files);
+      
+      for (const file of files) {
+        // 파일 크기 체크 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          alert('파일 크기는 10MB를 초과할 수 없습니다.');
+          continue;
+        }
+
+        // 파일을 Blob으로 변환
+        const blob = new Blob([file], { type: file.type });
+        
+        // origin 추가
+        const origin = window.location.origin;
+        
+        // CORS 설정 적용 및 토큰 가져오기
+        const corsResponse = await fetch('/api/ktcloud/container-cors', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ origin })
+        });
+        
+        if (!corsResponse.ok) {
+          const errorText = await corsResponse.text();
+          console.error('CORS Response:', {
+            status: corsResponse.status,
+            text: errorText
+          });
+          throw new Error('CORS 설정 실패');
+        }
+        
+        const { token, storageUrl, containerName } = await corsResponse.json();
+        
+        // KT Cloud에 직접 업로드
+        const fileExt = file.name.split('.').pop();
+        const fileName = `content-${Date.now()}-${Math.random()}.${fileExt}`;
+        const uploadUrl = `${storageUrl}/${containerName}/${initialData.id}/contents/${fileName}`;
+        
+        console.log('Uploading to:', uploadUrl);
+        
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'X-Auth-Token': token,
+            'Content-Type': file.type,
+            'Content-Length': blob.size.toString(),
+            'X-Object-Meta-Width': 'auto',
+            'X-Object-Meta-Height': 'auto'
+          },
+          body: blob
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          console.error('Upload failed:', {
+            status: uploadResponse.status,
+            headers: Object.fromEntries(uploadResponse.headers.entries()),
+            body: errorText
+          });
+          throw new Error(`이미지 업로드 실패: ${uploadResponse.status} - ${errorText}`);
+        }
+        
+        // 업로드된 이미지 URL
+        const imageUrl = `${storageUrl}/${containerName}/${initialData.id}/contents/${fileName}`;
+
+        // DB에 이미지 정보 저장
+        const { error: dbError } = await supabase
+          .from('item_images')
+          .insert({
+            itemid: initialData.id,
+            type: 'MAIN_CONTENT',
+            url: imageUrl,
+            index: contentImages.length,
+            language: 'ko',
+            createdat: new Date().toISOString()
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      // 이미지 목록 새로고침
+      await fetchImageData(initialData.id);
+      alert('이미지가 성공적으로 업로드되었습니다.');
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(error instanceof Error ? error.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 옵션 저장 함수를 컴포넌트 내부로 이동
+  const handleApplyOption = async (option: Option) => {
+    try {
+      const isNewOption = option.id.includes('-');
+
+      const optionData = {
+        itemid: initialData.id,
+        variationsku: option.variationsku || '',
+        consumerprice: option.consumerprice || 0,
+        purchaseprice: option.purchaseprice || 0,
+        groupname: option.groupname || '',
+        groupvalue: option.groupvalue || '',
+        color: option.color || '',
+        material: option.material || '',
+        size: option.size || '',
+        packageunit: option.packageunit || '',
+        weightunit: option.weightunit || '',
+        createdat: new Date().toISOString(),
+        updatedat: new Date().toISOString()
+      };
+
+      if (isNewOption) {
+        const { data, error: insertError } = await supabase
+          .from('item_options')
+          .insert(optionData)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        if (data) {
+          setOptions(prevOptions => 
+            prevOptions.map(opt => 
+              opt.id === option.id ? { ...opt, id: data.id } : opt
+            )
+          );
+        }
+      } else {
+        const { error: updateError } = await supabase
+          .from('item_options')
+          .update({
+            ...optionData,
+            createdat: undefined
+          })
+          .eq('id', option.id);
+
+        if (updateError) throw updateError;
+      }
+
+      alert('옵션이 성공적으로 저장되었습니다.');
+    } catch (error) {
+      console.error('Failed to update option:', error);
+      alert('옵션 저장에 실패했습니다.');
+    }
+  };
+
   // 이미지 섹션 수정
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-8">
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={onCancel}>취소</Button>
-          <Button onClick={() => onSave(formData)}>저장</Button>
+          <Button onClick={handleSave}>저장</Button>
         </div>
 
         <div className="space-y-6">
@@ -875,7 +1318,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         </SelectContent>
                       </Select>
 
-                      {/* 4차 카테고리 */}
+                      {/* 4 카테고리 */}
                       <Select 
                         value={selectedFourthCategory?.id}
                         disabled={!selectedThirdCategory}
@@ -1073,37 +1516,108 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
           </section>
 
           {/* 이미지 섹션 */}
-          {thumbnailImages.length > 0 && (
-            <section className="space-y-4">
+          <section className="space-y-4">
+            <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">상품 이미지</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                {thumbnailImages.map((image, index) => (
-                  <DraggableImage
-                    key={image.id}
-                    image={image}
-                    index={index}
-                    moveImage={moveImage}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isUploading}>
+                    <ImagePlus className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : '이미지 추가'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>이미지 업로드</Label>
+                      <div className="grid gap-2">
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <ImagePlus className="w-8 h-8 mb-4 text-gray-500" />
+                              <p className="mb-2 text-sm text-gray-500">
+                                <span className="font-semibold">클릭하여 업로드</span> 또는 드래그 앤 드롭
+                              </p>
+                              <p className="text-xs text-gray-500">PNG, JPG (최대 10MB)</p>
+                            </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              multiple
+                              onChange={handleThumbnailUpload}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+              {thumbnailImages.map((image, index) => (
+                <DraggableImage
+                  key={image.id}
+                  image={image}
+                  index={index}
+                  moveImage={moveImage}
+                />
+              ))}
+            </div>
+          </section>
 
-          {contentImages.length > 0 && (
-            <section className="space-y-4">
+          {/* 상세 이미지 섹션 */}
+          <section className="space-y-4">
+            <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">상세 이미지</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                {contentImages.map((image, index) => (
-                  <DraggableContentImage
-                    key={image.id}
-                    image={image}
-                    index={index}
-                    moveImage={moveContentImage}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isUploading}>
+                    <ImagePlus className="h-4 w-4 mr-2" />
+                    {isUploading ? '업로드 중...' : '이미지 추가'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>이미지 업로드</Label>
+                      <div className="grid gap-2">
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <ImagePlus className="w-8 h-8 mb-4 text-gray-500" />
+                              <p className="mb-2 text-sm text-gray-500">
+                                <span className="font-semibold">클릭하여 업로드</span> 또는 드래그 앤 드롭
+                              </p>
+                              <p className="text-xs text-gray-500">PNG, JPG (최대 10MB)</p>
+                            </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              multiple
+                              onChange={handleContentImageUpload}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+              {contentImages.map((image, index) => (
+                <DraggableContentImage
+                  key={image.id}
+                  image={image}
+                  index={index}
+                  moveImage={moveContentImage}
+                />
+              ))}
+            </div>
+          </section>
 
           {/* 상품 크기 섹션 */}
           <section className="space-y-4">
@@ -1348,135 +1862,241 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
             <Card>
               <CardContent className="p-6">
                 <div className="space-y-6">
-                  {/* 옵션 추가 버튼 */}
-                  <div className="flex justify-end mb-4">
-                    <Button onClick={handleAddOption}>
-                      옵션 추가 +
-                    </Button>
-                  </div>
+                  {/* 단일 상품 / 옵션 상품 선택 탭 */}
+                  <Tabs defaultValue={options.length > 0 ? "option" : "single"}>
+                    <TabsList>
+                      <TabsTrigger value="single">단일 상품</TabsTrigger>
+                      <TabsTrigger value="option">옵션 상품</TabsTrigger>
+                    </TabsList>
 
-                  {/* 가격 입력 테이블 */}
-                  <div className="space-y-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]"></TableHead>
-                          <TableHead>옵션명</TableHead>
-                          <TableHead>옵션</TableHead>
-                          <TableHead>제품코드</TableHead>
-                          <TableHead>수량</TableHead>
-                          <TableHead>판매가격</TableHead>
-                          <TableHead>할인가</TableHead>
-                          <TableHead className="w-[100px]">적용</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {options.map((option, i) => (
-                          <TableRow key={option.id}>
-                            <TableCell>
-                              <span className="text-sm font-medium">#{i + 1}</span>
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                value={option.groupname || ''} 
-                                onChange={(e) => handleOptionChange(option.id, 'groupname', e.target.value)}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                value={option.groupvalue || ''}
-                                onChange={(e) => handleOptionChange(option.id, 'groupvalue', e.target.value)}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                value={option.variationsku || ''}
-                                onChange={(e) => handleOptionChange(option.id, 'variationsku', e.target.value)}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                type="number"
-                                value={option.currentstock || 0}
-                                onChange={(e) => handleOptionChange(option.id, 'currentstock', Number(e.target.value))}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                type="number"
-                                value={option.consumerprice || 0}
-                                onChange={(e) => handleOptionChange(option.id, 'consumerprice', Number(e.target.value))}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input 
-                                type="number"
-                                value={option.purchaseprice || 0}
-                                onChange={(e) => handleOptionChange(option.id, 'purchaseprice', Number(e.target.value))}
-                                className="h-8" 
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                size="sm" 
-                                variant="outline" 
-                                className="w-full"
-                                onClick={() => handleApplyOption(option)}
-                              >
-                                적용
-                              </Button>
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8"
-                                onClick={() => handleDeleteOption(option.id)}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    {/* 단일 상품 탭 컨텐츠 */}
+                    <TabsContent value="single">
+                      <div className="space-y-4">
+                        <div className="bg-sky-50/50 p-4 rounded-lg">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>SKU</TableHead>
+                                <TableHead>재고</TableHead>
+                                <TableHead>안전재고</TableHead>
+                                <TableHead>공급가</TableHead>
+                                <TableHead>판매가</TableHead>
+                                <TableHead>수정</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>
+                                  <Input 
+                                    value={formData.variationsku || ''}
+                                    onChange={(e) => handleInputChange('variationsku', e.target.value)}
+                                    className="h-8"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input 
+                                    type="number"
+                                    value={formData.currentstock || 0}
+                                    onChange={(e) => handleInputChange('currentstock', Number(e.target.value))}
+                                    className="h-8"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input 
+                                    type="number"
+                                    value={formData.safetystock || 0}
+                                    onChange={(e) => handleInputChange('safetystock', Number(e.target.value))}
+                                    className="h-8"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input 
+                                    type="number"
+                                    value={formData.consumerprice || 0}
+                                    onChange={(e) => handleInputChange('consumerprice', Number(e.target.value))}
+                                    className="h-8" 
+                                    placeholder="공급가"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input 
+                                    type="number"
+                                    value={formData.purchaseprice || 0}
+                                    onChange={(e) => handleInputChange('purchaseprice', Number(e.target.value))}
+                                    className="h-8" 
+                                    placeholder="판매가"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="w-full"
+                                    onClick={handleApplySingleProduct}
+                                  >
+                                    적용
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </div>
 
-                    {/* Summary Table */}
-                    <div className="bg-sky-50/50 p-4 rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>옵션명</TableHead>
-                            <TableHead>옵션</TableHead>
-                            <TableHead>SKU</TableHead>
-                            <TableHead>재고</TableHead>
-                            <TableHead>판매가</TableHead>
-                            <TableHead>공급가</TableHead>
-                            <TableHead>수정</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {options.map((option, i) => (
-                            <TableRow key={option.id}>
-                              <TableCell>{option.groupname}</TableCell>
-                              <TableCell>{option.groupvalue}</TableCell>
-                              <TableCell>{option.variationsku}</TableCell>
-                              <TableCell>{`${option.currentstock} EA`}</TableCell>
-                              <TableCell>{`${option.consumerprice.toLocaleString()} 원`}</TableCell>
-                              <TableCell>{`${option.purchaseprice.toLocaleString()} 원`}</TableCell>
-                              <TableCell>수정됨</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
+                        {/* 단일 상품 요약 정보 */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <span className="text-sm text-gray-500">현재 재고</span>
+                              <p className="text-lg font-semibold">{formData.currentstock || 0} EA</p>
+                            </div>
+                            <div>
+                              <span className="text-sm text-gray-500">공급가</span>
+                              <p className="text-lg font-semibold">{(formData.consumerprice || 0).toLocaleString()} 원</p>
+                            </div>
+                            <div>
+                              <span className="text-sm text-gray-500">판매가</span>
+                              <p className="text-lg font-semibold">{(formData.purchaseprice || 0).toLocaleString()} 원</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    {/* 옵션 상품 탭 컨텐츠 */}
+                    <TabsContent value="option">
+                      <div className="space-y-6">
+                        {/* 옵션 추가 버튼 */}
+                        <div className="flex justify-end mb-4">
+                          <Button onClick={handleAddOption}>
+                            옵션 추가 +
+                          </Button>
+                        </div>
+
+                        {/* 옵션 테이블 */}
+                        <div className="space-y-4">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead>옵션명</TableHead>
+                                <TableHead>옵션</TableHead>
+                                <TableHead>제품코드</TableHead>
+                                <TableHead>수량</TableHead>
+                                <TableHead>판매가격</TableHead>
+                                <TableHead>할인가</TableHead>
+                                <TableHead className="w-[100px]">적용</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {options.map((option, i) => (
+                                <TableRow key={option.id}>
+                                  <TableCell>
+                                    <span className="text-sm font-medium">#{i + 1}</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      value={option.groupname || ''} 
+                                      onChange={(e) => handleOptionChange(option.id, 'groupname', e.target.value)}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      value={option.groupvalue || ''}
+                                      onChange={(e) => handleOptionChange(option.id, 'groupvalue', e.target.value)}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      value={option.variationsku || ''}
+                                      onChange={(e) => handleOptionChange(option.id, 'variationsku', e.target.value)}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      type="number"
+                                      value={option.currentstock || 0}
+                                      onChange={(e) => handleOptionChange(option.id, 'currentstock', Number(e.target.value))}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      type="number"
+                                      value={option.consumerprice || 0}
+                                      onChange={(e) => handleOptionChange(option.id, 'consumerprice', Number(e.target.value))}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input 
+                                      type="number"
+                                      value={option.purchaseprice || 0}
+                                      onChange={(e) => handleOptionChange(option.id, 'purchaseprice', Number(e.target.value))}
+                                      className="h-8" 
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="w-full"
+                                      onClick={() => handleApplyOption(option)}
+                                    >
+                                      적용
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8"
+                                      onClick={() => handleDeleteOption(option.id)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+
+                          {/* 옵션 요약 테이블 */}
+                          <div className="bg-sky-50/50 p-4 rounded-lg">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>옵션명</TableHead>
+                                  <TableHead>옵션</TableHead>
+                                  <TableHead>SKU</TableHead>
+                                  <TableHead>재고</TableHead>
+                                  <TableHead>판매가</TableHead>
+                                  <TableHead>공급가</TableHead>
+                                  <TableHead>수정</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {options.map((option) => (
+                                  <TableRow key={option.id}>
+                                    <TableCell>{option.groupname}</TableCell>
+                                    <TableCell>{option.groupvalue}</TableCell>
+                                    <TableCell>{option.variationsku}</TableCell>
+                                    <TableCell>{`${option.currentstock} EA`}</TableCell>
+                                    <TableCell>{`${option.consumerprice?.toLocaleString()} 원`}</TableCell>
+                                    <TableCell>{`${option.purchaseprice?.toLocaleString()} 원`}</TableCell>
+                                    <TableCell>수정됨</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </CardContent>
             </Card>
@@ -1486,62 +2106,3 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     </DndProvider>
   )
 }
-
-// 옵션 저장 함수를 컴포넌트 내부로 이동
-const handleApplyOption = async (option: Option) => {
-  try {
-    // 새로 추가된 옵션인 경우 insert, 기존 옵션인 경우 update
-    const isNewOption = option.id.includes('-'); // UUID 형식인지 확인
-
-    const optionData = {
-      itemid: initialData.id,
-      variationsku: option.variationsku || '',
-      consumerprice: option.consumerprice || 0,
-      purchaseprice: option.purchaseprice || 0,
-      groupname: option.groupname || '',
-      groupvalue: option.groupvalue || '',
-      color: option.color || '',
-      material: option.material || '',
-      size: option.size || '',
-      packageunit: option.packageunit || '',
-      weightunit: option.weightunit || '',
-      createdat: new Date().toISOString(),
-      updatedat: new Date().toISOString()
-    };
-
-    if (isNewOption) {
-      // 새 옵션 추가
-      const { data, error: insertError } = await supabase
-        .from('item_options')
-        .insert(optionData)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      // UI의 옵션 ID 업데이트
-      if (data) {
-        setOptions(options.map(opt => 
-          opt.id === option.id ? { ...opt, id: data.id } : opt
-        ));
-      }
-    } else {
-      // 기존 옵션 업데이트
-      const { error: updateError } = await supabase
-        .from('item_options')
-        .update({
-          ...optionData,
-          createdat: undefined // createdat은 업데이트하지 않음
-        })
-        .eq('id', option.id);
-
-      if (updateError) throw updateError;
-    }
-
-    // 성공 메시지 표시
-    alert('옵션이 성공적으로 저장되었습니다.');
-  } catch (error) {
-    console.error('Failed to update option:', error);
-    alert('옵션 저장에 실패했습니다.');
-  }
-};
