@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/utils/supabase/client"
 import { useRouter } from 'next/navigation'
 import ProductEditPage from "@/components/product-public-edit"
+import { Label } from "@/components/ui/label"
 
 interface ProductDetail {
   id: string
@@ -105,6 +106,23 @@ interface Product {
   }
   // ... 다른 필드들
 }
+
+// priorityFields 배열 추가 (컴포넌트 외부에 선언)
+const priorityFields = [
+  '상품번호',
+  '상품상태',
+  '제조사',
+  '브랜드',
+  '모델명',
+  '원산지',
+  '제조일자',
+  '유효기간',
+  '치수',
+  '색상',
+  '제품소재',
+  '취급주의사항',
+  'KC인증정보'
+];
 
 export default function ProductDetail({ productId }: ProductDetailProps) {
   const router = useRouter()
@@ -394,58 +412,44 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
             <Separator />
             <div className="grid gap-4">
               <h3 className="text-lg font-semibold">고시정보</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {(() => {
+                  // 기본값을 빈 객체로 설정
                   let noticeData: NoticeInfo = {};
+                  
                   try {
-                    noticeData = productData.noticeinfo ? JSON.parse(productData.noticeinfo) : {};
+                    // initialData가 있고 noticeinfo가 있을 때만 파싱 시도
+                    if (productData?.noticeinfo) {
+                      noticeData = JSON.parse(productData.noticeinfo);
+                    }
+                    console.log('Parsed Notice Data:', noticeData);
                   } catch (e) {
                     console.error('Failed to parse noticeinfo:', e);
+                    // 파싱 실패시 빈 객체 유지
+                    noticeData = {};
                   }
-
-                  // 표시하고 싶은 필드 순서 정의
-                  const priorityFields = [
-                    '상품번호',
-                    '상품상태',
-                    '원산지',
-                    '제조자(사)',
-                    '제조국',
-                    '제조연월',
-                    '제품소재',
-                    '색상',
-                    '���수',
-                    '세탁방법 및 취급시 주의사항',
-                    '품질보증기준',
-                    'A/S 책임자와 전화번호',
-                    'A/S 안내',
-                    '영수증발급'
-                  ];
 
                   // 우선순위가 있는 필드를 먼저 표시
                   const priorityEntries = priorityFields
-                    .filter(field => noticeData[field])
+                    .filter(field => noticeData && noticeData[field])
                     .map(field => [field, noticeData[field]]);
 
                   // 나머지 필드 표시 (우선순위에 없는 필드들)
-                  const remainingEntries = Object.entries(noticeData)
-                    .filter(([key, value]) => 
-                      !priorityFields.includes(key) && 
-                      value && 
-                      value !== '해당사항 없음' && 
-                      !value.includes('상세정보 확') && 
-                      !value.includes('상세설명참조') && 
-                      !value.includes('상품상세참조') && 
-                      !value.includes('상품상세페이지 참조')
-                    );
+                  const otherEntries = Object.entries(noticeData || {})
+                    .filter(([key]) => !priorityFields.includes(key))
+                    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
 
-                  // 모든 항목 합치기
-                  const allEntries = [...priorityEntries, ...remainingEntries];
+                  const allEntries = [...priorityEntries, ...otherEntries];
 
                   return allEntries.length > 0 ? (
                     allEntries.map(([key, value], index) => (
-                      <div key={index}>
-                        <h4 className="text-sm font-medium">{key}</h4>
-                        <p className="text-sm text-muted-foreground break-words">{value}</p>
+                      <div key={index} className="space-y-2">
+                        <Label className="text-sm font-medium text-muted-foreground">
+                          {key}
+                        </Label>
+                        <div className="text-sm font-medium break-words bg-gray-50 p-2 rounded">
+                          {value}
+                        </div>
                       </div>
                     ))
                   ) : (
