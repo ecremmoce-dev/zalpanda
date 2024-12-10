@@ -374,8 +374,8 @@ export default function ProductRegistration() {
 
           //   if (optionsError) throw optionsError;
           // }
-          
-          if (detail.options && detail.options.length > 0) {
+
+          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
             const optionsData = detail.modifyOptions.map((option: any) => ({
               id: crypto.randomUUID(), 
               itemid: savedItem.id, 
