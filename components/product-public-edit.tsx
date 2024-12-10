@@ -1786,17 +1786,20 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                       let noticeData: NoticeInfo = {};
                       try {
                         // initialData에서 noticeinfo 파싱
-                        noticeData = initialData?.noticeinfo ? JSON.parse(initialData.noticeinfo) : {};
+                        if (initialData?.noticeinfo) {
+                          noticeData = JSON.parse(initialData.noticeinfo);
+                        }
                         console.log('Parsed Notice Data:', noticeData);
                       } catch (e) {
                         console.error('Failed to parse noticeinfo:', e);
+                        noticeData = {}; // 파싱 실패시 빈 객체로 초기화
                       }
 
-                      // 모든 필드를 표시 (제외할 필드 목록)
+                      // 제외할 필드 목록
                       const excludeFields = ['치수', '색상', '제품소재'];
 
-                      // 모든 항목 표시
-                      const entries = Object.entries(noticeData)
+                      // 모든 항목 표시 (null 체크 추가)
+                      const entries = Object.entries(noticeData || {})
                         .filter(([key]) => !excludeFields.includes(key))
                         .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
 
@@ -1813,7 +1816,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                         ))
                       ) : (
                         <div className="col-span-2 text-center text-muted-foreground">
-                          고시정보가 없��니다.
+                          고시정보가 없습니다.
                         </div>
                       );
                     })()}

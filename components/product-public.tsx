@@ -56,6 +56,15 @@ export default function SupplierProductPage() {
   const { selectedSupplier, setSelectedSupplier } = useSupplierStore()
 
   useEffect(() => {
+    if (!user) {
+      router.push('/sign-in');
+      return;
+    }
+  }, [user, router]);
+
+  if (!user) return null;
+
+  useEffect(() => {
     const initializeData = async () => {
       if (user) {
         await fetchSupplierData(user.companyid)
@@ -385,7 +394,7 @@ function DataTable<TData, TValue>({
             />
             <Button onClick={onSearch}>
               <Search className="h-4 w-4 mr-2" />
-              ��색
+              색
             </Button>
           </div>
           <div className="flex items-center space-x-2">
