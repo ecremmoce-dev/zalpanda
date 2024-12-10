@@ -42,6 +42,10 @@ interface ProductDetail {
   categorymapid: string
   categoryid: string
   categorypath: string
+  stocks: {
+    nowstock: number
+    safetystock: number
+  }
 }
 
 interface ProductDetailProps {
@@ -87,6 +91,19 @@ interface ItemImage {
 // 인터페이스 추가
 interface NoticeInfo {
   [key: string]: string;
+}
+
+// Product 인터페이스 수정
+interface Product {
+  id: string
+  name: string
+  variationsku: string
+  thumbnailurl: string
+  stocks: {
+    nowstock: number
+    safetystock: number
+  }
+  // ... 다른 필드들
 }
 
 export default function ProductDetail({ productId }: ProductDetailProps) {
@@ -202,6 +219,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           contenthtml,
           brandname,
           consumerprice,
+          purchaseprice,
           noticeinfo,
           status,
           item_options!left (
@@ -258,12 +276,14 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
       const formattedData: ProductDetail = {
         ...data,
         contenthtml: data.contenthtml || '',
-        purchaseprice: data.item_options?.[0]?.purchaseprice || 0,
+        purchaseprice: data.purchaseprice || 0,
         color: data.item_options?.[0]?.color || '',
         material: data.item_options?.[0]?.material || '',
         size: data.item_options?.[0]?.size || '',
-        currentstock: data.stocks?.[0]?.nowstock || 0,
-        safetystock: data.stocks?.[0]?.safetystock || 0,
+        stocks: {
+          nowstock: data.stocks?.nowstock || 0,
+          safetystock: data.stocks?.safetystock || 0
+        },
         producturl: '',
         supplyid: data.company_supply?.id || '',
         supplyname: data.company_supply?.supplyname || '',
@@ -346,20 +366,20 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
               <h3 className="text-lg font-semibold">가격 / 재고</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium">소비자가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.consumerprice?.toLocaleString()}원</p>
+                  <h4 className="text-sm font-medium">공급가</h4>
+                  <p className="text-sm text-muted-foreground">{productData.consumerprice?.toLocaleString()} 원</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium">구매가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.purchaseprice?.toLocaleString()}원</p>
+                  <h4 className="text-sm font-medium">판매가</h4>
+                  <p className="text-sm text-muted-foreground">{productData.purchaseprice?.toLocaleString()} 원</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.currentstock?.toLocaleString()}개</p>
+                  <p className="text-sm text-muted-foreground">{productData.stocks?.nowstock?.toLocaleString() || 0} 개</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">안전재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.safetystock?.toLocaleString()}개</p>
+                  <p className="text-sm text-muted-foreground">{productData.stocks?.safetystock?.toLocaleString() || 0} 개</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">SKU</h4>
@@ -412,7 +432,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                       !priorityFields.includes(key) && 
                       value && 
                       value !== '해당사항 없음' && 
-                      !value.includes('상세정보 확���') && 
+                      !value.includes('상세정보 확') && 
                       !value.includes('상세설명참조') && 
                       !value.includes('상품상세참조') && 
                       !value.includes('상품상세페이지 참조')
@@ -524,8 +544,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                           <th className="p-2 text-left text-sm font-medium">SKU</th>
                           <th className="p-2 text-left text-sm font-medium">옵션그룹</th>
                           <th className="p-2 text-left text-sm font-medium">옵션값</th>
-                          <th className="p-2 text-left text-sm font-medium">소비자가</th>
-                          <th className="p-2 text-left text-sm font-medium">구매가</th>
+                          <th className="p-2 text-left text-sm font-medium">공급가</th>
+                          <th className="p-2 text-left text-sm font-medium">판매가</th>
                           <th className="p-2 text-left text-sm font-medium">색상</th>
                           <th className="p-2 text-left text-sm font-medium">사이즈</th>
                           <th className="p-2 text-left text-sm font-medium">재고</th>
@@ -539,8 +559,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                             <td className="p-2 text-sm">{option.variationsku || '-'}</td>
                             <td className="p-2 text-sm">{option.groupname || '-'}</td>
                             <td className="p-2 text-sm">{option.groupvalue || '-'}</td>
-                            <td className="p-2 text-sm">{option.consumerprice?.toLocaleString()}원</td>
-                            <td className="p-2 text-sm">{option.purchaseprice?.toLocaleString()}원</td>
+                            <td className="p-2 text-sm">{option.consumerprice?.toLocaleString()} 원</td>
+                            <td className="p-2 text-sm">{option.purchaseprice?.toLocaleString()} 원</td>
                             <td className="p-2 text-sm">{option.color || '-'}</td>
                             <td className="p-2 text-sm">{option.size || '-'}</td>
                             <td className="p-2 text-sm">{option.currentstock?.toLocaleString()}</td>

@@ -36,18 +36,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
+import { v4 as uuidv4 } from 'uuid'; // uuid 패키지에서 v4 함수 가져오기
 
 interface Product {
   id: string
   variationsku: string
   name: string
   thumbnailurl: string
-  stock?: {
+  stocks: {
     nowstock: number
-  }[]
+    safetystock: number
+  }
   consumerprice?: number
   purchaseprice?: number
 }
+
+type SortingState = {
+  id: string;
+  desc: boolean;
+}[];
+
+type ColumnFiltersState = {
+  id: string;
+  value: string;
+}[];
 
 export function ProductOptionsStock() {
   const [supplierData, setSupplierData] = useState<any[]>([])
@@ -60,11 +72,17 @@ export function ProductOptionsStock() {
   const [supplierProducts, setSupplierProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = React.useState<string[]>([])
   const [rowSelection, setRowSelection] = useState({})
-  const [sorting, setSorting] = useState([])
-  const [columnFilters, setColumnFilters] = useState([])
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState({})
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [newStockValue, setNewStockValue] = useState<number | null>(null);
+  const [supplyPrice, setSupplyPrice] = useState<number | null>(null);
+  const [salePrice, setSalePrice] = useState<number | null>(null);
+  const [priceUnit, setPriceUnit] = useState<string>("%"); // 기본값을 %로 설정
+  const [priceAdjustmentType, setPriceAdjustmentType] = useState("ALL");
+  const [adjustmentValue, setAdjustmentValue] = useState<number | null>(null);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -94,7 +112,16 @@ export function ProductOptionsStock() {
   }
 
   const handleSupplierSearch = () => {
-    console.log("Searching for:", supplierSearchTerm)
+    if (!supplierSearchTerm.trim()) {
+      fetchSupplierData(user.companyid)
+      return
+    }
+    
+    const filteredSuppliers = supplierData.filter(supplier => 
+      supplier.supplyname.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
+      supplier.managername.toLowerCase().includes(supplierSearchTerm.toLowerCase())
+    )
+    setSupplierData(filteredSuppliers)
   }
 
   const handleSupplierSelect = async (supplier: any) => {
@@ -130,7 +157,11 @@ export function ProductOptionsStock() {
           consumerprice,
           purchaseprice,
           stocks (
-            nowstock
+            nowstock,
+            safetystock
+          ),
+          item_options!left (
+            groupvalue
           )
         `)
         .eq('companyid', companyid)
@@ -232,13 +263,45 @@ export function ProductOptionsStock() {
       ),
     },
     {
-      accessorKey: "options",
+      accessorKey: "item_options",
       header: "옵션값",
+      cell: ({ row }) => {
+        const options = row.original.item_options
+        if (!options || options.length === 0) return '-'
+        
+        const optionValues = options.map(opt => opt.groupvalue).join(', ')
+        
+        return (
+          <div className="relative group">
+            <div className="max-w-[200px]">
+              <div className="truncate">
+                {optionValues}
+              </div>
+            </div>
+            {/* 툴팁 */}
+            {optionValues.length > 0 && (
+              <div className="absolute z-50 invisible group-hover:visible bg-black/80 text-white p-2 rounded-md text-sm whitespace-normal min-w-[200px] max-w-[400px] bottom-full left-0 mb-2 break-words">
+                {optionValues}
+                <div className="absolute w-2 h-2 bg-black/80 transform rotate-45 left-4 -bottom-1"></div>
+              </div>
+            )}
+          </div>
+        )
+      }
     },
     {
-      accessorKey: "stock",
+      accessorKey: "stocks",
       header: "재고",
-      cell: ({ row }) => row.original.stocks?.[0]?.nowstock || 0
+      cell: ({ row }) => (
+        <div className="space-y-1">
+          <div className="text-sm">
+            현재: {row.original.stocks?.nowstock?.toLocaleString() || 0}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            안전: {row.original.stocks?.safetystock?.toLocaleString() || 0}
+          </div>
+        </div>
+      )
     },
     {
       accessorKey: "consumerprice",
@@ -277,6 +340,189 @@ export function ProductOptionsStock() {
     setSelectedProducts(selectedIds)
   }, [table.getSelectedRowModel().rows])
 
+  useEffect(() => {
+    if (searchQuery && supplierProducts.length > 0) {
+      const searchTermLower = searchQuery.toLowerCase()
+      
+      // 검색어로 상품 필터링
+      const filteredProducts = supplierProducts.filter(product => 
+        product.name?.toLowerCase().includes(searchTermLower) ||
+        product.variationsku?.toLowerCase().includes(searchTermLower)
+      )
+      
+      // 필터링된 결과를 테이블에 반영
+      setSupplierProducts(filteredProducts)
+    } else if (!searchQuery) {
+      // 검색어가 없을 때는 원래 데이터로 복원
+      if (selectedSupplier?.id && user?.companyid) {
+        fetchProductData(selectedSupplier.id, user.companyid)
+      }
+    }
+  }, [searchQuery])
+
+  const applyStockChange = () => {
+    if (newStockValue !== null) {
+      const updatedProducts = supplierProducts.map(product => {
+        if (selectedProducts.includes(product.id)) {
+          return {
+            ...product,
+            stocks: {
+              ...product.stocks,
+              nowstock: newStockValue
+            }
+          };
+        }
+        return product;
+      });
+      setSupplierProducts(updatedProducts);
+    }
+  };
+
+  const saveStockToDatabase = async () => {
+    if (selectedProducts.length === 0) {
+        alert('상품을 선택해주세요.');
+        return;
+    }
+
+    try {
+        // 가격 업데이트
+        if (supplyPrice !== null || salePrice !== null) {
+            const { error: priceError } = await supabase
+                .from('items')
+                .upsert(
+                    selectedProducts.map(productId => ({
+                        id: productId,
+                        consumerprice: supplyPrice !== null ? supplyPrice : undefined,
+                        purchaseprice: salePrice !== null ? salePrice : undefined,
+                    })),
+                    { onConflict: 'id' }
+                );
+
+            if (priceError) throw priceError;
+        }
+
+        // 재고 업데이트
+        if (newStockValue !== null) {
+            const { error: stockError } = await supabase
+                .from('stocks')
+                .upsert(
+                    selectedProducts.map(productId => ({
+                        id: uuidv4(),
+                        variationsku: supplierProducts.find(product => product.id === productId)?.variationsku || '',
+                        nowstock: newStockValue,
+                        itemid: productId,
+                        companyid: user?.companyid,
+                        createdat: new Date().toISOString(),
+                        updatedat: new Date().toISOString(),
+                    })),
+                    { onConflict: 'itemid' }
+                );
+
+            if (stockError) throw stockError;
+        }
+
+        // 성공적으로 저장되면 상품 데이터 다시 불러오기
+        if (selectedSupplier?.id && user?.companyid) {
+            await fetchProductData(selectedSupplier.id, user.companyid);
+        }
+
+        alert('데이터가 성공적으로 저장되었습니다.');
+    } catch (error) {
+        console.error('Error updating data:', error);
+        alert('데이터 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const applyPriceChange = () => {
+    if (supplyPrice !== null || salePrice !== null) {
+        const updatedProducts = supplierProducts.map(product => {
+            if (selectedProducts.includes(product.id)) {
+                return {
+                    ...product,
+                    consumerprice: supplyPrice !== null ? supplyPrice : product.consumerprice,
+                    purchaseprice: salePrice !== null ? salePrice : product.purchaseprice,
+                };
+            }
+            return product;
+        });
+        setSupplierProducts(updatedProducts);
+    }
+  };
+
+  const applyPriceAdjustment = (isIncrease: boolean) => {
+    if (adjustmentValue === null || selectedProducts.length === 0) {
+        alert('가격 조정값을 입력하고 상품을 선택해주세요.');
+        return;
+    }
+
+    const updatedProducts = supplierProducts.map(product => {
+        if (selectedProducts.includes(product.id)) {
+            let updatedProduct = { ...product };
+            
+            // 가격 조정 로직
+            const adjustPrice = (price: number) => {
+                if (priceUnit === '%') {
+                    return isIncrease
+                        ? price * (1 + adjustmentValue / 100)
+                        : price * (1 - adjustmentValue / 100);
+                } else {
+                    return isIncrease
+                        ? price + adjustmentValue
+                        : price - adjustmentValue;
+                }
+            };
+
+            // 선택된 가격 유형에 따라 조정
+            if (priceAdjustmentType === 'ALL' || priceAdjustmentType === 'supply') {
+                updatedProduct.consumerprice = Math.round(adjustPrice(product.consumerprice || 0));
+            }
+            if (priceAdjustmentType === 'ALL' || priceAdjustmentType === 'sell') {
+                updatedProduct.purchaseprice = Math.round(adjustPrice(product.purchaseprice || 0));
+            }
+
+            return updatedProduct;
+        }
+        return product;
+    });
+
+    setSupplierProducts(updatedProducts);
+  };
+
+  const savePriceAdjustment = async () => {
+    if (selectedProducts.length === 0) {
+        alert('상품을 선택해주세요.');
+        return;
+    }
+
+    try {
+        // 선택된 상품들의 현재 가격 정보 가져오기
+        const updatedPrices = supplierProducts
+            .filter(product => selectedProducts.includes(product.id))
+            .map(product => ({
+                id: product.id,
+                consumerprice: product.consumerprice,
+                purchaseprice: product.purchaseprice,
+            }));
+
+        // items 테이블 업데이트
+        const { error } = await supabase
+            .from('items')
+            .upsert(updatedPrices, { onConflict: 'id' });
+
+        if (error) throw error;
+
+        // 성공적으로 저장되면 상품 데이터 다시 불러오기
+        if (selectedSupplier?.id && user?.companyid) {
+            await fetchProductData(selectedSupplier.id, user.companyid);
+        }
+
+        alert('가격이 성공적으로 저장되었습니다.');
+    } catch (error) {
+        console.error('Error saving price adjustments:', error);
+        alert('가격 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <>
       <div className="container mx-auto p-4 space-y-6">
@@ -292,6 +538,11 @@ export function ProductOptionsStock() {
                 className="max-w-sm"
                 value={supplierSearchTerm}
                 onChange={(e) => setSupplierSearchTerm(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSupplierSearch()
+                  }
+                }}
               />
               <Button size="sm" onClick={handleSupplierSearch}>
                 검색
@@ -347,15 +598,27 @@ export function ProductOptionsStock() {
                   <Input 
                     type="text" 
                     placeholder="재고" 
-                    className="w-24"
+                    className="w-24 border border-gray-300 rounded-md p-2"
+                    value={newStockValue !== null ? newStockValue.toString() : ''}
+                    onChange={(e) => setNewStockValue(Number(e.target.value))}
                   />
                   <span>EA</span>
-                  <Input 
-                    type="text" 
-                    placeholder="추가" 
-                    className="w-24"
-                  />
-                  <Button variant="outline">차감</Button>
+                  <Button 
+                    variant="primary" 
+                    className="ml-4 bg-blue-500 text-white"
+                    onClick={applyStockChange}
+                    disabled={selectedProducts.length === 0}
+                  >
+                    적용
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    className="ml-2 bg-gray-500 text-white"
+                    onClick={saveStockToDatabase}
+                    disabled={selectedProducts.length === 0 || (!supplyPrice && !salePrice)}
+                  >
+                    저장
+                  </Button>
                 </div>
               </div>
 
@@ -366,15 +629,35 @@ export function ProductOptionsStock() {
                   <Input 
                     type="text" 
                     placeholder="공급가" 
-                    className="w-32"
+                    className="w-32 border border-gray-300 rounded-md p-2"
+                    value={supplyPrice !== null ? supplyPrice.toString() : ''}
+                    onChange={(e) => setSupplyPrice(Number(e.target.value))}
                   />
                   <span>원</span>
                   <Input 
                     type="text" 
                     placeholder="판매가" 
-                    className="w-32"
+                    className="w-32 border border-gray-300 rounded-md p-2"
+                    value={salePrice !== null ? salePrice.toString() : ''}
+                    onChange={(e) => setSalePrice(Number(e.target.value))}
                   />
                   <span>원</span>
+                  <Button 
+                    variant="primary" 
+                    className="ml-4 bg-blue-500 text-white"
+                    onClick={applyPriceChange}
+                    disabled={selectedProducts.length === 0}
+                  >
+                    적용
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    className="ml-2 bg-gray-500 text-white"
+                    onClick={saveStockToDatabase}
+                    disabled={selectedProducts.length === 0 || (!supplyPrice && !salePrice)}
+                  >
+                    저장
+                  </Button>
                 </div>
               </div>
             </div>
@@ -383,7 +666,11 @@ export function ProductOptionsStock() {
             <div className="mt-6 space-y-4">
               <h2 className="text-lg font-semibold">가격 조정</h2>
               <div className="flex items-center space-x-6">
-                <RadioGroup defaultValue="ALL" className="flex items-center space-x-4">
+                <RadioGroup 
+                  value={priceAdjustmentType} 
+                  onValueChange={setPriceAdjustmentType} 
+                  className="flex items-center space-x-4"
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="ALL" id="ALL" />
                     <Label htmlFor="ALL">ALL</Label>
@@ -400,14 +687,48 @@ export function ProductOptionsStock() {
 
                 <div className="flex items-center space-x-2">
                   <Input 
-                    type="text" 
+                    type="number" 
                     placeholder="가격" 
                     className="w-24"
+                    value={adjustmentValue !== null ? adjustmentValue : ''}
+                    onChange={(e) => setAdjustmentValue(Number(e.target.value))}
                   />
-                  <span>%</span>
-                  <Button variant="secondary">인상</Button>
-                  <Button variant="secondary">인하</Button>
-                  <Button variant="default">저장</Button>
+                  <Select 
+                    value={priceUnit} 
+                    onValueChange={setPriceUnit}
+                  >
+                    <SelectTrigger className="w-[80px]">
+                      <SelectValue>{priceUnit}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="%">%</SelectItem>
+                      <SelectItem value="원">원</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="secondary" 
+                    className="bg-blue-500 text-white"
+                    onClick={() => applyPriceAdjustment(true)}
+                    disabled={selectedProducts.length === 0 || adjustmentValue === null}
+                  >
+                    인상
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    className="bg-red-500 text-white"
+                    onClick={() => applyPriceAdjustment(false)}
+                    disabled={selectedProducts.length === 0 || adjustmentValue === null}
+                  >
+                    인하
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    className="bg-green-500 text-white"
+                    onClick={savePriceAdjustment}
+                    disabled={selectedProducts.length === 0}
+                  >
+                    저장
+                  </Button>
                 </div>
               </div>
             </div>
@@ -423,7 +744,7 @@ export function ProductOptionsStock() {
             <div className="flex items-center space-x-2 mb-4">
               <Select value={selectedCategory} onValueChange={handleCategoryChange}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="카테고리 선택" />
+                  <SelectValue placeholder="카테리 선택" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체</SelectItem>
@@ -432,10 +753,15 @@ export function ProductOptionsStock() {
                 </SelectContent>
               </Select>
               <Input
-                placeholder="상품명으로 검색"
+                placeholder="상품명 또는 SKU로 검색"
                 className="max-w-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                  }
+                }}
               />
               <Button size="sm">
                 <Search className="h-4 w-4 mr-2" />
