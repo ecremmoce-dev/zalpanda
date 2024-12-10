@@ -116,7 +116,13 @@ interface NoticeInfo {
 }
 
 // 아이콘 버튼들을 포함하는 공통 컴포넌트 생성
-const ImageActionButtons = () => (
+const ImageActionButtons = ({ 
+  image,
+  onDelete 
+}: { 
+  image: Image;
+  onDelete: () => void;
+}) => (
   <div className="flex justify-center items-center gap-2 py-2">
     <Button 
       variant="ghost" 
@@ -157,6 +163,7 @@ const ImageActionButtons = () => (
       size="icon" 
       className="h-7 w-7 hover:bg-gray-100 text-red-500 hover:text-red-600"
       aria-label="delete"
+      onClick={onDelete}
     >
       <Trash2 className="h-4 w-4" />
     </Button>
@@ -214,7 +221,10 @@ const DraggableImage = ({ image, index, moveImage }: {
           {index + 1}
         </span>
       </div>
-      <ImageActionButtons />
+      <ImageActionButtons 
+        image={image}
+        onDelete={() => handleDeleteImage(image)}
+      />
     </div>
   );
 };
@@ -317,7 +327,10 @@ const DraggableContentImage = React.memo(({ image, index, moveImage }: {
         </DialogContent>
       </Dialog>
       <div className="bg-gray-50 rounded-md flex justify-center">
-        <ImageActionButtons />
+        <ImageActionButtons 
+          image={image}
+          onDelete={() => handleDeleteImage(image)}
+        />
       </div>
     </div>
   );
@@ -954,6 +967,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
   // 이미지 업로드 핸들러 수정
   const [isUploading, setIsUploading] = React.useState(false);
 
+  // handleThumbnailUpload 함수 수정
   const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !initialData.id) return;
     
@@ -962,6 +976,9 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
       const files = Array.from(e.target.files);
       
       for (const file of files) {
+        // UUID 생성
+        const imageId = generateUUID();
+        
         // 파일 크기 체크 (10MB)
         if (file.size > 10 * 1024 * 1024) {
           alert('파일 크기는 10MB를 초과할 수 없습니다.');
@@ -1030,6 +1047,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         const { error: dbError } = await supabase
           .from('item_images')
           .insert({
+            id: imageId, // UUID 사용
             itemid: initialData.id,
             type: 'THUMBNAIL',
             url: imageUrl,
@@ -1053,6 +1071,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     }
   };
 
+  // handleContentImageUpload 함수도 동일하게 수정
   const handleContentImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !initialData.id) return;
     
@@ -1061,9 +1080,12 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
       const files = Array.from(e.target.files);
       
       for (const file of files) {
+        // UUID 생성
+        const imageId = generateUUID();
+        
         // 파일 크기 체크 (10MB)
         if (file.size > 10 * 1024 * 1024) {
-          alert('파일 크기는 10MB를 초과할 수 없습니다.');
+          alert('파일 크기는 10MB를 초과할 ���� 없습니다.');
           continue;
         }
 
@@ -1129,6 +1151,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         const { error: dbError } = await supabase
           .from('item_images')
           .insert({
+            id: imageId, // UUID 사용
             itemid: initialData.id,
             type: 'MAIN_CONTENT',
             url: imageUrl,
@@ -2106,3 +2129,81 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     </DndProvider>
   )
 }
+
+// 이미지 삭제 함수 추가
+const handleDeleteImage = async (image: Image) => {
+  try {
+    if (!window.confirm('이미지를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    // 1. DB에서 이미지 정보 먼저 삭제
+    const { error: dbError } = await supabase
+      .from('item_images')
+      .delete()
+      .eq('id', image.id);
+
+    if (dbError) throw dbError;
+
+    // 2. KT Cloud에서 이미지 파일 삭제 시도
+    try {
+      const origin = window.location.origin;
+      const corsResponse = await fetch('/api/ktcloud/container-cors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ origin })
+      });
+
+      if (!corsResponse.ok) {
+        console.warn('Failed to get CORS token, but continuing...');
+      } else {
+        const { token, storageUrl, containerName } = await corsResponse.json();
+
+        // URL에서 파일 경로 추출 (수정된 부분)
+        const urlMatch = image.url.match(new RegExp(`${containerName}/(.+)`));
+        if (!urlMatch) {
+          console.warn('Invalid file URL format');
+          throw new Error('Invalid file URL format');
+        }
+
+        const filePath = urlMatch[1]; // containerName 이후의 전체 경로
+
+        console.log('Deleting file:', filePath); // 디버깅용 로그
+
+        // KT Cloud에서 파일 삭제 시도
+        const deleteResponse = await fetch(`${storageUrl}/${containerName}/${filePath}`, {
+          method: 'DELETE',
+          headers: {
+            'X-Auth-Token': token,
+          },
+        });
+
+        if (!deleteResponse.ok && deleteResponse.status !== 404) {
+          console.warn('File deletion response:', {
+            status: deleteResponse.status,
+            statusText: deleteResponse.statusText
+          });
+          throw new Error(`Failed to delete file: ${deleteResponse.status}`);
+        }
+      }
+    } catch (storageError) {
+      // 스토리지 삭제 실패는 경고만 하고 계속 진행
+      console.warn('Storage deletion failed:', storageError);
+    }
+
+    // 3. UI 업데이트
+    if (image.type === 'THUMBNAIL') {
+      setThumbnailImages(prev => prev.filter(img => img.id !== image.id));
+    } else if (image.type === 'MAIN_CONTENT') {
+      setContentImages(prev => prev.filter(img => img.id !== image.id));
+    }
+
+    alert('이미지가 성공적으로 삭제되었습니다.');
+
+  } catch (error) {
+    console.error('Failed to delete image:', error);
+    alert('이미지 삭제에 실패했습니다.');
+  }
+};

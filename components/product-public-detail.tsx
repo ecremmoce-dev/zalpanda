@@ -413,7 +413,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     '제조연월',
                     '제품소재',
                     '색상',
-                    '치수',
+                    '���수',
                     '세탁방법 및 취급시 주의사항',
                     '품질보증기준',
                     'A/S 책임자와 전화번호',
@@ -602,7 +602,6 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     name: productData.name,
                     content: productData.content,
                     contenthtml: productData.contenthtml,
-                    originalcontent: productData.content,
                     weight: productData.weight || 0,
                     width: productData.width || 0,
                     length: productData.length || 0,
@@ -628,6 +627,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                   }}
                   onSave={async (formData) => {
                     try {
+                      // 1. 상품 기본 정보 업데이트
                       const { error } = await supabase
                         .from('items')
                         .update({
@@ -643,13 +643,17 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                           consumerprice: formData.consumerprice,
                           status: formData.status,
                           brandname: formData.brandname,
-                          memo: formData.memo
+                          memo: formData.memo,
+                          noticeinfo: formData.noticeinfo,
+                          purchaseprice: formData.purchaseprice,
+                          variationsku: formData.variationsku,
+                          updatedat: new Date().toISOString()
                         })
                         .eq('id', productId);
 
                       if (error) throw error;
 
-                      // 옵션 정보 업데이트
+                      // 2. 옵션 정보 업데이트
                       if (formData.options) {
                         for (const option of formData.options) {
                           const { error: optionError } = await supabase
@@ -663,7 +667,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                               groupname: option.groupname,
                               groupvalue: option.groupvalue,
                               packageunit: option.packageunit,
-                              weightunit: option.weightunit
+                              weightunit: option.weightunit,
+                              updatedat: new Date().toISOString()
                             })
                             .eq('id', option.id);
 
@@ -671,11 +676,15 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                         }
                       }
 
-                      alert('상품 정보가 성공적으로 수정되었습니다.');
+                      // 3. 상품 데이터 새로고침
+                      await fetchProductDetail();
+                      await fetchOptionData(productId);
+                      await fetchImageData(productId);
+
+                      // 4. 다이얼로그 닫기
                       setIsEditDialogOpen(false);
-                      // 상품 정보 새로고침
-                      fetchProductDetail();
-                      fetchOptionData(productId);
+                      
+                      alert('상품 정보가 성공적으로 수정되었습니다.');
                     } catch (error) {
                       console.error('Failed to update product:', error);
                       alert('상품 수정에 실패했습니다.');
