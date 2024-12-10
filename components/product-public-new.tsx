@@ -47,6 +47,16 @@ import {
 
 const PAGE_SIZE = 10;
 
+type StatusType = 'pending' | 'start' | 'completed' | 'failed' | 'binding';
+
+const STATUS_LABELS: Record<StatusType, string> = {
+  pending: '대기',
+  start: '진행중',
+  completed: '완료',
+  failed: '실패',
+  binding: '바인딩'
+};
+
 export default function ProductRegistration() {
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -71,6 +81,8 @@ export default function ProductRegistration() {
   const [isSpecificationsOpen, setIsSpecificationsOpen] = useState(true)
   const [isThumbnailsOpen, setIsThumbnailsOpen] = useState(true)
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
+  const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
 
   const { user } = useUserDataStore();
 
@@ -263,6 +275,226 @@ export default function ProductRegistration() {
     }
   }
 
+  const getFilteredResults = () => {
+    return crawlingResults.filter(item => selectedStatuses.includes(item.detail_status as StatusType));
+  };
+
+  const filteredResultsTotalPages = Math.ceil(getFilteredResults().length / PAGE_SIZE);
+
+  const handleBinding = async () => {
+    const itemsToUpdate = selectedCrawlingResults.filter(item => item.detail_status === 'completed');
+    
+    try {
+      const { error: updateError } = await supabase
+        .from('crawlingproductlist')
+        .upsert(
+          itemsToUpdate.map(item => ({
+            ...item,
+            detail_status: 'binding',
+            updated_at: new Date().toISOString(),
+          }))
+        )
+        .select();
+      console.log(updateError);
+
+      if (updateError) throw updateError;
+
+      try {
+        for (const item of itemsToUpdate) {
+          const { data: detailData, error: detailError } = await supabase
+            .from('crawlingproductdetail')
+            .select('*')
+            .eq('product_id', item.id)
+            .single();
+          if (detailError) throw detailError;
+
+          const detail = detailData.detail_json;
+          const specs = detailData.specifications;
+
+          const itemData = {
+            id: crypto.randomUUID(), // 브라우저 내장 UUID 생성 함수 사용
+            variationsku: detail.sku?.toString() || null,
+            name: detail.title,
+            hscode: null,
+            barcode: null,
+            weight: null,
+            width: null,
+            length: null,
+            height: null,
+            memo: null,
+            thumbnailurl: detail.thumbnails?.[0] || null,
+            companyid: user?.companyid,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            brandname: detail.brand,
+            content: detail.contentHtml,
+            status: 'PENDING',
+            consumerprice: detail.price,
+            contenthtml: detail.contentHtml,
+            supplyid: selectedSupplier?.id,
+            originalcontent: detail.contentHtml,
+            originalname: detail.title,
+            noticeinfo: JSON.stringify(detail.productNotice || specs),
+            purchaseprice: detail.beforeDiscount || detail.price,
+          };
+
+          const { data: savedItem, error: itemError } = await supabase
+            .from('items')
+            .insert([itemData])
+            .select()
+            .single();
+          if (itemError) throw itemError;
+
+          // options 데이터 저장
+          // if (detail.options && detail.options.length > 0) {
+          //   const optionsData = detail.options.map((option: any) => ({
+          //     id: crypto.randomUUID(),
+          //     itemid: savedItem.id,
+          //     variationsku: option.sku?.toString() || null,
+          //     consumerprice: option.price || detail.price,
+          //     purchaseprice: option.price || detail.beforeDiscount || detail.price,
+          //     groupname: Object.keys(option).filter(key => !['sku', 'price'].includes(key))[0] || 'default',
+          //     groupvalue: Object.values(option).filter((_, index) => !['sku', 'price'].includes(Object.keys(option)[index]))[0]?.toString() || null,
+          //     color: option.color || null,
+          //     material: option.material || null,
+          //     size: option.size || null,
+          //     voproductid: null,
+          //     expirationday: null,
+          //     feature: null,
+          //     packageunit: null,
+          //     weightunit: null,
+          //     createdat: new Date().toISOString(),
+          //     updatedat: new Date().toISOString(),
+          //     origin_json: JSON.stringify(option)
+          //   }));
+
+          //   const { error: optionsError } = await supabase
+          //     .from('item_options')
+          //     .insert(optionsData);
+
+          //   if (optionsError) throw optionsError;
+          // }
+          
+          if (detail.options && detail.options.length > 0) {
+            const optionsData = detail.modifyOptions.map((option: any) => ({
+              id: crypto.randomUUID(), 
+              itemid: savedItem.id, 
+              original_json: JSON.stringify(option), 
+              modified_json: JSON.stringify(option), 
+              createdat: new Date().toISOString(), 
+              updatedat: new Date().toISOString(), 
+            }));
+          
+            const { error: optionsError } = await supabase
+              .from('item_options_new') 
+              .insert(optionsData);
+
+            if (optionsError) throw optionsError;
+          }
+
+          const images = [
+            ...(detail.thumbnails || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'THUMBNAIL',
+              url,
+              index: 4,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            })),
+            ...(detail.detailImages || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'MAIN_CONTENT',
+              url,
+              index,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            }))
+          ];
+
+          const { error: imageError } = await supabase
+            .from('item_images')
+            .insert(images);
+
+          if (imageError) throw imageError;
+        }
+
+        setSelectedCrawlingResults([]);
+        if (selectedCrawlingItem) {
+          fetchCrawlingProductList(selectedCrawlingItem);
+        }
+        
+      } catch (bindingError) {
+        const { error: rollbackError } = await supabase
+          .from('crawlingproductlist')
+          .upsert(
+            itemsToUpdate.map(item => ({
+              ...item,
+              detail_status: 'completed',
+              updated_at: new Date().toISOString(),
+            }))
+          )
+          .select();
+
+        if (rollbackError) {
+          console.error('Failed to rollback status:', rollbackError);
+        }
+
+        if (selectedCrawlingItem) {
+          fetchCrawlingProductList(selectedCrawlingItem);
+        }
+
+        throw new Error('바인딩 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to bind items:', error);
+      alert('바인딩 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleStatusChange = (status: StatusType) => {
+    setSelectedStatuses(prev => {
+      const newStatuses = prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status];
+      
+      // 상태가 변경될 때 페이지 초기화
+      setCrawlingResultsCurrentPage(1);
+      return newStatuses;
+    });
+  };
+
+  useEffect(() => {
+    setCrawlingResultsCurrentPage(1);
+  }, [selectedStatuses]);
+
+  useEffect(() => {
+    const fetchCrawlingSelectList = async () => {
+      try {
+        const { data, error } = await supabase.from('crawlingselectlist').select('name, code');
+        if (error) throw error;
+        setCrawlingSelectList(data);
+      } catch (error) {
+        console.error('Failed to fetch crawling select list:', error);
+      }
+    };
+
+    fetchCrawlingSelectList();
+  }, []);
+
   return (
     <div className="container mx-auto py-6">
       <Tabs defaultValue="job" className="space-y-4">
@@ -416,8 +648,9 @@ export default function ProductRegistration() {
                       <SelectValue placeholder="네이버 스토어 스마트" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="naver">네이버 스토어</SelectItem>
-                      <SelectItem value="gabangpop">가방팝</SelectItem>
+                    {crawlingSelectList.map((item) => ( // DB에서 가져온 데이터로 SelectItem 생성
+                        <SelectItem key={item.code} value={item.code}>{item.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <div className="relative flex-1">
@@ -525,16 +758,39 @@ export default function ProductRegistration() {
                     </Pagination>
                   </div>
                   <div>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-4">
                       <h3 className="text-lg font-semibold">결과목록</h3>
-                      <Button 
-                        onClick={() => handleSaveSelectedCrawlingResults()}
-                        disabled={selectedCrawlingResults.length === 0}
-                      >
-                        선택항목 저장 ({selectedCrawlingResults.length})
-                      </Button>
+                      <div className="flex gap-4">
+                        <div className="flex items-center gap-4 border rounded-md p-2">
+                          {(Object.entries(STATUS_LABELS) as [StatusType, string][]).map(([status, label]) => (
+                            <label key={status} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedStatuses.includes(status)}
+                                onChange={() => handleStatusChange(status)}
+                                className="w-4 h-4"
+                              />
+                              <span>{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="space-x-2">
+                          <Button 
+                            onClick={handleBinding}
+                            disabled={selectedCrawlingResults.filter(item => item.detail_status === 'completed').length === 0}
+                          >
+                            선택항목 바인딩 ({selectedCrawlingResults.filter(item => item.detail_status === 'completed').length})
+                          </Button>
+                          <Button 
+                            onClick={() => handleSaveSelectedCrawlingResults()}
+                            disabled={selectedCrawlingResults.length === 0}
+                          >
+                            선택항목 저장 ({selectedCrawlingResults.length})
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-md border mt-4">
+                    <div className="rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -562,7 +818,7 @@ export default function ProductRegistration() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {crawlingResults
+                          {getFilteredResults()
                             .slice((crawlingResultsCurrentPage - 1) * PAGE_SIZE, crawlingResultsCurrentPage * PAGE_SIZE)
                             .map((item) => (
                               <TableRow 
@@ -592,7 +848,7 @@ export default function ProductRegistration() {
                                 </TableCell>
                                 <TableCell>{item.item_name}</TableCell>
                                 <TableCell>{item.price}</TableCell>
-                                <TableCell>{item.detail_status}</TableCell>
+                                <TableCell>{STATUS_LABELS[item.detail_status as StatusType] || item.detail_status}</TableCell>
                                 <TableCell>
                                   <Button
                                     variant="outline" 
@@ -618,10 +874,10 @@ export default function ProductRegistration() {
                             disabled={crawlingResultsCurrentPage === 1}
                           />
                         </PaginationItem>
-                        {Array.from({ length: Math.ceil(crawlingResults.length / PAGE_SIZE) }, (_, i) => i + 1)
+                        {Array.from({ length: filteredResultsTotalPages }, (_, i) => i + 1)
                           .filter(page => 
                             page === 1 || 
-                            page === Math.ceil(crawlingResults.length / PAGE_SIZE) || 
+                            page === filteredResultsTotalPages || 
                             Math.abs(page - crawlingResultsCurrentPage) <= 2
                           )
                           .map((page, index, array) => (
@@ -644,9 +900,9 @@ export default function ProductRegistration() {
                         <PaginationItem>
                           <PaginationNext 
                             onClick={() => setCrawlingResultsCurrentPage(prev => 
-                              Math.min(prev + 1, Math.ceil(crawlingResults.length / PAGE_SIZE))
+                              Math.min(prev + 1, filteredResultsTotalPages)
                             )}
-                            disabled={crawlingResultsCurrentPage === Math.ceil(crawlingResults.length / PAGE_SIZE)}
+                            disabled={crawlingResultsCurrentPage === filteredResultsTotalPages}
                           />
                         </PaginationItem>
                       </PaginationContent>
@@ -745,7 +1001,7 @@ export default function ProductRegistration() {
                       </Collapsible>
                     )}
                     
-                    {/* 상세 이미지 */}
+                    {/* 세 이미지 */}
                     {selectedProductDetail.detail_json?.detailImages && (
                       <Collapsible open={isDetailImagesOpen} onOpenChange={setIsDetailImagesOpen}>
                         <div className="flex items-center justify-between">
