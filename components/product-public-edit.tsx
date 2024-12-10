@@ -333,7 +333,7 @@ const DraggableContentImage = React.memo(({ image, index, moveImage }: {
         />
       </div>
     </div>
-  );
+  )
 });
 
 // UUID 생성 함수 추가
@@ -1182,26 +1182,25 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     try {
       const isNewOption = option.id.includes('-');
 
+      // Prepare option data in JSON format
       const optionData = {
-        itemid: initialData.id,
-        variationsku: option.variationsku || '',
-        consumerprice: option.consumerprice || 0,
-        purchaseprice: option.purchaseprice || 0,
-        groupname: option.groupname || '',
-        groupvalue: option.groupvalue || '',
-        color: option.color || '',
-        material: option.material || '',
-        size: option.size || '',
-        packageunit: option.packageunit || '',
-        weightunit: option.weightunit || '',
-        createdat: new Date().toISOString(),
-        updatedat: new Date().toISOString()
+        label: option.groupname || '',
+        price: option.consumerprice || 0,
+        stock: option.currentstock || 0,
+        value: option.groupvalue || '',
+        children: [],
+        optionNo: parseInt(option.id) // Assuming option.id is a stringified number
       };
 
       if (isNewOption) {
         const { data, error: insertError } = await supabase
-          .from('item_options')
-          .insert(optionData)
+          .from('item_options_new')
+          .insert({
+            itemid: initialData.id,
+            modified_json: optionData,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString()
+          })
           .select()
           .single();
 
@@ -1216,10 +1215,10 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
         }
       } else {
         const { error: updateError } = await supabase
-          .from('item_options')
+          .from('item_options_new')
           .update({
-            ...optionData,
-            createdat: undefined
+            modified_json: optionData,
+            updatedat: new Date().toISOString()
           })
           .eq('id', option.id);
 
@@ -1247,7 +1246,11 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
           <section className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-semibold">카테고리</h2>
-              <Button variant="link" className="text-blue-500" onClick={toggleCategorySection}>
+              <Button 
+                variant="link" 
+                className="text-blue-500"
+                onClick={toggleCategorySection}
+              >
                 {isCategoryExpanded ? '접기' : '펼치기'}
               </Button>
             </div>
@@ -1703,7 +1706,7 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
                   <div className="space-y-2">
                     <Label>부피무게</Label>
                     <Input 
-                      type="number" 
+                      type="number"
                       value={(formData.length * formData.width * formData.height) / 6000}
                       disabled 
                     />

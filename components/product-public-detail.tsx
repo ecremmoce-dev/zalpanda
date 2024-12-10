@@ -53,28 +53,25 @@ interface ProductDetailProps {
   productId: string
 }
 
-// 옵션 인터페이스 추가
+// 옵션 타입 정의
 interface ItemOption {
-  id: string
-  itemid: string
-  variationsku: string
-  consumerprice: number
-  purchaseprice: number
-  groupname: string
-  groupvalue: string
-  color: string
-  material: string
-  noticeinfo: string
-  size: string
-  voproductid: string
-  expirationday: number
-  feature: string
-  packageunit: string
-  weightunit: string
-  createdat: string
-  updatedat: string
-  currentstock: number
-  safetystock: number
+  label: string;
+  price: number;
+  stock: number;
+  value: string;
+  children: ItemOption[];
+  optionNo: number;
+  // 테이블 표시를 위한 추가 필드들
+  variationsku?: string;
+  groupname?: string;
+  groupvalue?: string;
+  consumerprice?: number;
+  purchaseprice?: number;
+  color?: string;
+  size?: string;
+  currentstock?: number;
+  safetystock?: number;
+  packageunit?: string;
 }
 
 // 인터페이스 추가
@@ -107,7 +104,7 @@ interface Product {
   // ... 다른 필드들
 }
 
-// priorityFields 배열 추가 (컴포넌트 외부에 선언)
+// priorityFields 배열 추가 (컴���넌트 외부에 선언)
 const priorityFields = [
   '상품번호',
   '상품상태',
@@ -132,34 +129,90 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   const [contentImages, setContentImages] = React.useState<ItemImage[]>([])
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
 
-  // 옵션 데이터 조회 함수 수정
-  const fetchOptionData = async (itemId: string) => {
+  // 옵션 데이터를 가져오는 부분 수정
+  const fetchItemOptions = async (itemId: string) => {
     try {
-      const { data: optionsData, error: optionsError } = await supabase
-        .from('item_options')
-        .select('*')
-        .eq('itemid', itemId)
+      const { data, error } = await supabase
+        .from('item_options_new')
+        .select('modified_json')
+        .eq('itemid', itemId);
 
-      if (optionsError) throw optionsError
+      if (error) throw error;
 
-      // 재고 정보는 items 테이블의 stocks에서 가져옴
-      const { data: stockData } = await supabase
-        .from('items')
-        .select('stocks!left (nowstock, safetystock)')
-        .eq('id', itemId)
-        .single()
+      const options = data.map((option: any) => {
+        const parsedOption = JSON.parse(option.modified_json);
+        return {
+          ...parsedOption,
+          variationsku: parsedOption.value,
+          groupname: parsedOption.label,
+          groupvalue: parsedOption.value,
+          consumerprice: parsedOption.price,
+          purchaseprice: parsedOption.price,
+          currentstock: parsedOption.stock,
+          safetystock: 0,
+          color: '-',
+          size: '-',
+          packageunit: '-'
+        };
+      });
 
-      const optionsWithStock = optionsData.map(option => ({
-        ...option,
-        currentstock: stockData?.stocks?.[0]?.nowstock || 0,
-        safetystock: stockData?.stocks?.[0]?.safetystock || 0
-      }))
-
-      setOptionData(optionsWithStock)
+      setOptionData(options);
+      return options;
     } catch (error) {
-      console.error('Failed to fetch option data:', error)
+      console.error('옵션 데이터 로딩 중 오류 발생:', error);
+      return [];
+    }
+  };
+
+  // 옵션 선택 핸들러
+  const handleOptionSelect = async (selectedOption: ItemOption) => {
+    const optionId = selectedOption.optionNo;
+    const itemId = productId;
+
+    // 옵션 업데이트 API 호출
+    try {
+      await fetch(`/api/items/${itemId}/options/${optionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          modified_json: {
+            label: selectedOption.label,
+            price: selectedOption.price,
+            stock: selectedOption.stock,
+            value: selectedOption.value,
+            children: selectedOption.children,
+            optionNo: selectedOption.optionNo
+          }
+        })
+      });
+    } catch (error) {
+      console.error('옵션 업데이트 중 오류 발생:', error);
     }
   }
+
+  // 옵션 렌더링 부분
+  const renderOptions = (options: ItemOption[]) => {
+    return options.map((option) => (
+      <div key={option.optionNo}>
+        <select 
+          onChange={(e) => handleOptionSelect(JSON.parse(e.target.value))}
+        >
+          <option value="">선택하세요</option>
+          {options.map((opt) => (
+            <option 
+              key={opt.optionNo}
+              value={JSON.stringify(opt)}
+            >
+              {opt.label} {opt.price > 0 ? `(+${opt.price}원)` : ''} 
+              {opt.stock <= 0 ? ' (품절)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+    ));
+  };
 
   // 이미지 데이터 조회 함수 수정
   const fetchImageData = async (itemId: string) => {
@@ -209,7 +262,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   React.useEffect(() => {
     if (productId) {
       fetchProductDetail()
-      fetchOptionData(productId)
+      fetchItemOptions(productId)
       fetchImageData(productId)
     }
   }, [productId])
@@ -545,44 +598,24 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-muted">
-                          <th className="p-2 text-left text-sm font-medium">SKU</th>
-                          <th className="p-2 text-left text-sm font-medium">옵션그룹</th>
+                          <th className="p-2 text-left text-sm font-medium">옵션명</th>
                           <th className="p-2 text-left text-sm font-medium">옵션값</th>
-                          <th className="p-2 text-left text-sm font-medium">공급가</th>
-                          <th className="p-2 text-left text-sm font-medium">판매가</th>
-                          <th className="p-2 text-left text-sm font-medium">색상</th>
-                          <th className="p-2 text-left text-sm font-medium">사이즈</th>
+                          <th className="p-2 text-left text-sm font-medium">가격</th>
                           <th className="p-2 text-left text-sm font-medium">재고</th>
-                          <th className="p-2 text-left text-sm font-medium">안전재고</th>
-                          <th className="p-2 text-left text-sm font-medium">포장단위</th>
                         </tr>
                       </thead>
                       <tbody>
                         {optionData.map((option) => (
-                          <tr key={option.id} className="border-b">
-                            <td className="p-2 text-sm">{option.variationsku || '-'}</td>
-                            <td className="p-2 text-sm">{option.groupname || '-'}</td>
-                            <td className="p-2 text-sm">{option.groupvalue || '-'}</td>
-                            <td className="p-2 text-sm">{option.consumerprice?.toLocaleString()} 원</td>
-                            <td className="p-2 text-sm">{option.purchaseprice?.toLocaleString()} 원</td>
-                            <td className="p-2 text-sm">{option.color || '-'}</td>
-                            <td className="p-2 text-sm">{option.size || '-'}</td>
-                            <td className="p-2 text-sm">{option.currentstock?.toLocaleString()}</td>
-                            <td className="p-2 text-sm">{option.safetystock?.toLocaleString()}</td>
-                            <td className="p-2 text-sm">{option.packageunit || '-'}</td>
+                          <tr key={option.optionNo} className="border-b">
+                            <td className="p-2 text-sm">{option.label}</td>
+                            <td className="p-2 text-sm">{option.value}</td>
+                            <td className="p-2 text-sm">{option.price?.toLocaleString()} 원</td>
+                            <td className="p-2 text-sm">{option.stock?.toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {optionData.some(option => option.feature) && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium mb-2">특징</h4>
-                      {optionData.map(option => option.feature && (
-                        <p key={option.id} className="text-sm text-muted-foreground">{option.feature}</p>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -682,7 +715,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
                       // 3. 상품 데이터 새로고침
                       await fetchProductDetail();
-                      await fetchOptionData(productId);
+                      await fetchItemOptions(productId);
                       await fetchImageData(productId);
 
                       // 4. 다이얼로그 닫기
