@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
+import { useRouter } from 'next/navigation'
 
 interface Supplier {
   id: number
@@ -96,9 +97,11 @@ export default function SupplierProductManagement() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
 
   const { user } = useUserDataStore();
   const { selectedSupplier, setSelectedSupplier } = useSupplierStore();
+  const router = useRouter()
 
   useEffect(() => {
     const initializeData = async () => {
@@ -219,6 +222,21 @@ export default function SupplierProductManagement() {
     product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
   );
 
+  const handleSupplierSearch = () => {
+    if (!supplierSearchTerm || !user) {
+      if (user) {
+        fetchSupplierData(user.companyid);
+      }
+      return;
+    }
+
+    const filteredData = supplierData.filter(supplier =>
+      supplier.supplyname.includes(supplierSearchTerm) ||
+      supplier.managername.includes(supplierSearchTerm)
+    );
+    setSupplierData(filteredData);
+  }
+
   const supplierColumns: ColumnDef<any>[] = [
     { accessorKey: "supplyname", header: "회사명" },
     { accessorKey: "managername", header: "담당자" },
@@ -227,11 +245,12 @@ export default function SupplierProductManagement() {
       id: "actions",
       cell: ({ row }) => (
         <Button
+          size="sm"
           onClick={() => handleSupplierSelect(row.original)}
           variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
-          size="sm"
+          className={selectedSupplier?.id === row.original.id ? "bg-blue-500 text-white" : ""}
         >
-          {selectedSupplier?.id === row.original.id ? "선택됨" : "선택"}
+          선택
         </Button>
       ),
     },
@@ -423,28 +442,39 @@ export default function SupplierProductManagement() {
     setIsDetailDialogOpen(true);
   };
 
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
         <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-            >
-              {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-            </Button>
+            <div className="flex items-center space-x-2">
+              {selectedSupplier && (
+                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+              >
+                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isSupplierTableExpanded && (
               <DataTable 
                 columns={supplierColumns}
                 data={supplierData}
-                searchTerm={supplierSearch}
-                onSearchTermChange={setSupplierSearch}
-                showActionButtons={false}
+                searchTerm={supplierSearchTerm}
+                onSearchTermChange={setSupplierSearchTerm}
+                onSearch={handleSupplierSearch}
+                showActionButtons={true}
+                selectedSupplier={selectedSupplier}
               />
             )}
           </CardContent>
@@ -453,7 +483,7 @@ export default function SupplierProductManagement() {
         <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold">
-              {selectedSupplier ? `${selectedSupplier.company} 상품 목록` : '상품 목록'}
+              {selectedSupplier ? `${selectedSupplier.supplyname} 상품 목록` : '상품 목록'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -501,6 +531,7 @@ export default function SupplierProductManagement() {
                   onCategoryChange={setSelectedCategory}
                   currentPage={currentPage}
                   onPageChange={handlePageChange}
+                  selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
               <TabsContent value="product-description-correction">
@@ -515,6 +546,7 @@ export default function SupplierProductManagement() {
                   onCategoryChange={setSelectedCategory}
                   currentPage={currentPage}
                   onPageChange={handlePageChange}
+                  selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
             </Tabs>
@@ -592,14 +624,16 @@ export default function SupplierProductManagement() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  searchTerm: string
-  onSearchTermChange: (term: string) => void
+  searchTerm?: string
+  onSearchTermChange?: (term: string) => void
+  onSearch?: () => void
   showActionButtons: boolean
   categories?: string[]
   selectedCategory?: string
   onCategoryChange?: (category: string) => void
   currentPage?: number
   onPageChange?: (page: number) => void
+  selectedSupplier?: any
 }
 
 function DataTable<TData, TValue>({
@@ -607,12 +641,14 @@ function DataTable<TData, TValue>({
   data,
   searchTerm,
   onSearchTermChange,
+  onSearch,
   showActionButtons,
   categories,
   selectedCategory,
   onCategoryChange,
   currentPage,
   onPageChange,
+  selectedSupplier,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -646,29 +682,21 @@ function DataTable<TData, TValue>({
     <div className="w-full">
       {showActionButtons && (
         <div className="flex items-center justify-between py-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center">
             <Input
               placeholder="Filter..."
               value={searchTerm}
-              onChange={(event) => onSearchTermChange(event.target.value)}
-              className="max-w-sm"
+              onChange={(event) => onSearchTermChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  onSearch?.();
+                }
+              }}
+              className="max-w-sm mr-2"
             />
-            {categories && onCategoryChange && (
-              <Select value={selectedCategory} onValueChange={onCategoryChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="테고리 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button variant="outline" size="icon">
-              <Search className="h-4 w-4" />
+            <Button onClick={onSearch}>
+              <Search className="h-4 w-4 mr-2" />
+              검색
             </Button>
           </div>
           <div className="flex items-center space-x-2">
@@ -677,9 +705,15 @@ function DataTable<TData, TValue>({
                 <Button variant="outline" size="sm">상품 등록</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem>직접 입력</DropdownMenuItem>
-                <DropdownMenuItem>Url 입력</DropdownMenuItem>
-                <DropdownMenuItem>파일 업로드</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("direct")}>
+                  직접 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("url")}>
+                  Url 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("upload")}>
+                  파일 업로드
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm">
@@ -715,17 +749,28 @@ function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={`
+                    ${row.getIsSelected() ? "bg-blue-50" : ""} 
+                    ${selectedSupplier?.id === (row.original as any)?.id ? "bg-blue-100" : ""}
+                    hover:bg-gray-50 transition-colors
+                  `}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <TableCell key={cell.id} className="px-4 py-2">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>

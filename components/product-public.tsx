@@ -67,7 +67,7 @@ export default function SupplierProductPage() {
   useEffect(() => {
     const initializeData = async () => {
       if (user) {
-        await fetchSupplierData(user.companyid)
+        await initializeSupplierData(user.companyid)
         // 선택된 공급사가 있으면 상품 데이터 로드
         if (selectedSupplier?.id) {
           console.log('Loading products for selected supplier:', selectedSupplier)
@@ -167,8 +167,30 @@ export default function SupplierProductPage() {
   };
 
   const handleSupplierSearch = () => {
-    // Implement the search logic here
-    console.log("Searching for:", supplierSearchTerm)
+    if (!supplierSearchTerm) {
+      // If search term is empty, reset to original supplier data
+      initializeSupplierData(user.companyid);
+      return;
+    }
+
+    const filteredData = supplierData.filter(supplier =>
+      supplier.supplyname.includes(supplierSearchTerm) ||
+      supplier.managername.includes(supplierSearchTerm)
+    );
+    setSupplierData(filteredData);
+  }
+
+  const initializeSupplierData = async (companyid: string) => {
+    try {
+      const { data, error } = await supabase.from('company_supply')
+        .select('*')
+        .eq('companyid', companyid);
+
+      if (error) throw error;
+      setSupplierData(data);
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   const handleProductRegistration = (method: string) => {
@@ -198,6 +220,7 @@ export default function SupplierProductPage() {
           size="sm"
           onClick={() => handleSupplierSelect(row.original)}
           variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
+          className={selectedSupplier?.id === row.original.id ? "bg-blue-500 text-white" : ""}
         >
           선택
         </Button>
@@ -207,6 +230,13 @@ export default function SupplierProductPage() {
 
   // Product columns
   const productColumns = [
+    {
+      id: "number",
+      header: "No.",
+      cell: ({ row }: { row: any }) => {
+        return row.index + 1;
+      },
+    },
     { 
       accessorKey: "variationsku", 
       header: "SKU",
@@ -242,6 +272,7 @@ export default function SupplierProductPage() {
         <div 
           className="cursor-pointer hover:text-blue-500"
           onClick={() => handleProductClick(row.original.id)}
+          style={{ wordBreak: 'break-word', maxWidth: '400px' }}
         >
           {row.original.name}
         </div>
@@ -279,13 +310,18 @@ export default function SupplierProductPage() {
         <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-            >
-              {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-            </Button>
+            <div className="flex items-center space-x-2">
+              {selectedSupplier && (
+                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+              >
+                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isSupplierTableExpanded && (
@@ -381,6 +417,8 @@ function DataTable<TData, TValue>({
     },
   })
 
+  const { selectedSupplier } = useSupplierStore()
+
   return (
     <div className="w-full">
       {showActionButtons && (
@@ -390,11 +428,16 @@ function DataTable<TData, TValue>({
               placeholder="Filter..."
               value={searchTerm}
               onChange={(event) => onSearchTermChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  onSearch?.();
+                }
+              }}
               className="max-w-sm mr-2"
             />
             <Button onClick={onSearch}>
               <Search className="h-4 w-4 mr-2" />
-              색
+              검색
             </Button>
           </div>
           <div className="flex items-center space-x-2">
@@ -447,6 +490,7 @@ function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={selectedSupplier?.id === row.original.id ? "bg-blue-100 text-black" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="px-4 py-2">
@@ -498,4 +542,3 @@ function DataTable<TData, TValue>({
     </div>
   )
 }
-
