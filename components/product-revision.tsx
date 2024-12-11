@@ -337,7 +337,14 @@ export default function SupplierProductManagement() {
       header: "마지막 수정일",
       cell: ({ row }) => {
         const date = row.original.updatedat || row.original.createdat
-        return date ? new Date(date).toLocaleString('ko-KR') : '-'
+        return date ? new Date(date).toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).replace(',', '').replace(/\//g, '.').replace(' ', ' ') : '-'
       }
     }
   ]
@@ -405,21 +412,8 @@ export default function SupplierProductManagement() {
       accessorKey: "content",
       header: "보정 본문",
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
-            {row.original.content || '-'}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingProductId(row.original.id)
-              setEditingContent(row.original.content || '')
-              setIsEditDialogOpen(true)
-            }}
-          >
-            수정
-          </Button>
+        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
+          {row.original.content || '-'}
         </div>
       )
     },
@@ -428,8 +422,32 @@ export default function SupplierProductManagement() {
       header: "마지막 수정일",
       cell: ({ row }) => {
         const date = row.original.updatedat || row.original.createdat
-        return date ? new Date(date).toLocaleString('ko-KR') : '-'
+        return date ? new Date(date).toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).replace(',', '').replace(/\//g, '.').replace(' ', ' ') : '-'
       }
+    },
+    { 
+      id: "edit",
+      header: "수정",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingProductId(row.original.id)
+            setEditingContent(row.original.content || '')
+            setIsEditDialogOpen(true)
+          }}
+        >
+          수정
+        </Button>
+      )
     }
   ]
 
