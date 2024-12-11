@@ -275,6 +275,15 @@ export default function SupplierProductManagement() {
       ),
     },
     { 
+      id: "number",
+      header: "번호",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.index + 1}
+        </div>
+      )
+    },
+    { 
       accessorKey: "variationsku",
       header: "SKU",
       cell: ({ row }) => (
@@ -346,6 +355,23 @@ export default function SupplierProductManagement() {
           hour12: false,
         }).replace(',', '').replace(/\//g, '.').replace(' ', ' ') : '-'
       }
+    },
+    { 
+      id: "edit",
+      header: "수정",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingProductId(row.original.id)
+            setEditingContent(row.original.content || '')
+            setIsEditDialogOpen(true)
+          }}
+        >
+          수정
+        </Button>
+      )
     }
   ]
 
@@ -531,13 +557,6 @@ export default function SupplierProductManagement() {
               </div>
 
               <TabsContent value="product-name-correction">
-                <Input
-                  type="text"
-                  value={productSearch}
-                  onChange={handleProductSearch}
-                  placeholder="SKU 또는 상품명을 입력하세요"
-                  className="mb-4"
-                />
                 <DataTable 
                   columns={productColumns}
                   data={filteredProducts}
@@ -700,9 +719,9 @@ function DataTable<TData, TValue>({
     <div className="w-full">
       {showActionButtons && (
         <div className="flex items-center justify-between py-4">
-          <div className="flex items-center">
+          <div className="flex items-center w-full">
             <Input
-              placeholder="Filter..."
+              placeholder="SKU 또는 상품명을 입력하세요"
               value={searchTerm}
               onChange={(event) => onSearchTermChange?.(event.target.value)}
               onKeyDown={(event) => {
@@ -710,33 +729,11 @@ function DataTable<TData, TValue>({
                   onSearch?.();
                 }
               }}
-              className="max-w-sm mr-2"
+              className="max-w-full mr-2"
             />
             <Button onClick={onSearch}>
               <Search className="h-4 w-4 mr-2" />
               검색
-            </Button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">상품 등록</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => handleProductRegistration("direct")}>
-                  직접 입력
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleProductRegistration("url")}>
-                  Url 입력
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleProductRegistration("upload")}>
-                  파일 업로드
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              목록 다운로드
             </Button>
           </div>
         </div>

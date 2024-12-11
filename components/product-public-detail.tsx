@@ -395,7 +395,6 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
         <CardContent>
           <div className="grid gap-6">
             <div className="grid gap-4">
-              <CardTitle className="text-2xl font-bold">기본 정보</CardTitle>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium">공급사</h3>

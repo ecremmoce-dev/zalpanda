@@ -50,6 +50,7 @@ export default function SupplierProductPage() {
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  const [productSearch, setProductSearch] = useState('');
 
   const { user } = useUserDataStore();
   const router = useRouter()
@@ -207,6 +208,15 @@ export default function SupplierProductPage() {
     setIsDetailDialogOpen(true);
   };
 
+  const handleProductSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setProductSearch(event.target.value);
+  };
+
+  const filteredProductsList = filteredProducts.filter(product =>
+    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
   // Supplier columns
   const supplierColumns: ColumnDef<typeof supplierData[0]>[] = [
     { accessorKey: "supplyname", header: "회사명" },
@@ -235,10 +245,12 @@ export default function SupplierProductPage() {
       cell: ({ row }: { row: any }) => {
         return row.index + 1;
       },
+      size: 30,
     },
     { 
       accessorKey: "variationsku", 
       header: "SKU",
+      size: 120,
       cell: ({ row }: { row: any }) => (
         <div 
           className="cursor-pointer hover:text-blue-500"
@@ -251,6 +263,7 @@ export default function SupplierProductPage() {
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
+      size: 80,
       cell: ({ row }: { row: any }) => (
         <div 
           className="cursor-pointer"
@@ -267,11 +280,12 @@ export default function SupplierProductPage() {
     { 
       accessorKey: "name", 
       header: "상품명",
+      size: 400,
       cell: ({ row }: { row: any }) => (
         <div 
           className="cursor-pointer hover:text-blue-500"
           onClick={() => handleProductClick(row.original.id)}
-          style={{ wordBreak: 'break-word', maxWidth: '400px' }}
+          style={{ wordBreak: 'break-word' }}
         >
           {row.original.name}
         </div>
@@ -280,6 +294,7 @@ export default function SupplierProductPage() {
     {
       accessorKey: "consumerprice",
       header: "공급가 (원)",
+      size: 100,
       cell: ({ row }: { row: any }) => {
         const price = row.original.consumerprice;
         return price ? price.toLocaleString() : '0';
@@ -288,6 +303,7 @@ export default function SupplierProductPage() {
     { 
       accessorKey: "stocks.nowstock",
       header: "재고(개)",
+      size: 80,
       cell: ({ row }: { row: any }) => {
         const stock = row.original.stocks?.nowstock;
         return stock ? stock.toLocaleString() : '0';
@@ -296,6 +312,7 @@ export default function SupplierProductPage() {
     { 
       accessorKey: "createdat", 
       header: "등록일",
+      size: 100,
       cell: ({ row }: { row: any }) => {
         const date = row.original.createdat;
         return date ? new Date(date).toLocaleDateString() : '-';
@@ -341,13 +358,30 @@ export default function SupplierProductPage() {
         <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold">
-              {selectedSupplier ? `${selectedSupplier.supplyname} 공용상품` : '공용상품'}
+              {selectedSupplier ? `공용상품 목록 [ ${selectedSupplier.supplyname} ]` : '공용상품 목록'}
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="flex items-center w-full mb-4">
+              <Input
+                placeholder="SKU 또는 상품명을 입력하세요"
+                value={productSearch}
+                onChange={handleProductSearch}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    // Trigger search logic if needed
+                  }
+                }}
+                className="max-w-full mr-2"
+              />
+              <Button onClick={() => {/* Trigger search logic if needed */}}>
+                <Search className="h-4 w-4 mr-2" />
+                검색
+              </Button>
+            </div>
             <DataTable 
               columns={productColumns}
-              data={filteredProducts}
+              data={filteredProductsList}
               showActionButtons={false}
             />
           </CardContent>
@@ -414,6 +448,7 @@ function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
     },
+    columnResizeMode: 'onChange',
   })
 
   const { selectedSupplier } = useSupplierStore()
@@ -464,13 +499,13 @@ function DataTable<TData, TValue>({
         </div>
       )}
       <div className="rounded-md border">
-        <Table>
+        <Table style={{ tableLayout: 'fixed', width: '100%', fontSize: '0.875rem' }}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="px-4 py-2">
+                    <TableHead key={header.id} className="px-4 py-2" style={{ width: header.getSize() }}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
