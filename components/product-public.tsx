@@ -194,8 +194,7 @@ export default function SupplierProductPage() {
   }
 
   const handleProductRegistration = (method: string) => {
-    // router.push(`/product/public/new?type=${method}`)
-    router.push(`/product/public/new`)
+    router.push(`/product/public/new?type=${method}`)
   }
 
   const handleDownloadList = () => {
