@@ -107,6 +107,9 @@ export default function SupplierProductPage() {
           thumbnailurl,
           consumerprice,
           createdat,
+          orginurl,
+          ecsku,
+          sellersku,
           stocks (
             nowstock
           )
@@ -155,7 +158,7 @@ export default function SupplierProductPage() {
         companyid: supplier.companyid
       };
 
-      // 선택된 공급사 정보 업데이트
+      // 선택된 공급사 정보 업���이트
       setSelectedSupplier(supplierInfo);
       
       // 상품 데이터 로드
@@ -213,8 +216,8 @@ export default function SupplierProductPage() {
   };
 
   const filteredProductsList = filteredProducts.filter(product =>
-    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
+    (product.name && product.name.toLowerCase().includes(productSearch.toLowerCase())) ||
+    (product.variationsku && product.variationsku.toLowerCase().includes(productSearch.toLowerCase()))
   );
 
   // Supplier columns
@@ -257,6 +260,24 @@ export default function SupplierProductPage() {
           onClick={() => handleProductClick(row.original.id)}
         >
           {row.original.variationsku}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
         </div>
       )
     },
@@ -317,6 +338,23 @@ export default function SupplierProductPage() {
         const date = row.original.createdat;
         return date ? new Date(date).toLocaleDateString() : '-';
       }
+    },
+    {
+      id: "actions",
+      header: "원문보기",
+      size: 100,
+      cell: ({ row }: { row: any }) => {
+        const orginurl = row.original.orginurl;
+        return orginurl ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(orginurl, '_blank', 'noopener,noreferrer')}
+          >
+            원문보기
+          </Button>
+        ) : null;
+      },
     },
   ]
 
