@@ -166,29 +166,49 @@ export default function ProductRegistration() {
   const handleSetCrawlingtaskqueue = async () => {
     try {
       if (selectedSupplier) {
-        const { id : supplierId, companyid } = selectedSupplier
-        
-        const { error } = await supabase.from('crawlingtaskqueue')
-        .insert([
-          {
-            company_supply_id: supplierId,
-            company_id: companyid,
-            status: 'pending',
-            task_type: selectedCrawlingTaskType,
-            target_url: selectedCrawlingBrand?.url ?? crawlingUrl,
-            updated_at: new Date().toISOString(),
-            brand_title: selectedCrawlingBrand?.title ?? null,
-            brand_code: selectedCrawlingBrand?.brand_code ?? null,
-          }
-        ])
-        .select()
+        const { id: supplierId, companyid } = selectedSupplier
+        const targetUrl = selectedCrawlingBrand?.url ?? crawlingUrl
 
-        if (error) throw error;
+        // 동일한 URL이 대기나 진행중인 상태로 존재하는지 확인
+        const { data: existingTasks, error: checkError } = await supabase
+          .from('crawlingtaskqueue')
+          .select('*')
+          .eq('company_supply_id', supplierId)
+          .eq('company_id', companyid)
+          .eq('target_url', targetUrl)
+          .in('status', ['pending', 'in_progress'])
+
+        if (checkError) throw checkError
+
+        if (existingTasks && existingTasks.length > 0) {
+          alert('이미 대기 또는 진행중인 동일한 URL이 존재합니다.')
+          return
+        }
+
+        // 새로운 태스크 추가
+        const { error } = await supabase
+          .from('crawlingtaskqueue')
+          .insert([
+            {
+              company_supply_id: supplierId,
+              company_id: companyid,
+              status: 'pending',
+              task_type: selectedCrawlingTaskType,
+              target_url: targetUrl,
+              updated_at: new Date().toISOString(),
+              brand_title: selectedCrawlingBrand?.title ?? null,
+              brand_code: selectedCrawlingBrand?.brand_code ?? null,
+            }
+          ])
+          .select()
+
+        if (error) throw error
 
         fetchCrawlingProgress(selectedSupplier)
       }
     } catch (error) {
-      console.log(error);
+      console.error('Error in handleSetCrawlingtaskqueue:', error)
+      alert('목록 요청 중 오류가 발생했습니다.')
     }
   }
 
@@ -324,158 +344,179 @@ export default function ProductRegistration() {
     return crawlingResults.filter(item => selectedStatuses.includes(item.detail_status as StatusType));
   };
 
+  const getEcsku = async (companyid: string, supplyid: string): Promise<string> => {
+    try {
+      // 현재 maxidx 조회
+      const { data: historyData, error: historyError } = await supabase
+        .from('items_sku_history')
+        .select('*')
+        .eq('companyid', companyid)
+        .eq('supplyid', supplyid)
+        .single();
+
+      let nextIdx: number;
+
+      if (!historyData || (historyError && historyError.code !== 'PGRST116')) { // PGRST116는 데이터가 없는 경우
+        const { data: insertData, error: insertError } = await supabase
+          .from('items_sku_history')
+          .insert([
+            {
+              companyid,
+              supplyid,
+              maxidx: 1
+            }
+          ])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        nextIdx = 1;
+      } else {
+        const newMaxIdx = (historyData.maxidx || 0) + 1;
+        const { error: updateError } = await supabase
+          .from('items_sku_history')
+          .update({ 
+            maxidx: newMaxIdx
+          })
+          .eq('companyid', companyid)
+          .eq('supplyid', supplyid);
+
+        if (updateError) throw updateError;
+        nextIdx = newMaxIdx;
+      }
+
+      const formattedIdx = nextIdx.toString().padStart(5, '0');
+      return `${selectedSupplier?.vendproductcd}${formattedIdx}`;
+
+    } catch (error) {
+      console.error('Error in getEcsku:', error);
+      throw error;
+    }
+  };
+
   const filteredResultsTotalPages = Math.ceil(getFilteredResults().length / PAGE_SIZE);
 
   const handleBinding = async () => {
     const itemsToUpdate = selectedCrawlingResults.filter(item => item.detail_status === 'completed');
     
     try {
-      const { error: updateError } = await supabase
-        .from('crawlingproductlist')
-        .upsert(
-          itemsToUpdate.map(item => ({
-            ...item,
-            detail_status: 'binding',
-            updated_at: new Date().toISOString(),
-          }))
-        )
-        .select();
-      console.log(updateError);
+      for (const item of itemsToUpdate) {
+        const { data: detailData, error: detailError } = await supabase
+          .from('crawlingproductdetail')
+          .select('*')
+          .eq('product_id', item.id)
+          .single();
+        if (detailError) throw detailError;
 
-      if (updateError) throw updateError;
+        const detail = detailData.detail_json;
+        const specs = detailData.specifications;
+        // ecsku 생성
+        const ecsku = await getEcsku(
+          user?.companyid?.toString() ?? '', 
+          selectedSupplier?.id?.toString() ?? '' 
+        );
 
-      try {
-        for (const item of itemsToUpdate) {
-          const { data: detailData, error: detailError } = await supabase
-            .from('crawlingproductdetail')
-            .select('*')
-            .eq('product_id', item.id)
-            .single();
-          if (detailError) throw detailError;
+        const itemData = {
+          id: crypto.randomUUID(), // 브라우저 내장 UUID 생성 함수 사용
+          variationsku: null,
+          name: detail.title,
+          hscode: null,
+          barcode: null,
+          weight: null,
+          width: null,
+          length: null,
+          height: null,
+          memo: null,
+          thumbnailurl: detail.thumbnails?.[0] || null,
+          companyid: user?.companyid,
+          createdat: new Date().toISOString(),
+          updatedat: new Date().toISOString(),
+          brandname: detail.brand,
+          content: detail.contentHtml,
+          status: 'PENDING',
+          consumerprice: detail.price,
+          contenthtml: detail.contentHtml,
+          supplyid: selectedSupplier?.id,
+          originalcontent: detail.contentHtml,
+          originalname: detail.title,
+          noticeinfo: JSON.stringify(detail.productNotice || specs),
+          purchaseprice: detail.beforeDiscount || detail.price,
+          orginurl: item.url, 
+          ecsku,
+          sellersku: detail.sku?.toString() || null
+        };
 
-          const detail = detailData.detail_json;
-          const specs = detailData.specifications;
+        const { data: savedItem, error: itemError } = await supabase
+          .from('items')
+          .insert([itemData])
+          .select()
+          .single();
+        if (itemError) throw itemError;
 
-          const itemData = {
-            id: crypto.randomUUID(), // 브라우저 내장 UUID 생성 함수 사용
-            variationsku: detail.sku?.toString() || null,
-            name: detail.title,
-            hscode: null,
-            barcode: null,
-            weight: null,
+        if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+          const optionsData = detail.modifyOptions.map((option: any) => ({
+            id: crypto.randomUUID(), 
+            itemid: savedItem.id, 
+            original_json: JSON.stringify(option), 
+            modified_json: JSON.stringify(option), 
+            createdat: new Date().toISOString(), 
+            updatedat: new Date().toISOString(), 
+          }));
+        
+          const { error: optionsError } = await supabase
+            .from('item_options_new') 
+            .insert(optionsData);
+
+          if (optionsError) throw optionsError;
+        }
+
+        const images = [
+          ...(detail.thumbnails || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'THUMBNAIL',
+            url,
+            index: 4,
+            itemid: savedItem.id,
             width: null,
-            length: null,
             height: null,
-            memo: null,
-            thumbnailurl: detail.thumbnails?.[0] || null,
-            companyid: user?.companyid,
             createdat: new Date().toISOString(),
             updatedat: new Date().toISOString(),
-            brandname: detail.brand,
-            content: detail.contentHtml,
-            status: 'PENDING',
-            consumerprice: detail.price,
-            contenthtml: detail.contentHtml,
-            supplyid: selectedSupplier?.id,
-            originalcontent: detail.contentHtml,
-            originalname: detail.title,
-            noticeinfo: JSON.stringify(detail.productNotice || specs),
-            purchaseprice: detail.beforeDiscount || detail.price,
-          };
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          })),
+          ...(detail.detailImages || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'MAIN_CONTENT',
+            url,
+            index,
+            itemid: savedItem.id,
+            width: null,
+            height: null,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          }))
+        ];
 
-          const { data: savedItem, error: itemError } = await supabase
-            .from('items')
-            .insert([itemData])
-            .select()
-            .single();
-          if (itemError) throw itemError;
+        const { error: imageError } = await supabase
+          .from('item_images')
+          .insert(images);
 
-          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
-            const optionsData = detail.modifyOptions.map((option: any) => ({
-              id: crypto.randomUUID(), 
-              itemid: savedItem.id, 
-              original_json: JSON.stringify(option), 
-              modified_json: JSON.stringify(option), 
-              createdat: new Date().toISOString(), 
-              updatedat: new Date().toISOString(), 
-            }));
-          
-            const { error: optionsError } = await supabase
-              .from('item_options_new') 
-              .insert(optionsData);
-
-            if (optionsError) throw optionsError;
-          }
-
-          const images = [
-            ...(detail.thumbnails || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'THUMBNAIL',
-              url,
-              index: 4,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            })),
-            ...(detail.detailImages || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'MAIN_CONTENT',
-              url,
-              index,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            }))
-          ];
-
-          const { error: imageError } = await supabase
-            .from('item_images')
-            .insert(images);
-
-          if (imageError) throw imageError;
-        }
-
-        setSelectedCrawlingResults([]);
-        if (selectedCrawlingItem) {
-          fetchCrawlingProductList(selectedCrawlingItem);
-        }
-        
-      } catch (bindingError) {
-        const { error: rollbackError } = await supabase
-          .from('crawlingproductlist')
-          .upsert(
-            itemsToUpdate.map(item => ({
-              ...item,
-              detail_status: 'completed',
-              updated_at: new Date().toISOString(),
-            }))
-          )
-          .select();
-
-        if (rollbackError) {
-          console.error('Failed to rollback status:', rollbackError);
-        }
-
-        if (selectedCrawlingItem) {
-          fetchCrawlingProductList(selectedCrawlingItem);
-        }
-
-        throw new Error('바인딩 처리 중 오류가 발생했습니다.');
+        if (imageError) throw imageError;
       }
+
+      setSelectedCrawlingResults([]);
+      if (selectedCrawlingItem) {
+        fetchCrawlingProductList(selectedCrawlingItem);
+      }
+      
     } catch (error) {
-      console.error('Failed to bind items:', error);
+      console.error('Error in handleBinding:', error);
       alert('바인딩 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
@@ -486,7 +527,7 @@ export default function ProductRegistration() {
         ? prev.filter(s => s !== status)
         : [...prev, status];
       
-      // 상태가 변경될 ��� 페이지 초기화
+      // 상태가 변경될 페이지 초기화
       setCrawlingResultsCurrentPage(1);
       return newStatuses;
     });
@@ -1107,7 +1148,7 @@ export default function ProductRegistration() {
                               <div key={index} className="aspect-square relative">
                                 <img 
                                   src={url} 
-                                  alt={`썸네일 이미지 ${index + 1}`}
+                                  alt={`썸네일 ���미지 ${index + 1}`}
                                   className="object-cover rounded-lg w-full h-full"
                                 />
                               </div>
