@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
 import { v4 as uuidv4 } from 'uuid'; // uuid 패키지에서 v4 함수 가져오기
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Product {
   id: string
@@ -126,15 +127,7 @@ export function ProductOptionsStock() {
 
   const handleSupplierSelect = async (supplier: any) => {
     if (user && supplier && supplier.id) {
-      const { supplyname, id, companyid } = supplier
-      setSelectedSupplier({
-        id,
-        supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid
-      })
-      await fetchProductData(id, user.companyid)
+      await fetchProductData(supplier.id, user.companyid)
     }
   }
 
@@ -525,67 +518,8 @@ export function ProductOptionsStock() {
 
   return (
     <>
-      <div className="container mx-auto p-4 space-y-6">
-        {/* 공급사 카드 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>공급사</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2 mb-4">
-              <Input
-                placeholder="공급사명을 검색하세요"
-                className="max-w-sm"
-                value={supplierSearchTerm}
-                onChange={(e) => setSupplierSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSupplierSearch()
-                  }
-                }}
-              />
-              <Button size="sm" onClick={handleSupplierSearch}>
-                검색
-              </Button>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>회사명</TableHead>
-                  <TableHead>담당자</TableHead>
-                  <TableHead>등록일</TableHead>
-                  <TableHead>선택</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {supplierData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center">
-                      표시할 공급사가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  supplierData.map((supplier) => (
-                    <TableRow key={supplier.id}>
-                      <TableCell>{supplier.supplyname}</TableCell>
-                      <TableCell>{supplier.managername}</TableCell>
-                      <TableCell>{supplier.created}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSupplierSelect(supplier)}
-                          variant={selectedSupplier?.id === supplier.id ? "default" : "outline"}
-                        >
-                          선택
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+      <div className="container mx-auto py-6 space-y-6">
+        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
         {/* 재고/가격 카드 */}
         <Card>

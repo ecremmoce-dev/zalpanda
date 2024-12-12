@@ -32,7 +32,8 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination"
 import { supabase } from "@/utils/supabase/client";
-import { useUserDataStore } from "@/store/modules";
+import { useUserDataStore } from "@/store/modules"
+import { useSupplierStore } from "@/store/modules/supplierStore"
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { SupplierSelector } from "@/components/supplier-selector"
+import { useSearchParams } from 'next/navigation'
 
 const PAGE_SIZE = 10;
 
@@ -58,6 +61,21 @@ const STATUS_LABELS: Record<StatusType, string> = {
 };
 
 export default function ProductRegistration() {
+  const searchParams = useSearchParams()
+  const type = searchParams.get('type')
+  
+  const getInitialTab = () => {
+    switch (type) {
+      case 'url':
+        return 'url'
+      case 'upload':
+        return 'file'
+      case 'direct':
+      default:
+        return 'job'
+    }
+  }
+
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -84,7 +102,8 @@ export default function ProductRegistration() {
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
 
-  const { user } = useUserDataStore();
+  const { user } = useUserDataStore()
+  const selectedStoreSupplier = useSupplierStore(state => state.selectedSupplier)
 
   const itemsPerPage = 5
   const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage)
@@ -115,10 +134,26 @@ export default function ProductRegistration() {
 
   const crawlingResultsTotalPages = Math.ceil(filteredCrawlingResults.length / itemsPerPage)
 
-  const handleSelectedSupplier = (supplier: any) => {
-    fetchCrawlingProgress(supplier)
-    setSelectedSupplier(supplier)
-    setSelectedCrawlingResults([])
+  const handleSupplierSelect = async (supplier: any) => {
+    try {
+      setSelectedSupplier(supplier)
+      setSelectedCrawlingResults([])
+      setSelectedCrawlingItem(null)
+      setCrawlingCurrentPage(1)
+      
+      const { data, error } = await supabase
+        .from('crawlingtaskqueue')
+        .select('*')
+        .eq('company_supply_id', supplier.id)
+        .eq('company_id', supplier.companyid)
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+      setCrawlingProgress(data || [])
+    } catch (error) {
+      console.error('크롤링 진행상황 조회 실패:', error)
+      setCrawlingProgress([])
+    }
   }
 
   const handleSetCrawlingtaskqueue = async () => {
@@ -126,27 +161,26 @@ export default function ProductRegistration() {
       if (selectedSupplier) {
         const { id : supplierId, companyid } = selectedSupplier
         
-        const { error } = await supabase.from('crawlingtaskqueue')
-        .insert([
-          {
-            company_supply_id: supplierId,
-            company_id: companyid,
-            status: 'pending',
-            task_type: selectedCrawlingTaskType,
-            target_url: selectedCrawlingBrand?.url ?? crawlingUrl,
-            updated_at: new Date().toISOString(),
-            brand_title: selectedCrawlingBrand?.title ?? null,
-            brand_code: selectedCrawlingBrand?.brand_code ?? null,
-          }
-        ])
-        .select()
+        const { error } = await supabase
+          .from('crawlingtaskqueue')
+          .insert([
+            {
+              company_supply_id: supplierId,
+              company_id: companyid,
+              status: 'pending',
+              task_type: selectedCrawlingTaskType,
+              target_url: selectedCrawlingBrand?.url ?? crawlingUrl,
+              updated_at: new Date().toISOString(),
+              brand_title: selectedCrawlingBrand?.title ?? null,
+              brand_code: selectedCrawlingBrand?.brand_code ?? null,
+            }
+          ])
+          .select()
 
-        if (error) throw error;
-
-        fetchCrawlingProgress(selectedSupplier)
+        if (error) throw error
       }
     } catch (error) {
-      console.log(error);
+      console.error('크롤링 작업 등록 실패:', error)
     }
   }
 
@@ -201,20 +235,71 @@ export default function ProductRegistration() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchSupplierData(user!.companyid)
-      fetchCrawlingBrandList()
+    const initializeData = async () => {
+      if (user) {
+        await fetchSupplierData(user.companyid)
+        await fetchCrawlingBrandList()
+        
+        if (selectedStoreSupplier) {
+          try {
+            const { data, error } = await supabase
+              .from('crawlingtaskqueue')
+              .select('*')
+              .eq('company_supply_id', selectedStoreSupplier.id)
+              .eq('company_id', selectedStoreSupplier.companyid)
+              .order('updated_at', { ascending: false })
+
+            if (error) throw error
+            setCrawlingProgress(data || [])
+            setSelectedSupplier(selectedStoreSupplier)
+          } catch (error) {
+            console.error('초기 크롤링 진행상황 로딩 실패:', error)
+            setCrawlingProgress([])
+          }
+        }
+      }
     }
-  }, [user])
+
+    initializeData()
+  }, [user, selectedStoreSupplier])
 
   useEffect(() => {
-    if (selectedSupplier) {
-      const filteredProgress = crawlingProgress.filter(item => item.supplierId === selectedSupplier)
-      setCrawlingProgress(filteredProgress)
-      setCrawlingCurrentPage(1)
-      setSelectedCrawlingItem(null)
-    } else {
-      setCrawlingProgress(crawlingProgress)
+    if (!selectedSupplier) return
+
+    const crawlingTaskChannel = supabase
+      .channel('crawling-task-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crawlingtaskqueue',
+          filter: `company_supply_id=eq.${selectedSupplier.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'company_supply_id' in payload.new) {
+            switch (payload.eventType) {
+              case 'INSERT':
+                setCrawlingProgress(prev => [payload.new, ...prev])
+                break
+              case 'UPDATE':
+                setCrawlingProgress(prev => 
+                  prev.map(item => item.id === payload.new.id ? payload.new : item)
+                )
+                break
+              case 'DELETE':
+                setCrawlingProgress(prev => 
+                  prev.filter(item => item.id !== payload.old.id)
+                )
+                break
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(crawlingTaskChannel)
     }
   }, [selectedSupplier])
 
@@ -227,22 +312,6 @@ export default function ProductRegistration() {
       if (error) throw error;
       
       setFilteredSuppliers(data)
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
-  const fetchCrawlingProgress = async (supplier: any) => {
-    try {
-      const { id : supplierId, companyid } = supplier
-      const { data, error } = await supabase.from('crawlingtaskqueue')
-        .select('*')
-        .eq('company_supply_id', supplierId)
-        .eq('company_id', companyid)
-
-      if (error) throw error;
-
-      setCrawlingProgress(data)
     } catch (error) {
       console.log(error);
     }
@@ -497,90 +566,18 @@ export default function ProductRegistration() {
 
   return (
     <div className="container mx-auto py-6">
-      <Tabs defaultValue="job" className="space-y-4">
+      <Tabs defaultValue={getInitialTab()} className="space-y-4">
         <TabsList className="w-fit mb-6">
-          <TabsTrigger value="job">직업 입력</TabsTrigger>
+          <TabsTrigger value="job">직접 입력</TabsTrigger>
           <TabsTrigger value="url">URL 입력</TabsTrigger>
           <TabsTrigger value="file">파일 업로드</TabsTrigger>
         </TabsList>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>공급사 선택</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="공급사명 또는 코드로 검색"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <Button onClick={handleSearch}>검색</Button>
-              </div>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>회사명</TableHead>
-                      <TableHead>담당자</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead className="text-right">선택</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedSuppliers.map((supplier) => (
-                      <TableRow key={supplier.id}>
-                        <TableCell className="font-medium">{supplier.supplyname}</TableCell>
-                        <TableCell>{supplier.managername}</TableCell>
-                        <TableCell>{supplier.created}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectedSupplier(supplier)}
-                          >
-                            {selectedSupplier === supplier.id ? "선택됨" : "선택"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-                  {[...Array(totalPages)].map((_, index) => (
-                    <PaginationItem key={index}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(index + 1)}
-                        isActive={currentPage === index + 1}
-                      >
-                        {index + 1}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </CardContent>
-        </Card>
+        <SupplierSelector 
+          onSupplierSelect={handleSupplierSelect} 
+          className="mb-6" 
+          hideControls={true}
+        />
 
         <TabsContent value="job">
           <Card>
@@ -688,12 +685,12 @@ export default function ProductRegistration() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <h3 className="text-lg font-semibold mb-2">진행사항</h3>
+                    <h3 className="text-lg font-semibold mb-2">진행상황</h3>
                     <div className="rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>TYPE</TableHead>
+                            <TableHead>쇼핑몰</TableHead>
                             <TableHead>브랜드</TableHead>
                             <TableHead>URL</TableHead>
                             <TableHead>상태</TableHead>
@@ -808,7 +805,7 @@ export default function ProductRegistration() {
                                 className="w-4 h-4"
                               />
                             </TableHead>
-                            <TableHead>TYPE</TableHead>
+                            <TableHead>쇼핑몰</TableHead>
                             <TableHead>브랜드</TableHead>
                             <TableHead>이미지</TableHead>
                             <TableHead>상품명</TableHead>

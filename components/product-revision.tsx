@@ -52,6 +52,7 @@ import {
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import { useRouter } from 'next/navigation'
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Supplier {
   id: number
@@ -173,16 +174,7 @@ export default function SupplierProductManagement() {
 
   const handleSupplierSelect = async (supplier: any) => {
     if (user && supplier && supplier.id) {
-      const { supplyname, id, companyid } = supplier
-      setSelectedSupplier({
-        id,
-        supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid
-      })
-      
-      await fetchProductData(id, user.companyid)
+      await fetchProductData(supplier.id, user.companyid)
     }
   }
 
@@ -218,8 +210,8 @@ export default function SupplierProductManagement() {
   };
 
   const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
+    product.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.variationsku?.toLowerCase().includes(productSearch.toLowerCase())
   );
 
   const handleSupplierSearch = () => {
@@ -446,39 +438,14 @@ export default function SupplierProductManagement() {
     router.push(`/product/public/new?type=${method}`)
   }
 
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
+
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <div className="flex items-center space-x-2">
-              {selectedSupplier && (
-                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-              >
-                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearchTerm}
-                onSearchTermChange={setSupplierSearchTerm}
-                onSearch={handleSupplierSearch}
-                showActionButtons={true}
-                selectedSupplier={selectedSupplier}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
         <Card className="w-full">
           <CardHeader>
@@ -678,6 +645,14 @@ function DataTable<TData, TValue>({
     },
   })
 
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
+
   return (
     <div className="w-full">
       {showActionButtons && (
@@ -716,7 +691,7 @@ function DataTable<TData, TValue>({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleDownloadList}>
               <Download className="mr-2 h-4 w-4" />
               목록 다운로드
             </Button>

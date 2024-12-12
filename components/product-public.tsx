@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
+import { SupplierSelector } from "@/components/supplier-selector"
 
 export default function SupplierProductPage() {
   const [supplierData, setSupplierData] = useState<any[]>([])
@@ -137,34 +138,10 @@ export default function SupplierProductPage() {
   };
 
   const handleSupplierSelect = async (supplier: any) => {
-    try {
-      if (!user || !supplier || !supplier.id) {
-        console.error('Invalid supplier or user data');
-        return;
-      }
-
-      console.log('Selected supplier:', supplier); // 디버깅용 로그
-
-      // 공급사 정보 설정
-      const supplierInfo = {
-        id: supplier.id,
-        supplyname: supplier.supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid: supplier.companyid
-      };
-
-      // 선택된 공급사 정보 업데이트
-      setSelectedSupplier(supplierInfo);
-      
-      // 상품 데이터 로드
-      await fetchProductData(supplier.id.toString(), user.companyid);
-
-    } catch (error) {
-      console.error('Error in handleSupplierSelect:', error);
-      setFilteredProducts([]);
+    if (user && supplier && supplier.id) {
+      await fetchProductData(supplier.id, user.companyid)
     }
-  };
+  }
 
   const handleSupplierSearch = () => {
     if (!supplierSearchTerm) {
@@ -194,13 +171,12 @@ export default function SupplierProductPage() {
   }
 
   const handleProductRegistration = (method: string) => {
-    // router.push(`/product/public/new?type=${method}`)
-    router.push(`/product/public/new`)
+    router.push(`/product/public/new?type=${method}`)
   }
 
   const handleDownloadList = () => {
-    // Implement the download logic here
     console.log("Downloading list")
+    // 실제 다운로드 로직 구현
   }
 
   const handleProductClick = (productId: string) => {
@@ -307,37 +283,11 @@ export default function SupplierProductPage() {
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <div className="flex items-center space-x-2">
-              {selectedSupplier && (
-                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-              >
-                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearchTerm}
-                onSearchTermChange={setSupplierSearchTerm}
-                onSearch={handleSupplierSearch}
-                onDownloadList={handleDownloadList}
-                onProductRegistration={handleProductRegistration}
-                showActionButtons={true}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSelector 
+          onSupplierSelect={handleSupplierSelect}
+          onDownloadList={handleDownloadList}
+          onProductRegistration={handleProductRegistration}
+        />
 
         <Card className="w-full">
           <CardHeader>
@@ -349,7 +299,7 @@ export default function SupplierProductPage() {
             <DataTable 
               columns={productColumns}
               data={filteredProducts}
-              showActionButtons={false}
+              showActionButtons={true}
             />
           </CardContent>
         </Card>
@@ -375,22 +325,12 @@ export default function SupplierProductPage() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  searchTerm?: string
-  onSearchTermChange?: (term: string) => void
-  onSearch?: () => void
-  onDownloadList?: () => void
-  onProductRegistration?: (method: string) => void
   showActionButtons: boolean
 }
 
 function DataTable<TData, TValue>({
   columns,
   data,
-  searchTerm = "",
-  onSearchTermChange,
-  onSearch,
-  onDownloadList,
-  onProductRegistration,
   showActionButtons,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -421,49 +361,6 @@ function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-      {showActionButtons && (
-        <div className="flex items-center justify-between py-4">
-          <div className="flex items-center">
-            <Input
-              placeholder="Filter..."
-              value={searchTerm}
-              onChange={(event) => onSearchTermChange?.(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  onSearch?.();
-                }
-              }}
-              className="max-w-sm mr-2"
-            />
-            <Button onClick={onSearch}>
-              <Search className="h-4 w-4 mr-2" />
-              검색
-            </Button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">상품 등록</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("direct")}>
-                  직접 입력
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("url")}>
-                  Url 입력
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onProductRegistration?.("upload")}>
-                  파일 업로드
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button variant="outline" size="sm" onClick={onDownloadList}>
-              <Download className="mr-2 h-4 w-4" />
-              목록 다운로드
-            </Button>
-          </div>
-        </div>
-      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>

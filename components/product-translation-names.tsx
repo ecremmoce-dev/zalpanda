@@ -24,6 +24,7 @@ import { ChevronDown, ChevronRight, X, ExternalLink, ChevronUp } from 'lucide-re
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/utils/supabase/client";
 import { useUserDataStore } from "@/store/modules";
+import { SupplierSelector } from "@/components/supplier-selector"
 
 type CountryLanguagePair = {
   country: string;
@@ -153,10 +154,9 @@ export default function ProductTranslation() {
     setPlatformSelections(newPlatformSelections)
   }
 
-  const handleSupplierSelect = (row: any) => {
-    const { id: itemCustomerId, companyid } = row;
-
-    fetchProductData(itemCustomerId, companyid);
+  const handleSupplierSelect = async (supplier: any) => {
+    const { id: itemCustomerId, companyid } = supplier;
+    await fetchProductData(itemCustomerId, companyid);
   }
 
   const handleProductSelect = (productId: number) => {
@@ -218,56 +218,8 @@ export default function ProductTranslation() {
 
   return (
     <div className="container mx-auto p-4 space-y-8">
-      {/* Supplier Card - Now with collapsible functionality */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>공급사</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSupplierCard}
-            aria-label={isSupplierCardExpanded ? "Collapse supplier card" : "Expand supplier card"}
-          >
-            {isSupplierCardExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CardHeader>
-        {isSupplierCardExpanded && (
-          <CardContent>
-            <div className="flex justify-between items-center mb-4">
-              <Input placeholder="공급사를 검색하세요" className="max-w-sm" />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>회사명</TableHead>
-                  <TableHead>담당자</TableHead>
-                  <TableHead>등록일</TableHead>
-                  <TableHead className="text-right">선택</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {supplierData.map((supplier) => (
-                  <TableRow key={supplier.id}>
-                    <TableCell>{supplier.supplyname}</TableCell>
-                    <TableCell>{supplier.managername}</TableCell>
-                    <TableCell>{supplier.created}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleSupplierSelect(supplier)}
-                      >
-                        선택
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        )}
-      </Card>
-
+      <SupplierSelector onSupplierSelect={handleSupplierSelect} />
+      
       {/* Platform Selection Card - Keeping existing UI */}
       <Card>
         <CardHeader>
