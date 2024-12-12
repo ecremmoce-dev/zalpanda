@@ -1,10 +1,9 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search } from 'lucide-react'
-import { useState, useEffect } from 'react'
 import { supabase } from "@/utils/supabase/client"
 import { useUserDataStore } from "@/store/modules"
 import { useSupplierStore } from "@/store/modules/supplierStore"
@@ -299,13 +298,107 @@ export function ProductOptionsStock() {
     {
       accessorKey: "consumerprice",
       header: "공급가(₩)",
-      cell: ({ row }) => row.original.consumerprice?.toLocaleString() || 0
+      cell: ({ row }) => {
+        const isEditing = selectedProducts.includes(row.original.id);
+        const [price, setPrice] = useState(row.original.consumerprice || 0);
+
+        const handleSave = async () => {
+          // Update the product price in the state
+          const updatedProducts = supplierProducts.map(product => {
+            if (product.id === row.original.id) {
+              return { ...product, consumerprice: price };
+            }
+            return product;
+          });
+          setSupplierProducts(updatedProducts);
+
+          // Save to database
+          try {
+            const { error } = await supabase
+              .from('items')
+              .update({ consumerprice: price })
+              .eq('id', row.original.id);
+            if (error) throw error;
+          } catch (error) {
+            console.error('Error saving consumerprice:', error);
+          }
+
+          setSelectedProducts([]); // Reset selection
+        };
+
+        return isEditing ? (
+          <Input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(Number(e.target.value))}
+            onBlur={handleSave} // Save on blur
+            className="w-24"
+          />
+        ) : (
+          <div>
+            {price.toLocaleString() || 0}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "purchaseprice",
       header: "판매가(₩)",
-      cell: ({ row }) => row.original.purchaseprice?.toLocaleString() || 0
-    }
+      cell: ({ row }) => {
+        const isEditing = selectedProducts.includes(row.original.id);
+        const [price, setPrice] = useState(row.original.purchaseprice || 0);
+
+        const handleSave = async () => {
+          // Update the product price in the state
+          const updatedProducts = supplierProducts.map(product => {
+            if (product.id === row.original.id) {
+              return { ...product, purchaseprice: price };
+            }
+            return product;
+          });
+          setSupplierProducts(updatedProducts);
+
+          // Save to database
+          try {
+            const { error } = await supabase
+              .from('items')
+              .update({ purchaseprice: price })
+              .eq('id', row.original.id);
+            if (error) throw error;
+          } catch (error) {
+            console.error('Error saving purchaseprice:', error);
+          }
+
+          setSelectedProducts([]); // Reset selection
+        };
+
+        return isEditing ? (
+          <Input
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(Number(e.target.value))}
+            onBlur={handleSave} // Save on blur
+            className="w-24"
+          />
+        ) : (
+          <div>
+            {price.toLocaleString() || 0}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "edit",
+      header: "수정",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          onClick={() => setSelectedProducts([row.original.id])} // Enable editing
+        >
+          수정
+        </Button>
+      ),
+    },
   ]
 
   const table = useReactTable({

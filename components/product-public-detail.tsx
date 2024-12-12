@@ -104,7 +104,7 @@ interface Product {
   // ... 다른 필드들
 }
 
-// priorityFields 배열 추가 (컴���넌트 외부에 선언)
+// priorityFields 배열 추가 (컴���트 외부에 선언)
 const priorityFields = [
   '상품번호',
   '상품상태',
@@ -398,37 +398,113 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium">공급사</h3>
-                  <p className="text-sm text-muted-foreground">{productData.supplyname}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.supplyname}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium">상품명</h3>
-                  <p className="text-sm text-muted-foreground">{productData.name}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.name}</p>
                 </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium">카테고리</h3>
-                <p className="text-sm text-muted-foreground">{productData.categorypath || '-'}</p>
+                <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.categorypath || '-'}</p>
               </div>
             </div>
+            {thumbnailImages.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">상품 이미지</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                    {thumbnailImages.map((image, index) => (
+                      <Dialog key={image.id}>
+                        <DialogTrigger asChild>
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white text-sm">클릭하여 확대</span>
+                            </div>
+                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                              {index + 1}
+                            </span>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[70vw] max-h-[70vh] overflow-y-auto">
+                          <div className="relative aspect-[3/4] max-h-[70vh]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-contain w-full h-full"
+                            />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            {contentImages.length > 0 && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">상세 이미지</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                    {contentImages.map((image, index) => (
+                      <Dialog key={image.id}>
+                        <DialogTrigger asChild>
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
+                            <img
+                              src={image.url}
+                              alt={`상세 이미지 ${index + 1}`}
+                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white text-sm">클릭하여 확대</span>
+                            </div>
+                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                              {index + 1}
+                            </span>
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[70vw] max-h-[70vh] overflow-y-auto">
+                          <div className="relative aspect-[3/4] max-h-[70vh]">
+                            <img
+                              src={image.url}
+                              alt={`상세 이미지 ${index + 1}`}
+                              className="object-contain w-full h-full"
+                            />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <Separator />
             <div className="grid gap-4">
               <h3 className="text-lg font-semibold">무게 / 크기</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <h4 className="text-sm font-medium">무게</h4>
-                  <p className="text-sm text-muted-foreground">{productData.weight || '-'}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.weight || '-'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">가로(Length)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.length || '-'}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.length || '-'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">세로(Width)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.width || '-'}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.width || '-'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">높이(Height)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.height || '-'}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.height || '-'}</p>
                 </div>
               </div>
             </div>
@@ -438,27 +514,27 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <h4 className="text-sm font-medium">공급가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.consumerprice?.toLocaleString()} 원</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.consumerprice?.toLocaleString()} 원</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">판매가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.purchaseprice?.toLocaleString()} 원</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.purchaseprice?.toLocaleString()} 원</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.stocks?.nowstock?.toLocaleString() || 0} 개</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.stocks?.nowstock?.toLocaleString() || 0} 개</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">안전재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.stocks?.safetystock?.toLocaleString() || 0} 개</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.stocks?.safetystock?.toLocaleString() || 0} 개</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">SKU</h4>
-                  <p className="text-sm text-muted-foreground">{productData.variationsku}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.variationsku}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">HSCode</h4>
-                  <p className="text-sm text-muted-foreground">{productData.hscode || '-'}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.hscode || '-'}</p>
                 </div>
               </div>
             </div>
@@ -513,82 +589,6 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                 })()}
               </div>
             </div>
-            {thumbnailImages.length > 0 && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">상품 이미지</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                    {thumbnailImages.map((image, index) => (
-                      <Dialog key={image.id}>
-                        <DialogTrigger asChild>
-                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
-                            <img
-                              src={image.url}
-                              alt={`상품 이미지 ${index + 1}`}
-                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-white text-sm">클릭하여 확대</span>
-                            </div>
-                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
-                              {index + 1}
-                            </span>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <div className="relative aspect-[3/4] max-h-[600px]">
-                            <img
-                              src={image.url}
-                              alt={`상품 이미지 ${index + 1}`}
-                              className="object-contain w-full h-full"
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            {contentImages.length > 0 && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">상세 이미지</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
-                    {contentImages.map((image, index) => (
-                      <Dialog key={image.id}>
-                        <DialogTrigger asChild>
-                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
-                            <img
-                              src={image.url}
-                              alt={`상세 이미지 ${index + 1}`}
-                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
-                            />
-                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-white text-sm">클릭하여 확대</span>
-                            </div>
-                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
-                              {index + 1}
-                            </span>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <div className="relative aspect-[3/4] max-h-[600px]">
-                            <img
-                              src={image.url}
-                              alt={`상세 이미지 ${index + 1}`}
-                              className="object-contain w-full h-full"
-                            />
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
             {optionData.length > 0 && (
               <>
                 <Separator />
