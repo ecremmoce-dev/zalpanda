@@ -52,6 +52,7 @@ import {
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import { useRouter } from 'next/navigation'
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Supplier {
   id: number
@@ -182,16 +183,7 @@ export default function SupplierProductManagement() {
 
   const handleSupplierSelect = async (supplier: any) => {
     if (user && supplier && supplier.id) {
-      const { supplyname, id, companyid } = supplier
-      setSelectedSupplier({
-        id,
-        supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid
-      })
-      
-      await fetchProductData(id, user.companyid)
+      await fetchProductData(supplier.id, user.companyid)
     }
   }
 
@@ -226,12 +218,10 @@ export default function SupplierProductManagement() {
     setProductSearch(event.target.value);
   };
 
-  const filteredProducts = products.filter(product => {
-    const searchTerm = productSearch.toLowerCase();
-    const nameMatch = product.name ? product.name.toLowerCase().includes(searchTerm) : false;
-    const skuMatch = product.variationsku ? product.variationsku.toLowerCase().includes(searchTerm) : false;
-    return nameMatch || skuMatch;
-  });
+  const filteredProducts = products.filter(product =>
+    product.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.variationsku?.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   const handleSupplierSearch = () => {
     if (!supplierSearchTerm || !user) {
@@ -569,169 +559,14 @@ export default function SupplierProductManagement() {
     router.push(`/product/public/new?type=${method}`)
   }
 
-  const handleOptionSelect = (option: string) => {
-    switch (option) {
-      case 'moveCorrection':
-        // 원본 상품명을 보정 상품명으로 옮기기
-        setProducts(products.map(product => {
-          if (selectedProducts.includes(product.id)) {
-            return { ...product, name: product.originalname };
-          }
-          return product;
-        }));
-        break;
-
-      case 'organize':
-        // 문장 정리하기
-        setProducts(products.map(product => {
-          if (selectedProducts.includes(product.id)) {
-            let cleanedContent = product.name
-              .replace(/\s+/g, ' ')  // 여러 개의 공백을 하나로
-              .trim()  // 앞뒤 공백 제거
-              .replace(/[^a-zA-Z0-9가-힣\s]/g, ' ')  // 특수문자 제거
-              .replace(/\s+/g, ' ');  // 다시 한번 공백 정리
-            return { ...product, name: cleanedContent };
-          }
-          return product;
-        }));
-        break;
-
-      case 'undo':
-        // 보정 상품명 초기화
-        setProducts(products.map(product => {
-          if (selectedProducts.includes(product.id)) {
-            return { ...product, name: '' };
-          }
-          return product;
-        }));
-        break;
-
-      case 'replace':
-        // Replace 다이얼로그 열기
-        setIsReplaceDialogOpen(true);
-        break;
-
-      default:
-        break;
-    }
-  };
-
-  // Replace 실행 함수
-  const handleReplace = () => {
-    if (!replaceFrom) return;
-
-    setProducts(products.map(product => {
-      if (selectedProducts.includes(product.id)) {
-        const newName = product.name.replace(new RegExp(replaceFrom, 'g'), replaceTo);
-        return { ...product, name: newName };
-      }
-      return product;
-    }));
-
-    // 다이얼로그 닫기 및 상태 초기화
-    setIsReplaceDialogOpen(false);
-    setReplaceFrom('');
-    setReplaceTo('');
-  };
-
-  // 저장 함수 추가
-  const handleSave = async () => {
-    try {
-      // 선택된 상품들만 필터링
-      const productsToUpdate = products.filter(product => 
-        selectedProducts.includes(product.id)
-      );
-
-      if (productsToUpdate.length === 0) {
-        alert('저장할 항목을 선택해주세요.');
-        return;
-      }
-
-      // 각 상품에 대해 업데이트 수행
-      const updatePromises = productsToUpdate.map(async (product) => {
-        const { error } = await supabase
-          .from('items')
-          .update({ 
-            name: product.name,
-            content: product.content,
-            contenthtml: product.contenthtml,
-            updatedat: new Date().toISOString()
-          })
-          .eq('id', product.id);
-
-        if (error) throw error;
-      });
-
-      // 모든 업데이트 완료 대기
-      await Promise.all(updatePromises);
-
-      alert('저장이 완료되었습니다.');
-      
-      // 선택 초기화
-      setSelectedProducts([]);
-      
-      // 데이터 새로고침
-      if (selectedSupplier?.id && user) {
-        await fetchProductData(selectedSupplier.id, user.companyid);
-      }
-
-    } catch (error) {
-      console.error('Failed to save products:', error);
-      alert('저장에 실패했습니다.');
-    }
-  };
-
-  const handleAddWordToCorrection = (position: 'front' | 'back') => {
-    if (position === 'front') {
-      setProducts(products.map(product => {
-        if (selectedProducts.includes(product.id)) {
-          return { ...product, name: `${replaceFrom} ${product.name}` }; // 맨 앞에 추가
-        }
-        return product;
-      }));
-    } else if (position === 'back') {
-      setProducts(products.map(product => {
-        if (selectedProducts.includes(product.id)) {
-          return { ...product, name: `${product.name} ${replaceFrom}` }; // 맨 뒤에 추가
-        }
-        return product;
-      }));
-    }
-  };
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
 
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <div className="flex items-center space-x-2">
-              {selectedSupplier && (
-                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-              >
-                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearchTerm}
-                onSearchTermChange={setSupplierSearchTerm}
-                onSearch={handleSupplierSearch}
-                showActionButtons={true}
-                selectedSupplier={selectedSupplier}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
         <Card className="w-full">
           <CardHeader>
@@ -1004,6 +839,14 @@ function DataTable<TData, TValue>({
     },
   })
 
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
+
   return (
     <div className="w-full">
       {showActionButtons && (
@@ -1023,6 +866,28 @@ function DataTable<TData, TValue>({
             <Button onClick={onSearch}>
               <Search className="h-4 w-4 mr-2" />
               검색
+            </Button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">상품 등록</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("direct")}>
+                  직접 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("url")}>
+                  Url 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("upload")}>
+                  파일 업로드
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="sm" onClick={handleDownloadList}>
+              <Download className="mr-2 h-4 w-4" />
+              목록 다운로드
             </Button>
           </div>
         </div>

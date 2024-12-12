@@ -32,7 +32,8 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination"
 import { supabase } from "@/utils/supabase/client";
-import { useUserDataStore } from "@/store/modules";
+import { useUserDataStore } from "@/store/modules"
+import { useSupplierStore } from "@/store/modules/supplierStore"
 import {
   Dialog,
   DialogContent,
@@ -44,8 +45,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+
 import { useSearchParams } from 'next/navigation'
 import { useSupplierStore } from "@/store/modules/supplierStore"
+
 
 const PAGE_SIZE = 10;
 
@@ -80,6 +83,22 @@ const formatDateTime = (dateString: string) => {
 };
 
 export default function ProductRegistration() {
+  const searchParams = useSearchParams()
+  const type = searchParams.get('type')
+  
+  const getInitialTab = () => {
+    switch (type) {
+      case 'url':
+        return 'url'
+      case 'upload':
+        return 'file'
+      case 'direct':
+      default:
+        return 'job'
+    }
+  }
+
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [filteredSuppliers, setFilteredSuppliers] = useState<any[]>([])
@@ -104,13 +123,9 @@ export default function ProductRegistration() {
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
-  const [registrationType, setRegistrationType] = useState<'direct' | 'url' | 'upload'>('url');
-  const [activeTab, setActiveTab] = useState<'job' | 'url' | 'file'>('url')
   
-  const searchParams = useSearchParams();
-  
-  const { user } = useUserDataStore();
-  const { selectedSupplier, setSelectedSupplier } = useSupplierStore();
+  const { user } = useUserDataStore()
+  const selectedStoreSupplier = useSupplierStore(state => state.selectedSupplier)
 
   const itemsPerPage = 5
   const totalPages = Math.ceil(filteredSuppliers.length / itemsPerPage)
@@ -151,41 +166,34 @@ export default function ProductRegistration() {
 
   const crawlingResultsTotalPages = Math.ceil(filteredCrawlingResults.length / itemsPerPage)
 
-  const handleSelectedSupplier = async (supplier: any) => {
+  const handleSupplierSelect = async (supplier: any) => {
     try {
-      setSelectedSupplier(supplier);
-      await fetchCrawlingProgress(supplier);
-      setSelectedCrawlingResults([]);
-      setSelectedCrawlingItem(null);
-      setCrawlingResults([]);
+      setSelectedSupplier(supplier)
+      setSelectedCrawlingResults([])
+      setSelectedCrawlingItem(null)
+      setCrawlingCurrentPage(1)
+      
+      const { data, error } = await supabase
+        .from('crawlingtaskqueue')
+        .select('*')
+        .eq('company_supply_id', supplier.id)
+        .eq('company_id', supplier.companyid)
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+      setCrawlingProgress(data || [])
     } catch (error) {
-      console.error('Error in handleSelectedSupplier:', error);
+      console.error('크롤링 진행상황 조회 실패:', error)
+      setCrawlingProgress([])
     }
-  };
+  }
 
   const handleSetCrawlingtaskqueue = async () => {
     try {
       if (selectedSupplier) {
-        const { id: supplierId, companyid } = selectedSupplier
-        const targetUrl = selectedCrawlingBrand?.url ?? crawlingUrl
 
-        // 동일한 URL이 대기나 진행중인 상태로 존재하는지 확인
-        const { data: existingTasks, error: checkError } = await supabase
-          .from('crawlingtaskqueue')
-          .select('*')
-          .eq('company_supply_id', supplierId)
-          .eq('company_id', companyid)
-          .eq('target_url', targetUrl)
-          .in('status', ['pending', 'in_progress'])
-
-        if (checkError) throw checkError
-
-        if (existingTasks && existingTasks.length > 0) {
-          alert('이미 대기 또는 진행중인 동일한 URL이 존재합니다.')
-          return
-        }
-
-        // 새로운 태스크 추가
+        const { id : supplierId, companyid } = selectedSupplier
+ 
         const { error } = await supabase
           .from('crawlingtaskqueue')
           .insert([
@@ -194,7 +202,8 @@ export default function ProductRegistration() {
               company_id: companyid,
               status: 'pending',
               task_type: selectedCrawlingTaskType,
-              target_url: targetUrl,
+              target_url: selectedCrawlingBrand?.url ?? crawlingUrl,
+
               updated_at: new Date().toISOString(),
               brand_title: selectedCrawlingBrand?.title ?? null,
               brand_code: selectedCrawlingBrand?.brand_code ?? null,
@@ -203,12 +212,9 @@ export default function ProductRegistration() {
           .select()
 
         if (error) throw error
-
-        fetchCrawlingProgress(selectedSupplier)
       }
     } catch (error) {
-      console.error('Error in handleSetCrawlingtaskqueue:', error)
-      alert('목록 요청 중 오류가 발생했습니다.')
+      console.error('크롤링 작업 등록 실패:', error)
     }
   }
 
@@ -263,16 +269,71 @@ export default function ProductRegistration() {
   }
 
   useEffect(() => {
-    if (user) {
-      fetchSupplierData(user.companyid)
-      fetchCrawlingBrandList()
+    const initializeData = async () => {
+      if (user) {
+        await fetchSupplierData(user.companyid)
+        await fetchCrawlingBrandList()
+        
+        if (selectedStoreSupplier) {
+          try {
+            const { data, error } = await supabase
+              .from('crawlingtaskqueue')
+              .select('*')
+              .eq('company_supply_id', selectedStoreSupplier.id)
+              .eq('company_id', selectedStoreSupplier.companyid)
+              .order('updated_at', { ascending: false })
+
+            if (error) throw error
+            setCrawlingProgress(data || [])
+            setSelectedSupplier(selectedStoreSupplier)
+          } catch (error) {
+            console.error('초기 크롤링 진행상황 로딩 실패:', error)
+            setCrawlingProgress([])
+          }
+        }
+      }
     }
-  }, [user])
+
+    initializeData()
+  }, [user, selectedStoreSupplier])
 
   useEffect(() => {
-    if (selectedSupplier) {
-      console.log('Selected supplier changed:', selectedSupplier);
-      fetchCrawlingProgress(selectedSupplier);
+    if (!selectedSupplier) return
+
+    const crawlingTaskChannel = supabase
+      .channel('crawling-task-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crawlingtaskqueue',
+          filter: `company_supply_id=eq.${selectedSupplier.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'company_supply_id' in payload.new) {
+            switch (payload.eventType) {
+              case 'INSERT':
+                setCrawlingProgress(prev => [payload.new, ...prev])
+                break
+              case 'UPDATE':
+                setCrawlingProgress(prev => 
+                  prev.map(item => item.id === payload.new.id ? payload.new : item)
+                )
+                break
+              case 'DELETE':
+                setCrawlingProgress(prev => 
+                  prev.filter(item => item.id !== payload.old.id)
+                )
+                break
+            }
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(crawlingTaskChannel)
     }
   }, [selectedSupplier])
 
@@ -291,27 +352,6 @@ export default function ProductRegistration() {
       setFilteredSuppliers([])
     }
   }
-
-  const fetchCrawlingProgress = async (supplier: any) => {
-    try {
-      console.log('Fetching progress for supplier:', supplier);
-
-      const { data, error } = await supabase
-        .from('crawlingtaskqueue')
-        .select('*')
-        .eq('company_supply_id', supplier.id)
-        .eq('company_id', supplier.companyid)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      console.log('Fetched crawling progress:', data);
-      setCrawlingProgress(data);
-    } catch (error) {
-      console.error('Error fetching crawling progress:', error);
-      setCrawlingProgress([]);
-    }
-  };
 
   const fetchCrawlingBrandList = async () => {
     try {
@@ -598,108 +638,18 @@ export default function ProductRegistration() {
 
   return (
     <div className="container mx-auto py-6">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'job' | 'url' | 'file')} className="space-y-4">
+      <Tabs defaultValue={getInitialTab()} className="space-y-4">
         <TabsList className="w-fit mb-6">
           <TabsTrigger value="job">직접 입력</TabsTrigger>
           <TabsTrigger value="url">URL 입력</TabsTrigger>
           <TabsTrigger value="file">파일 업로드</TabsTrigger>
         </TabsList>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>공급사 선택</span>
-              {selectedSupplier && (
-                <span className="text-sm text-muted-foreground">
-                  선택된 공급사: {selectedSupplier.supplyname}
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="공급사명 또는 코드로 검색"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleSearch()
-                      }
-                    }}
-                    className="pl-8"
-                  />
-                </div>
-                <Button onClick={handleSearch}>검색</Button>
-              </div>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>회사명</TableHead>
-                      <TableHead>담당자</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead className="text-right">선택</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedSuppliers.map((supplier) => (
-                      <TableRow 
-                        key={supplier.id}
-                        className={supplier.isSelected ? "bg-blue-100 text-black" : ""}
-                      >
-                        <TableCell className="font-medium">{supplier.supplyname}</TableCell>
-                        <TableCell>{supplier.managername}</TableCell>
-                        <TableCell>
-                          {formatDateTime(supplier.created)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant={supplier.isSelected ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleSelectedSupplier(supplier)}
-                            className={supplier.isSelected ? "bg-blue-500 text-white" : ""}
-                          >
-                            {supplier.isSelected ? "선택됨" : "선택"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-                  {[...Array(totalPages)].map((_, index) => (
-                    <PaginationItem key={index}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(index + 1)}
-                        isActive={currentPage === index + 1}
-                      >
-                        {index + 1}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </CardContent>
-        </Card>
+        <SupplierSelector 
+          onSupplierSelect={handleSupplierSelect} 
+          className="mb-6" 
+          hideControls={true}
+        />
 
         <TabsContent value="job">
           <Card>
@@ -808,57 +758,18 @@ export default function ProductRegistration() {
                   >목록 요청</Button>
                 </div>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold">
-                      진행상황 (전체: {getProgressStatusCounts().total})
-                    </h3>
-                  </div>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[60px]">No.</TableHead>
-                          <TableHead>쇼핑몰</TableHead>
-                          <TableHead>브랜드</TableHead>
-                          <TableHead>URL</TableHead>
-                          <TableHead>상태</TableHead>
-                          <TableHead>요청일시</TableHead>
-                          <TableHead className="text-right">선택</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedCrawlingProgress.map((item, index) => (
-                          <TableRow 
-                            key={item.id}
-                            className={selectedCrawlingItem === item.id ? "bg-blue-100 text-black" : ""}
-                          >
-                            <TableCell>{(crawlingCurrentPage - 1) * itemsPerPage + index + 1}</TableCell>
-                            <TableCell>{item.task_type}</TableCell>
-                            <TableCell>{item.brand_title ? `${item.task_type} - ${item.brand_title}` : "네이버"}</TableCell>
-                            <TableCell>
-                              <p className="truncate overflow-ellipsis overflow-hidden max-w-[500px]">{item.target_url}</p>
-                            </TableCell>
-                            <TableCell>
-                              {QUEUE_STATUS_LABELS[item.status] || item.status}
-                            </TableCell>
-                            <TableCell>
-                              {formatDateTime(item.updated_at)}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant={selectedCrawlingItem === item.id ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCrawlingItem(item.id);
-                                  setCrawlingResultsCurrentPage(1);
-                                  fetchCrawlingProductList(item.id)
-                                  setSelectedCrawlingResults([])
-                                }}
-                                className={selectedCrawlingItem === item.id ? "bg-blue-500 text-white" : ""}
-                              >
-                                {selectedCrawlingItem === item.id ? "선택됨" : "선택"}
-                              </Button>
-                            </TableCell>
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">진행상황</h3>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>쇼핑몰</TableHead>
+                            <TableHead>브랜드</TableHead>
+                            <TableHead>URL</TableHead>
+                            <TableHead>상태</TableHead>
+                            <TableHead>요청일시</TableHead>
+                            <TableHead className="text-right">선택</TableHead>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -978,16 +889,22 @@ export default function ProductRegistration() {
                                 }}
                                 className="w-4 h-4"
                               />
-                            </TableCell>
-                            <TableCell>{(crawlingResultsCurrentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
-                            <TableCell>{item.task_type}</TableCell>
-                            <TableCell>{item.brand_title}</TableCell>
-                            <TableCell>
-                              <a 
-                                href={item.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="cursor-pointer block hover:opacity-80 transition-opacity"
+                            </TableHead>
+                            <TableHead>쇼핑몰</TableHead>
+                            <TableHead>브랜드</TableHead>
+                            <TableHead>이미지</TableHead>
+                            <TableHead>상품명</TableHead>
+                            <TableHead>가격</TableHead>
+                            <TableHead>상태</TableHead>
+                            <TableHead>선택</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {getFilteredResults()
+                            .slice((crawlingResultsCurrentPage - 1) * PAGE_SIZE, crawlingResultsCurrentPage * PAGE_SIZE)
+                            .map((item) => (
+                              <TableRow 
+                                key={item.id}
                               >
                                 <img 
                                   src={item.image_src} 

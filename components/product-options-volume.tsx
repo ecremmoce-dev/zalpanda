@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Product {
   id: string
@@ -140,22 +141,7 @@ export default function ProductOptionsVolume() {
 
   const handleSupplierSelect = async (supplier: any) => {
     if (user && supplier && supplier.id) {
-      const supplierInfo = {
-        id: supplier.id,
-        supplyname: supplier.supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid: supplier.companyid
-      }
-      
-      // 로딩 상태 표시를 위해 빈 배열로 초기화
-      setSupplierProducts([])
-      
-      // 데이터 로드
       await fetchProductData(supplier.id, user.companyid)
-      
-      // 데이터 로드 후 supplier 정보 설정
-      setSelectedSupplier(supplierInfo)
     }
   }
 
@@ -685,73 +671,7 @@ export default function ProductOptionsVolume() {
   return (
     <>
       <div className="container mx-auto py-6 space-y-6">
-        {/* Supplier Selection Card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle>공급사</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-            >
-              {isSupplierTableExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <>
-                <div className="flex items-center space-x-2 mb-4">
-                  <Input
-                    placeholder="공급사명을 검색하세요"
-                    className="max-w-sm"
-                    value={supplierSearchTerm}
-                    onChange={(e) => setSupplierSearchTerm(e.target.value)}
-                  />
-                  <Button size="sm" onClick={handleSupplierSearch}>
-                    <Search className="h-4 w-4 mr-2" />
-                    검색
-                  </Button>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>회사명</TableHead>
-                      <TableHead>담당자</TableHead>
-                      <TableHead>등록일</TableHead>
-                      <TableHead>선택</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {supplierData.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center">
-                          표시할 공급사가 없습니다.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      supplierData.map((supplier) => (
-                        <TableRow key={supplier.id}>
-                          <TableCell>{supplier.supplyname}</TableCell>
-                          <TableCell>{supplier.managername}</TableCell>
-                          <TableCell>{supplier.created}</TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              onClick={() => handleSupplierSelect(supplier)}
-                              variant={selectedSupplier?.id === supplier.id ? "default" : "outline"}
-                            >
-                              선택
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
         {/* Weight and Size Edit Card */}
         <Card>
