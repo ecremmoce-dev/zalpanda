@@ -68,19 +68,20 @@ export function Sidebar() {
   const qoo10SubMenus = [
     {
       title: '상품관리',
-      href: '/qoo10/cosmos',
-      icon: Globe
-    },
-    {
-      title: '주문관리',
-      href: '/qoo10/orders',
+      href: '/qoo10/productmanagement',
       icon: ShoppingCart
     },
     {
-      title: '문의관리',
-      href: '/qoo10/inquiries',
+      title: '상품리스트',
+      href: '/qoo10/productlist',
       icon: MessageSquare
-    }
+    },
+    {
+      title: '상품관리QSM',
+      href: '/qoo10/cosmos',
+      icon: Globe
+    },
+    
   ]
 
   return (
@@ -197,27 +198,29 @@ export function Sidebar() {
               </button>
               {isQoo10MenuOpen && (
                 <div className="ml-6 mt-2 space-y-1">
+                    <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    onClick={() => console.log(123)}
+                    href="/qoo10/productlist"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    상품리스트
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/productmanagement"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    상품관리
+                  </Link>
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
                     href="/qoo10/cosmos"
                   >
                     <Globe className="h-4 w-4" />
-                    상품관리
+                    상품관리QSM
                   </Link>
-                  <Link
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
-                    href="/qoo10/orders"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    주문관리
-                  </Link>
-                  <Link
-                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
-                    href="/qoo10/inquiries"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    문의관리
-                  </Link>
+                  
                 </div>
               )}
             </div>

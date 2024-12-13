@@ -52,6 +52,7 @@ import {
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import { useRouter } from 'next/navigation'
+import SupplierSection from "@/components/supplier-section"
 
 interface Supplier {
   id: number
@@ -247,25 +248,6 @@ export default function SupplierProductManagement() {
     );
     setSupplierData(filteredData);
   }
-
-  const supplierColumns: ColumnDef<any>[] = [
-    { accessorKey: "supplyname", header: "회사명" },
-    { accessorKey: "managername", header: "담당자" },
-    { accessorKey: "created", header: "등록일" },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <Button
-          size="sm"
-          onClick={() => handleSupplierSelect(row.original)}
-          variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
-          className={selectedSupplier?.id === row.original.id ? "bg-blue-500 text-white" : ""}
-        >
-          선택
-        </Button>
-      ),
-    },
-  ]
 
   const productColumns: ColumnDef<Product>[] = [
     { 
@@ -515,7 +497,7 @@ export default function SupplierProductManagement() {
     },
     { 
       accessorKey: "content",
-      header: "보정 본문",
+      header: "정 본문",
       cell: ({ row }) => (
         <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
           {row.original.content || '-'}
@@ -702,36 +684,15 @@ export default function SupplierProductManagement() {
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <div className="flex items-center space-x-2">
-              {selectedSupplier && (
-                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-              >
-                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearchTerm}
-                onSearchTermChange={setSupplierSearchTerm}
-                onSearch={handleSupplierSearch}
-                showActionButtons={true}
-                selectedSupplier={selectedSupplier}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSection 
+          supplierData={supplierData}
+          supplierSearchTerm={supplierSearchTerm}
+          setSupplierSearchTerm={setSupplierSearchTerm}
+          handleSupplierSearch={handleSupplierSearch}
+          isSupplierTableExpanded={isSupplierTableExpanded}
+          setIsSupplierTableExpanded={setIsSupplierTableExpanded}
+          handleSupplierSelect={handleSupplierSelect}
+        />
 
         <Card className="w-full">
           <CardHeader>
