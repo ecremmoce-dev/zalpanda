@@ -10,11 +10,33 @@ export async function GET(
     
     const { data, error } = await supabase
       .from('company_supply')
-      .select('*')
+      .select(`
+        id,
+        companyid,
+        supplyname,
+        contact,
+        address,
+        businessnumber,
+        email,
+        fax,
+        website,
+        managername,
+        managertel,
+        manageremail,
+        bankaccount,
+        bankname,
+        paymentterms,
+        currency,
+        notes,
+        vendproductcd,
+        created,
+        updated
+      `)
       .eq('id', params.supplyId)
       .single()
 
     if (error) throw error
+    console.log('GET Supply Data - vendproductcd:', data?.vendproductcd)
     return NextResponse.json(data)
   } catch (error) {
     console.error('Failed to fetch supply:', error)
@@ -28,6 +50,8 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
+    console.log('PUT Request Body - vendproductcd:', body.vendproductcd)
+
     const supabase = await createClient()
 
     const { data, error } = await supabase
@@ -48,6 +72,7 @@ export async function PUT(
         paymentterms: body.paymentterms || null,
         currency: body.currency || 'KRW',
         notes: body.notes || null,
+        vendproductcd: body.vendproductcd || null,
         updated: new Date().toISOString()
       })
       .eq('id', params.supplyId)
@@ -70,6 +95,7 @@ export async function PUT(
         paymentterms,
         currency,
         notes,
+        vendproductcd,
         created,
         updated
       `)
@@ -80,6 +106,7 @@ export async function PUT(
       throw error
     }
 
+    console.log('Updated Supply Data - vendproductcd:', data?.vendproductcd)
     return NextResponse.json(data)
   } catch (error) {
     console.error('Failed to update supply:', error)

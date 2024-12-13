@@ -233,31 +233,6 @@ export default function ProductOptionsVolume() {
         return;
       }
 
-      // 크기 필드가 수정된 경우 부피 무게 자동 계산
-      if (['length', 'width', 'height'].includes(field)) {
-        const product = updatedProducts.find(p => p.id === id);
-        if (product) {
-          const length = typeof product.length === 'string' ? parseFloat(product.length) : product.length;
-          const width = typeof product.width === 'string' ? parseFloat(product.width) : product.width;
-          const height = typeof product.height === 'string' ? parseFloat(product.height) : product.height;
-
-          if (length && width && height) {
-            const volumeWeight = calculateVolumeWeight(length, width, height);
-            await supabase
-              .from('items')
-              .update({ weight: volumeWeight })
-              .eq('id', id);
-            
-            // UI 업데이트
-            setSupplierProducts(prevProducts => 
-              prevProducts.map(p => 
-                p.id === id ? { ...p, weight: volumeWeight } : p
-              )
-            );
-          }
-        }
-      }
-
       setEditingCell(null);
     } catch (error) {
       console.error('Error updating cell:', error);
@@ -289,7 +264,7 @@ export default function ProductOptionsVolume() {
         const sku = row.original.variationsku || '미등록'
         
         const handleCopy = (e: React.MouseEvent) => {
-          e.stopPropagation() // 상세 다이얼로그가 열리는 것을 방지
+          e.stopPropagation() // 상 다이얼로그가 열리는 것을 방지
           if (sku === '미등록') return
           
           navigator.clipboard.writeText(sku)
@@ -527,7 +502,13 @@ export default function ProductOptionsVolume() {
           parseFloat(width),
           parseFloat(height)
         )
-        return `${volumeWeight.toFixed(2)} kg`
+        const weight = parseFloat(row.original.weight) || 0;
+        const isOverweight = volumeWeight > weight;
+        return (
+          <span className={isOverweight ? 'text-red-500' : ''}>
+            {volumeWeight.toFixed(2)} kg
+          </span>
+        );
       }
     }
   ]
@@ -607,31 +588,26 @@ export default function ProductOptionsVolume() {
     
     const newTempSizes = { ...tempSizes }
     selectedProducts.forEach(id => {
-      newTempSizes[id] = {
-        length: parseFloat(length),
-        width: parseFloat(width),
-        height: parseFloat(height)
-      }
+        newTempSizes[id] = {
+            length: parseFloat(length),
+            width: parseFloat(width),
+            height: parseFloat(height)
+        }
     })
     setTempSizes(newTempSizes)
     
-    // 그리드 데이터 업데이트
+    // 그리드 데이터 업데이트 - 크기만 업데이트
     const updatedProducts = supplierProducts.map(product => {
-      if (selectedProducts.includes(product.id)) {
-        const volumeWeight = calculateVolumeWeight(
-          parseFloat(length),
-          parseFloat(width),
-          parseFloat(height)
-        )
-        return {
-          ...product,
-          length,
-          width,
-          height,
-          weight: volumeWeight.toFixed(2)
+        if (selectedProducts.includes(product.id)) {
+            return {
+                ...product,
+                length,
+                width,
+                height
+                // weight는 업데이트하지 않음 (기존 값 유지)
+            }
         }
-      }
-      return product
+        return product
     })
     setSupplierProducts(updatedProducts)
   }
@@ -640,31 +616,30 @@ export default function ProductOptionsVolume() {
     if (Object.keys(tempSizes).length === 0) return
     
     try {
-      // 각 상품별로 크기와 계산된 무게를 업데이트
-      const updates = Object.entries(tempSizes).map(([id, sizes]) => {
-        const volumeWeight = calculateVolumeWeight(sizes.length, sizes.width, sizes.height)
-        return supabase
-          .from('items')
-          .update({
-            length: sizes.length,
-            width: sizes.width,
-            height: sizes.height,
-            weight: volumeWeight
-          })
-          .eq('id', id)
-      })
+        // 각 상품별로 크기만 업데이트
+        const updates = Object.entries(tempSizes).map(([id, sizes]) => {
+            return supabase
+                .from('items')
+                .update({
+                    length: sizes.length,
+                    width: sizes.width,
+                    height: sizes.height
+                    // weight는 업데이트하지 않음
+                })
+                .eq('id', id)
+        })
 
-      await Promise.all(updates)
-      
-      // 저장 성공 시 임시 데이터 초기화
-      setTempSizes({})
-      
-      // 상품 목록 새로고침
-      if (user && selectedSupplier) {
-        fetchProductData(selectedSupplier, user.companyid)
-      }
+        await Promise.all(updates)
+        
+        // 저장 성공 시 임시 데이터 초기화
+        setTempSizes({})
+        
+        // 상품 목록 새로고침 - selectedSupplier.id를 전달
+        if (user && selectedSupplier?.id) {
+            await fetchProductData(selectedSupplier.id, user.companyid)
+        }
     } catch (error) {
-      console.error('Error saving sizes:', error)
+        console.error('Error saving sizes:', error)
     }
   }
 

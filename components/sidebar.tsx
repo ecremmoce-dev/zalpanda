@@ -92,19 +92,20 @@ export function Sidebar() {
   const qoo10SubMenus = [
     {
       title: '상품관리',
-      href: '/qoo10/cosmos',
-      icon: Globe
-    },
-    {
-      title: '주문관리',
-      href: '/qoo10/orders',
+      href: '/qoo10/productmanagement',
       icon: ShoppingCart
     },
     {
-      title: '문의관리',
-      href: '/qoo10/inquiries',
+      title: '상품리스트',
+      href: '/qoo10/productlist',
       icon: MessageSquare
-    }
+    },
+    {
+      title: '상품관리QSM',
+      href: '/qoo10/cosmos',
+      icon: Globe
+    },
+    
   ]
 
   return (
@@ -361,6 +362,159 @@ export function Sidebar() {
                   >
                     <Languages className="h-4 w-4" />
                     이미지 번역
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleQoo10Menu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span className="font-semibold">QOO10</span>
+                </div>
+                {isQoo10MenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isQoo10MenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                    <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    onClick={() => console.log(123)}
+                    href="/qoo10/productlist"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    상품리스트
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/productmanagement"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    상품관리
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/qoo10/cosmos"
+                  >
+                    <Globe className="h-4 w-4" />
+                    상품관리QSM
+                  </Link>
+                  
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleSettingsMenu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings className="h-4 w-4" />
+                  <span className="font-semibold">설정</span>
+                </div>
+                {isSettingsMenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isSettingsMenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/settings/accounts"
+                  >
+                    <Users className="h-4 w-4" />
+                    업체계정관리
+                  </Link>
+                </div>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={toggleProductMenu}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900"
+              >
+                <div className="flex items-center gap-3">
+                  <Package2 className="h-4 w-4" />
+                  <span className="font-semibold">상품</span>
+                </div>
+                {isProductMenuOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+              {isProductMenuOpen && (
+                <div className="ml-6 mt-2 space-y-1">
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/list"
+                  >
+                    <Package2 className="h-4 w-4" />
+                    상품 목록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/public"
+                  >
+                    <Users className="h-4 w-4" />
+                    공용 상품
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/revision"
+                  >
+                    <Image className="h-4 w-4" />
+                    상품 보정
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/translation/names"
+                  >
+                    <Languages className="h-4 w-4" />
+                    상품 번역
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/category/map/mapping"
+                  >
+                    <Globe className="h-4 w-4" />
+                    카테고리 맵핑
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/options/volume"
+                  >
+                    <Package2 className="h-4 w-4" />
+                    무게 / 크기 일괄등록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/options/stock"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    가격 / 재고 일괄등록
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/exchange"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    플랫폼 가격 계산
+                  </Link>
+                  <Link
+                    className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
+                    href="/product/customer"
+                  >
+                    <Users className="h-4 w-4" />
+                    공급사 관리
                   </Link>
                 </div>
               )}

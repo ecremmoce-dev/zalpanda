@@ -49,6 +49,10 @@ interface Product {
   }
   consumerprice?: number
   purchaseprice?: number
+  weight?: number
+  length?: number
+  width?: number
+  height?: number
 }
 
 type SortingState = {
@@ -154,7 +158,11 @@ export function ProductOptionsStock() {
           ),
           item_options!left (
             groupvalue
-          )
+          ),
+          weight,
+          length,
+          width,
+          height
         `)
         .eq('companyid', companyid)
         .eq('supplyid', supplyid.toString())
@@ -180,6 +188,10 @@ export function ProductOptionsStock() {
     setSelectedProductId(productId)
     setIsDetailDialogOpen(true)
   }
+
+  const calculateVolumetricWeight = (length: number, width: number, height: number): number => {
+    return (length * width * height) / 6000;
+  };
 
   const columns = [
     {
@@ -386,6 +398,67 @@ export function ProductOptionsStock() {
           </div>
         );
       },
+    },
+    {
+      accessorKey: "weight",
+      header: "실제무게(kg)",
+      cell: ({ row }) => {
+        const isEditing = selectedProducts.includes(row.original.id);
+        const [weight, setWeight] = useState(row.original.weight || 0);
+
+        const handleSave = async () => {
+          try {
+            const { error } = await supabase
+              .from('items')
+              .update({ weight: weight })
+              .eq('id', row.original.id);
+            
+            if (error) throw error;
+            
+            const updatedProducts = supplierProducts.map(product => {
+              if (product.id === row.original.id) {
+                return { ...product, weight };
+              }
+              return product;
+            });
+            setSupplierProducts(updatedProducts);
+            setSelectedProducts([]);
+          } catch (error) {
+            console.error('Error saving weight:', error);
+          }
+        };
+
+        return isEditing ? (
+          <Input
+            type="number"
+            value={weight}
+            onChange={(e) => setWeight(Number(e.target.value))}
+            onBlur={handleSave}
+            className="w-24"
+          />
+        ) : (
+          <div>{weight.toFixed(2)}kg</div>
+        );
+      }
+    },
+    {
+      accessorKey: "volumetricWeight",
+      header: "부피무게(kg)",
+      cell: ({ row }) => {
+        const volumetricWeight = calculateVolumetricWeight(
+          row.original.length || 0,
+          row.original.width || 0,
+          row.original.height || 0
+        );
+        const actualWeight = row.original.weight || 0;
+        const isVolumetricHeavier = volumetricWeight > actualWeight;
+
+        return (
+          <div className={`${isVolumetricHeavier ? 'text-red-500 font-semibold' : ''}`}>
+            {volumetricWeight.toFixed(2)}kg
+          </div>
+        );
+      }
     },
     {
       accessorKey: "edit",
