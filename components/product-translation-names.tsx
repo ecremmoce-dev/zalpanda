@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -20,60 +20,24 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronDown, ChevronRight, X, ExternalLink, ChevronUp } from 'lucide-react'
+import { ChevronUp, Pencil, Trash, Globe, Languages } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { supabase } from "@/utils/supabase/client";
-import { useUserDataStore } from "@/store/modules";
-import { SupplierSelector } from "@/components/supplier-selector"
-
-type CountryLanguagePair = {
-  country: string;
-  language: string;
-}
-
-type PlatformSelection = {
-  platform: string;
-  countryLanguagePairs: CountryLanguagePair[];
-}
-
-const initialPlatformSelections: PlatformSelection[] = [
-  {
-    platform: '',
-    countryLanguagePairs: [
-      { country: '', language: '' },
-      { country: '', language: '' }
-    ]
-  },
-  {
-    platform: '',
-    countryLanguagePairs: [
-      { country: '', language: '' },
-      { country: '', language: '' },
-      { country: '', language: '' }
-    ]
-  },
-  {
-    platform: '',
-    countryLanguagePairs: [
-      { country: '', language: '' }
-    ]
-  }
-]
+import { useUserDataStore } from "@/store/modules"
+import { supabase } from "@/utils/supabase/client"
 
 export default function ProductTranslation() {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
-  const [platformSelections, setPlatformSelections] = useState<PlatformSelection[]>(initialPlatformSelections)
   const [products, setProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<number[]>([])
-  const [expandedRows, setExpandedRows] = useState<number[]>([])
   const [isSupplierCardExpanded, setIsSupplierCardExpanded] = useState(true)
   const [activeTab, setActiveTab] = useState('product-name')
   const [categoryFilter, setCategoryFilter] = useState('전체')
   const [nameFilter, setNameFilter] = useState('')
   const [categories, setCategories] = useState(['전체', '자동차용품', '스포츠용품', '서비스'])
-  const [supplierData, setSupplierData] = useState<any[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10 // 페이지당 아이템 수
+  const [platformFilter, setPlatformFilter] = useState('SHOPEE')
+  const [countryFilter, setCountryFilter] = useState('KR')
+  const [languageFilter, setLanguageFilter] = useState('en')
+  const [suppliers, setSuppliers] = useState<any[]>([])
 
   const { user } = useUserDataStore();
 
@@ -89,21 +53,36 @@ export default function ProductTranslation() {
 
       if (error) throw error;
       
-      setSupplierData(data)
+      setSuppliers(data)
     } catch (error) {
       console.log(error);
     }
   }
 
-  const fetchProductData = async (itemCustomerId: string, companyid: string) => {
+  const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
     const { data, error } = await supabase
       .from('items')
       .select(`
         *,
-        stocks!inner(*)
+        translated_names(*),
+        translated_contents(*)
       `)
       .eq('companyid', companyid)
       .eq('supplyid', itemCustomerId)
+      //.gte('createdat', '2024-03-01T00:00:00.000Z')
+      // .in('variationsku', [
+      //   "3583481362",
+      //   "10359844564",
+      //   "10359844566",
+      //   "33721024644",
+      //   "35329309196",
+      //   "35329309194",
+      //   "35329309192",
+      //   "35329309190",
+      //   "35329309189",
+      //   "9323027126",
+      //   "36213735593"
+      // ])
       .order('createdat', { ascending: false })
 
     if (!error) {
@@ -114,49 +93,10 @@ export default function ProductTranslation() {
 
   const toggleSupplierCard = () => setIsSupplierCardExpanded(!isSupplierCardExpanded)
 
-  const addPlatform = () => {
-    setPlatformSelections([...platformSelections, { platform: '', countryLanguagePairs: [{ country: '', language: '' }] }])
-  }
+  const handleSupplierSelect = (supplier: any) => {
+    const { name: supplierName, id: itemCustomerId, companyid } = supplier;
 
-  const addCountryLanguage = (platformIndex: number) => {
-    const newPlatformSelections = [...platformSelections]
-    newPlatformSelections[platformIndex].countryLanguagePairs.push({ country: '', language: '' })
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const updatePlatform = (index: number, value: string) => {
-    const newPlatformSelections = [...platformSelections]
-    newPlatformSelections[index].platform = value
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const updateCountry = (platformIndex: number, pairIndex: number, value: string) => {
-    const newPlatformSelections = [...platformSelections]
-    newPlatformSelections[platformIndex].countryLanguagePairs[pairIndex].country = value
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const updateLanguage = (platformIndex: number, pairIndex: number, value: string) => {
-    const newPlatformSelections = [...platformSelections]
-    newPlatformSelections[platformIndex].countryLanguagePairs[pairIndex].language = value
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const deletePlatform = (platformIndex: number) => {
-    const newPlatformSelections = platformSelections.filter((_, index) => index !== platformIndex)
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const deleteCountryLanguagePair = (platformIndex: number, pairIndex: number) => {
-    const newPlatformSelections = [...platformSelections]
-    newPlatformSelections[platformIndex].countryLanguagePairs = 
-      newPlatformSelections[platformIndex].countryLanguagePairs.filter((_, index) => index !== pairIndex)
-    setPlatformSelections(newPlatformSelections)
-  }
-
-  const handleSupplierSelect = async (supplier: any) => {
-    const { id: itemCustomerId, companyid } = supplier;
-    await fetchProductData(itemCustomerId, companyid);
+    fetchProductData(itemCustomerId, companyid, supplierName)
   }
 
   const handleProductSelect = (productId: number) => {
@@ -169,144 +109,207 @@ export default function ProductTranslation() {
 
   const handleSelectAllProducts = (checked: boolean) => {
     if (checked) {
-      const currentPageIds = currentItems.map(product => product.id)
-      setSelectedProducts(prev => 
-        [...new Set([...prev, ...currentPageIds])]
-      )
+      setSelectedProducts(filteredProducts.map(product => product.id));
     } else {
-      const currentPageIds = currentItems.map(product => product.id)
-      setSelectedProducts(prev => 
-        prev.filter(id => !currentPageIds.includes(id))
-      )
+      setSelectedProducts([]);
+    }
+  };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => true)
+  }, [products, categoryFilter, nameFilter, platformFilter, countryFilter, languageFilter])
+
+  const handleTranslate = async () => {
+    const selectedItems = products.filter(product => 
+      selectedProducts.includes(product.id)
+    );
+
+    try {
+      const result = await translateText(selectedItems.map((item) => item.name), languageFilter);
+      
+      // 번역 결과를 products 배열에 업데이트
+      const updatedProducts = products.map(product => {
+        if (selectedProducts.includes(product.id)) {
+          const translatedIndex = selectedItems.findIndex(item => item.id === product.id)
+          const translatedNames = [...product.translated_names]
+          const hasTranslated = product.translated_names.find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
+
+          if (hasTranslated) {
+            translatedNames.map((item: any) => {
+              if (item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter) {
+                item.translatedNew = result.translations[translatedIndex].translatedText
+              }
+            })
+          } else {
+            translatedNames.push({
+              itemid: product.id,
+              country: countryFilter,
+              language: languageFilter,
+              platform: platformFilter,
+              originaltext: product.name,
+              translatedNew: result.translations[translatedIndex].translatedText,
+              iscompleted: false,
+              compamyid: product.companyid,
+              updatedat: new Date().toISOString()
+            })
+          }
+
+          return {
+            ...product,
+            translated_names: translatedNames,
+          };
+        }
+        return product;
+      });
+
+      setProducts(updatedProducts)
+
+      console.log(updatedProducts)
+    } catch (error) {
+      console.error('Translation error:', error);
+    }
+  };
+
+  const handleTranslateSave = async () => {
+    // 상품 배열의 번역 변경사항 전체 저장
+
+    try {
+      const translatedProducts = products.filter((product: any) => product.translated_names.find((item: any) => item.translatedNew))
+      .map((product: any) => product.translated_names.filter((item: any) => item.translatedNew))
+      .flat()
+
+      if (translatedProducts.length > 0) {
+        const upsertData = translatedProducts.map((item: any) => ({
+          id: item.translated ? item.id : crypto.randomUUID(),
+          itemid: item.itemid,
+          country: item.country,
+          language: item.language,
+          platform: item.platform,
+          originaltext: item.originaltext,
+          translated: item.translatedNew,
+          iscompleted: false,
+          compamyid: item.compamyid,
+          updatedat: new Date().toISOString()
+        }))
+
+        const { data, error } = await supabase.from('translated_names').upsert(upsertData, { onConflict: 'id' })
+
+        if (!error) {
+          console.log('success');
+          console.log(data);
+        }
+      } else {
+        console.log('번역 변경사항이 없습니다.')
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+    }
+  };
+
+  async function translateText(text: string[], targetLanguage: string) {
+    try {
+      const response = await fetch('/api/translate/text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          texts: text,
+          targetLanguage: targetLanguage
+        }),
+      });
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Translation error:', error);
+      throw error;
     }
   }
 
-  const toggleRowExpansion = (productId: number) => {
-    setExpandedRows(prev =>
-      prev.includes(productId)
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId]
-    )
-  }
+  const handleEditClick = (product: any) => {
+    console.log('수정 버튼 클릭:', product);
+  };
 
-  const filteredProducts = products.filter(product => 
-    (categoryFilter === '전체' || product.category === categoryFilter) &&
-    product.name.toLowerCase().includes(nameFilter.toLowerCase())
-  )
+  const handleDeleteClick = async (product: any) => {
+    try {
+      const target = product.translated_names.find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
 
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage)
+      console.log(product)
+      console.log(target)
+      
+      if (target.id) await supabase.from('translated_names').delete().eq('id', target.id)
 
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber)
-    setExpandedRows([]) // 페이지 변경시 확장된 행 초기화
-  }
+      const updatedProducts = products.map((e: any) => {
+        if (e.id === product.id) {
+          return {
+            ...e,
+            translated_names: e.translated_names.filter((item: any) => item.id !== target.id)
+          }
+        }
+        return e
+      })
+      setProducts(updatedProducts)
 
-  // 페이지네이션 헬퍼 함수 추가
-  const getPageNumbers = (current: number, total: number) => {
-    if (total <= 3) {
-      return Array.from({ length: total }, (_, i) => i + 1);
+      console.log('success');
+      
+    } catch (error) {
+      console.error('Translation error:', error);
     }
 
-    if (current <= 2) return [1, 2, 3];
-    if (current >= total - 1) return [total - 2, total - 1, total];
-
-    return [current - 1, current, current + 1];
+    
   };
 
   return (
     <div className="container mx-auto p-4 space-y-8">
-      <SupplierSelector onSupplierSelect={handleSupplierSelect} />
-      
-      {/* Platform Selection Card - Keeping existing UI */}
+      {/* Supplier Card - Now with collapsible functionality */}
       <Card>
-        <CardHeader>
-          <CardTitle>언어 및 플랫폼 선택</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>공급사</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSupplierCard}
+            aria-label={isSupplierCardExpanded ? "Collapse supplier card" : "Expand supplier card"}
+          >
+            {isSupplierCardExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronUp className="h-4 w-4 rotate-180" />}
+          </Button>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {platformSelections.map((platformSelection, platformIndex) => (
-            <div key={platformIndex} className="space-y-4">
-              <div className="flex items-start space-x-4">
-                <div className="w-1/3 flex items-center space-x-2">
-                  <Select onValueChange={(value) => updatePlatform(platformIndex, value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="플랫폼 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="amazon">Amazon</SelectItem>
-                      <SelectItem value="ebay">eBay</SelectItem>
-                      <SelectItem value="shopify">Shopify</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deletePlatform(platformIndex)}
-                    className="text-red-500 hover:text-red-700 flex-shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="w-2/3 space-y-2">
-                  {platformSelection.countryLanguagePairs.map((pair, pairIndex) => (
-                    <div key={pairIndex} className="flex items-center space-x-2">
-                      <Select onValueChange={(value) => updateCountry(platformIndex, pairIndex, value)}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="국가 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="us">United States</SelectItem>
-                          <SelectItem value="uk">United Kingdom</SelectItem>
-                          <SelectItem value="ca">Canada</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select onValueChange={(value) => updateLanguage(platformIndex, pairIndex, value)}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="언어 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en">English</SelectItem>
-                          <SelectItem value="fr">French</SelectItem>
-                          <SelectItem value="es">Spanish</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {pairIndex > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteCountryLanguagePair(platformIndex, pairIndex)}
-                          className="text-red-500 hover:text-red-700 flex-shrink-0"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button 
-                    variant="ghost" 
-                    className="w-full h-10 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100"
-                    onClick={() => addCountryLanguage(platformIndex)}
-                  >
-                    + 국가와 언어 추가
-                  </Button>
-                </div>
-              </div>
+        {isSupplierCardExpanded && (
+          <CardContent>
+            <div className="flex justify-between items-center mb-4">
+              <Input placeholder="공급사를 검색하세요" className="max-w-sm" />
             </div>
-          ))}
-          <div className="flex">
-            <div className="w-1/3">
-              <Button 
-                variant="ghost" 
-                className="w-full h-10 bg-muted hover:bg-muted/80"
-                onClick={addPlatform}
-              >
-                + 플랫폼 추가
-              </Button>
-            </div>
-          </div>
-        </CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>회사명</TableHead>
+                  <TableHead>담당자</TableHead>
+                  <TableHead>등록일</TableHead>
+                  <TableHead className="text-right">선택</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {suppliers.map((supplier) => (
+                  <TableRow key={supplier.id}>
+                    <TableCell>{supplier.supplyname}</TableCell>
+                    <TableCell>{supplier.managername}</TableCell>
+                    <TableCell>{supplier.created}</TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleSupplierSelect(supplier)}
+                      >
+                        선택
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        )}
       </Card>
 
       {/* Updated Product List Card */}
@@ -322,13 +325,49 @@ export default function ProductTranslation() {
                 <span className="font-medium">{selectedProducts.length}</span> selected
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">삭제</Button>
-              <Button variant="outline" size="sm">번역</Button>
-            </div>
           </div>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <Select value={platformFilter} onValueChange={setPlatformFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="플랫폼 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="SHOPEE">SHOPEE</SelectItem>
+                <SelectItem value="LAZADA">LAZADA</SelectItem>
+                <SelectItem value="VO">VO</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={countryFilter} onValueChange={setCountryFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="국가 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="KR">대한민국 (KR)</SelectItem>
+                <SelectItem value="MY">말레이시아 (MY)</SelectItem>
+                <SelectItem value="VN">베트남 (VN)</SelectItem>
+                <SelectItem value="SG">싱가포르 (SG)</SelectItem>
+                <SelectItem value="ID">인도네시아 (ID)</SelectItem>
+                <SelectItem value="TH">태국 (TH)</SelectItem>
+                <SelectItem value="PH">필리핀 (PH)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={languageFilter} onValueChange={setLanguageFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="언어 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">영어 (EN)</SelectItem>
+                <SelectItem value="zh-CN">중국어 (CN)</SelectItem>
+                <SelectItem value="zh-Hans">중국어 간체 (Hans)</SelectItem>
+                <SelectItem value="th">태국어 (TH)</SelectItem>
+                <SelectItem value="my">말레이어 (MY)</SelectItem>
+                <SelectItem value="vi">베트남어 (VN)</SelectItem>
+                <SelectItem value="id">인도네시아어 (ID)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {selectedSupplier ? (
             <div className="space-y-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -338,125 +377,104 @@ export default function ProductTranslation() {
                   <TabsTrigger value="option-name">옵션명 번역</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <div className="flex items-center space-x-2">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="카테고리 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  placeholder="상품명 검색"
-                  value={nameFilter}
-                  onChange={(e) => setNameFilter(e.target.value)}
-                  className="max-w-sm"
-                />
+              <div className="flex items-center justify-between">
+                <div className='flex items-center space-x-2 '>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="카테고리 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="상품명 검색"
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    className="max-w-sm"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleTranslate}
+                  >
+                    번역
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleTranslateSave}>저장</Button>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-4">
                 <Checkbox
                   id="select-all"
-                  checked={currentItems.length > 0 && currentItems.every(product => 
-                    selectedProducts.includes(product.id)
-                  )}
+                  checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
                   onCheckedChange={handleSelectAllProducts}
                 />
                 <label htmlFor="select-all" className="text-sm font-medium">
                   전체 선택
                 </label>
               </div>
-              <div className="space-y-2">
-                {currentItems.map((product) => (
-                  <div key={product.id} className="border rounded-lg">
-                    <div className="flex items-start p-4 gap-4">
-                      <Checkbox
-                        checked={selectedProducts.includes(product.id)}
-                        onCheckedChange={() => handleProductSelect(product.id)}
-                        className="mt-1"
-                      />
-                      <img
-                        src={product.thumbnailurl}
-                        alt=""
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => toggleRowExpansion(product.id)}
-                                className="p-1 hover:bg-gray-100 rounded"
-                              >
-                                {expandedRows.includes(product.id) ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </button>
-                              <p className="font-medium line-clamp-2">{product.name}</p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              SKU: {product.variationsku}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    {expandedRows.includes(product.id) && (
-                      <div className="border-t p-4">
-                        <Tabs defaultValue="original">
-                          <TabsList className="mb-4">
-                            <TabsTrigger value="original">원본</TabsTrigger>
-                            <TabsTrigger value="country">국가</TabsTrigger>
-                            <TabsTrigger value="language">언어</TabsTrigger>
-                            <TabsTrigger value="category">번역</TabsTrigger>
-                            <TabsTrigger value="status">수정</TabsTrigger>
-                            <TabsTrigger value="action">삭제</TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-center space-x-2 mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  이전
-                </Button>
-                
-                {getPageNumbers(currentPage, totalPages).map((pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                ))}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  다음
-                </Button>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead className="w-[40%]">상품명</TableHead>
+                    <TableHead className="w-[40%]">번역</TableHead>
+                    <TableHead>수정</TableHead>
+                    <TableHead>삭제</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProducts.includes(product.id)}
+                          onCheckedChange={() => handleProductSelect(product.id)}
+                        />
+                      </TableCell>
+                      <TableCell>{product.variationsku}</TableCell>
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        {
+                          product.translated_names.find((item: any) => item.language === languageFilter)
+                          ? 
+                            (
+                              product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
+                              ? product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
+                              : product.translated_names.find((item: any) => item.language === languageFilter).translated
+                            )
+                          : ''
+                        }
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditClick(product)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleDeleteClick(product)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           ) : (
             <div className="text-center py-4">공급사를 선택하면 상품 목록이 표시됩니다.</div>
