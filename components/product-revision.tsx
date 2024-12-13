@@ -50,6 +50,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import ProductDetail from "@/components/product-public-detail"
+import { useSupplierStore } from "@/store/modules/supplierStore"
+import { useRouter } from 'next/navigation'
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Supplier {
   id: number
@@ -67,6 +70,7 @@ interface Product {
   name: string
   originalname: string
   content: string
+  contenthtml: string
   originalcontent: string
   updatedat: string
   createdat: string
@@ -74,6 +78,9 @@ interface Product {
   stocks: {
     nowstock: number
   }
+  orginurl?: string
+  ecsku?: string
+  sellersku?: string
 }
 
 const categories = ['전체', '의류', '식품', '전자제품', '가구', '화장품', '사무용품']
@@ -82,12 +89,11 @@ const DEFAULT_IMAGE = 'https://via.placeholder.com/150'
 export default function SupplierProductManagement() {
   const [userData, setUserData] = useState<any>(null)
   const [supplierData, setSupplierData] = useState<any[]>([])
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [supplierSearch, setSupplierSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('전체')
-  const [selectedProducts, setSelectedProducts] = useState<number[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [editingContent, setEditingContent] = useState<string>('')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
@@ -95,12 +101,27 @@ export default function SupplierProductManagement() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0);
+  const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
+  const [replaceFrom, setReplaceFrom] = useState('');
+  const [replaceTo, setReplaceTo] = useState('');
 
   const { user } = useUserDataStore();
+  const { selectedSupplier, setSelectedSupplier } = useSupplierStore();
+  const router = useRouter()
 
   useEffect(() => {
-    if (user) fetchSupplierData(user!.companyid)
-  }, [user])
+    const initializeData = async () => {
+      if (user) {
+        await fetchSupplierData(user.companyid)
+        if (selectedSupplier?.id) {
+          await fetchProductData(selectedSupplier.id, user.companyid)
+        }
+      }
+    }
+    
+    initializeData()
+  }, [user, selectedSupplier])
 
   const fetchSupplierData = async (companyid: string) => {
     try {
@@ -116,9 +137,9 @@ export default function SupplierProductManagement() {
     }
   }
 
-  const fetchProductData = async (itemCustomerId: string, companyid: string, supplierName: string) => {
+  const fetchProductData = async (supplyid: string | number, companyid: string) => {
     try {
-      console.log('Fetching products with params:', { itemCustomerId, companyid, supplierName });
+      console.log('Fetching products with params:', { supplyid, companyid });
       
       const { data, error } = await supabase
         .from('items')
@@ -129,38 +150,30 @@ export default function SupplierProductManagement() {
           name,
           originalname,
           content,
+          contenthtml,
           originalcontent,
           updatedat,
           createdat,
           stocks (
             nowstock
-          )
+          ),
+          orginurl,
+          ecsku,
+          sellersku
         `)
         .eq('companyid', companyid)
-        .eq('supplyid', itemCustomerId)
+        .eq('supplyid', supplyid.toString())
         .order('createdat', { ascending: false })
-
-      console.log('Raw DB response:', data);
-      console.log('DB error if any:', error);
 
       if (error) throw error;
 
       const formattedData = data.map(item => ({
         ...item,
+        contenthtml: item.contenthtml || '',
         stocks: item.stocks ? (item.stocks[0] || { nowstock: 0 }) : { nowstock: 0 }
       }));
 
       console.log('Formatted data:', formattedData);
-
-      setSelectedSupplier({
-        id: parseInt(itemCustomerId),
-        company: supplierName,
-        code: '',
-        website: '',
-        brand: '',
-        registrationDate: new Date().toISOString()
-      });
-      
       setProducts(formattedData);
     } catch (error) {
       console.error('Failed to fetch products:', error);
@@ -168,23 +181,27 @@ export default function SupplierProductManagement() {
     }
   }
 
-  const handleSupplierSelect = (row: any) => {
-    const { supplyname: supplierName, id: itemCustomerId, companyid } = row;
-    fetchProductData(itemCustomerId, companyid, supplierName);
+  const handleSupplierSelect = async (supplier: any) => {
+    if (user && supplier && supplier.id) {
+      await fetchProductData(supplier.id, user.companyid)
+    }
   }
 
-  const handleEditContent = async (productId: string, newContent: string) => {
+  const handleEditContent = async (productId: string, newContent: string, newContentHtml: string) => {
     try {
       const { error } = await supabase
         .from('items')
-        .update({ content: newContent })
+        .update({ 
+          content: newContent,
+          contenthtml: newContentHtml
+        })
         .eq('id', productId)
 
       if (error) throw error;
 
       setProducts(products.map(product => 
         product.id === productId 
-          ? { ...product, content: newContent }
+          ? { ...product, content: newContent, contenthtml: newContentHtml }
           : product
       ))
       
@@ -202,9 +219,24 @@ export default function SupplierProductManagement() {
   };
 
   const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-    product.variationsku.toLowerCase().includes(productSearch.toLowerCase())
+    product.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.variationsku?.toLowerCase().includes(productSearch.toLowerCase())
   );
+
+  const handleSupplierSearch = () => {
+    if (!supplierSearchTerm || !user) {
+      if (user) {
+        fetchSupplierData(user.companyid);
+      }
+      return;
+    }
+
+    const filteredData = supplierData.filter(supplier =>
+      supplier.supplyname.includes(supplierSearchTerm) ||
+      supplier.managername.includes(supplierSearchTerm)
+    );
+    setSupplierData(filteredData);
+  }
 
   const supplierColumns: ColumnDef<any>[] = [
     { accessorKey: "supplyname", header: "회사명" },
@@ -214,9 +246,10 @@ export default function SupplierProductManagement() {
       id: "actions",
       cell: ({ row }) => (
         <Button
-          onClick={() => handleSupplierSelect(row.original)}
-          variant="outline"
           size="sm"
+          onClick={() => handleSupplierSelect(row.original)}
+          variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
+          className={selectedSupplier?.id === row.original.id ? "bg-blue-500 text-white" : ""}
         >
           선택
         </Button>
@@ -225,37 +258,90 @@ export default function SupplierProductManagement() {
   ]
 
   const productColumns: ColumnDef<Product>[] = [
-    {
+    { 
       id: "select",
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          onCheckedChange={(value) => {
+            table.toggleAllPageRowsSelected(!!value);
+            if (value) {
+              const allIds = table.getRowModel().rows.map(row => row.original.id);
+              setSelectedProducts(allIds);
+            } else {
+              setSelectedProducts([]);
+            }
+          }}
           aria-label="Select all"
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          onCheckedChange={(value) => {
+            row.toggleSelected(!!value);
+            const productId = row.original.id;
+            if (value) {
+              setSelectedProducts(prev => [...prev, productId]);
+            } else {
+              setSelectedProducts(prev => prev.filter(id => id !== productId));
+            }
+          }}
           aria-label="Select row"
         />
       ),
     },
+    {
+      id: "number",
+      header: "번호",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.index + 1}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
+        </div>
+      )
+    },
     { 
       accessorKey: "variationsku",
       header: "SKU",
-      cell: ({ row }) => row.original.variationsku || '-'
+      cell: ({ row }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku || '-'}
+        </div>
+      )
     },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <div 
+          className="flex items-center justify-center cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           <img
             src={row.original.thumbnailurl || DEFAULT_IMAGE}
             alt={row.original.name || '상품 이미지'}
-            className="w-16 h-16 object-cover rounded"
+            className="w-16 h-16 object-cover rounded hover:opacity-80 transition-opacity"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = DEFAULT_IMAGE;
@@ -268,8 +354,12 @@ export default function SupplierProductManagement() {
       accessorKey: "originalname",
       header: "원본 상품명",
       cell: ({ row }) => (
-        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.originalname }>
-          {row.original.originalname  || '-'}
+        <div 
+          className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:text-blue-500"
+          title={row.original.originalname}
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.originalname || '-'}
         </div>
       )
     },
@@ -291,9 +381,49 @@ export default function SupplierProductManagement() {
       header: "마지막 수정일",
       cell: ({ row }) => {
         const date = row.original.updatedat || row.original.createdat
-        return date ? new Date(date).toLocaleString('ko-KR') : '-'
+        return date ? new Date(date).toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).replace(',', '').replace(/\//g, '.').replace(' ', ' ') : '-'
       }
-    }
+    },
+    { 
+      id: "edit",
+      header: "수정",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingProductId(row.original.id)
+            setEditingContent(row.original.content || '')
+            setIsEditDialogOpen(true)
+          }}
+        >
+          수정
+        </Button>
+      )
+    },
+    { 
+      id: "view-original",
+      header: "원문보기",
+      cell: ({ row }) => {
+        const orginurl = row.original.orginurl;
+        return orginurl ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(orginurl, '_blank', 'noopener,noreferrer')}
+          >
+            원문보기
+          </Button>
+        ) : null;
+      },
+    },
   ]
 
   const productDescriptionColumns: ColumnDef<Product>[] = [
@@ -317,17 +447,45 @@ export default function SupplierProductManagement() {
     { 
       accessorKey: "variationsku",
       header: "SKU",
-      cell: ({ row }) => row.original.variationsku || '-'
+      cell: ({ row }) => (
+        <div 
+          className="cursor-pointer hover:text-blue-500"
+          onClick={() => handleProductClick(row.original.id)}
+        >
+          {row.original.variationsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
+        </div>
+      )
     },
     {
       accessorKey: "thumbnailurl",
       header: "이미지",
       cell: ({ row }) => (
-        <div className="flex items-center justify-center">
+        <div 
+          className="flex items-center justify-center cursor-pointer"
+          onClick={() => handleProductClick(row.original.id)}
+        >
           <img
             src={row.original.thumbnailurl || DEFAULT_IMAGE}
-            alt={row.original.name}
-            className="w-16 h-16 object-cover rounded"
+            alt={row.original.name || '상품 이미지'}
+            className="w-16 h-16 object-cover rounded hover:opacity-80 transition-opacity"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               target.src = DEFAULT_IMAGE;
@@ -336,7 +494,7 @@ export default function SupplierProductManagement() {
         </div>
       ),
     },
-    { 
+    {
       accessorKey: "originalcontent",
       header: "원본 본문",
       cell: ({ row }) => (
@@ -349,21 +507,8 @@ export default function SupplierProductManagement() {
       accessorKey: "content",
       header: "보정 본문",
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
-            {row.original.content || '-'}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingProductId(row.original.id)
-              setEditingContent(row.original.content || '')
-              setIsEditDialogOpen(true)
-            }}
-          >
-            수정
-          </Button>
+        <div className="max-w-[300px] overflow-hidden text-ellipsis whitespace-nowrap" title={row.original.content}>
+          {row.original.content || '-'}
         </div>
       )
     },
@@ -372,8 +517,32 @@ export default function SupplierProductManagement() {
       header: "마지막 수정일",
       cell: ({ row }) => {
         const date = row.original.updatedat || row.original.createdat
-        return date ? new Date(date).toLocaleString('ko-KR') : '-'
+        return date ? new Date(date).toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).replace(',', '').replace(/\//g, '.').replace(' ', ' ') : '-'
       }
+    },
+    { 
+      id: "edit",
+      header: "수정",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setEditingProductId(row.original.id)
+            setEditingContent(row.original.content || '')
+            setIsEditDialogOpen(true)
+          }}
+        >
+          수정
+        </Button>
+      )
     }
   ]
 
@@ -386,37 +555,23 @@ export default function SupplierProductManagement() {
     setIsDetailDialogOpen(true);
   };
 
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
+
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-            >
-              {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearch}
-                onSearchTermChange={setSupplierSearch}
-                showActionButtons={false}
-              />
-            )}
-          </CardContent>
-        </Card>
+        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
         <Card className="w-full">
           <CardHeader>
             <CardTitle className="text-xl font-bold">
-              {selectedSupplier ? `${selectedSupplier.company} 상품 목록` : '상품 목록'}
+              {selectedSupplier ? `${selectedSupplier.supplyname} 상품 목록` : '상품 목록'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -429,30 +584,40 @@ export default function SupplierProductManagement() {
                 <div className="flex space-x-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" disabled={selectedProducts.length === 0}>
+                      <Button 
+                        variant="outline" 
+                        disabled={selectedProducts.length === 0}
+                      >
                         Options
                         <MoreHorizontal className="ml-2 h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                      <DropdownMenuItem>원문 {`>`} 보정 옮기기</DropdownMenuItem>
-                      <DropdownMenuItem>정리하기</DropdownMenuItem>
-                      <DropdownMenuItem>되돌리기</DropdownMenuItem>
-                      <DropdownMenuItem>Replace</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOptionSelect('moveCorrection')}>
+                        원문 {`>`} 보정 옮기기
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOptionSelect('organize')}>
+                        정리하기
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOptionSelect('undo')}>
+                        되돌리기
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleOptionSelect('replace')}>
+                        Replace
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button variant="default">저장</Button>
+                  <Button 
+                    variant="default"
+                    onClick={handleSave}
+                    disabled={selectedProducts.length === 0}
+                  >
+                    저장
+                  </Button>
                 </div>
               </div>
 
               <TabsContent value="product-name-correction">
-                <Input
-                  type="text"
-                  value={productSearch}
-                  onChange={handleProductSearch}
-                  placeholder="SKU 또는 상품명을 입력하세요"
-                  className="mb-4"
-                />
                 <DataTable 
                   columns={productColumns}
                   data={filteredProducts}
@@ -464,6 +629,7 @@ export default function SupplierProductManagement() {
                   onCategoryChange={setSelectedCategory}
                   currentPage={currentPage}
                   onPageChange={handlePageChange}
+                  selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
               <TabsContent value="product-description-correction">
@@ -478,6 +644,7 @@ export default function SupplierProductManagement() {
                   onCategoryChange={setSelectedCategory}
                   currentPage={currentPage}
                   onPageChange={handlePageChange}
+                  selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
             </Tabs>
@@ -528,7 +695,7 @@ export default function SupplierProductManagement() {
               취소
             </Button>
             <Button 
-              onClick={() => editingProductId && handleEditContent(editingProductId, editingContent)}
+              onClick={() => editingProductId && handleEditContent(editingProductId, editingContent, '')}
             >
               저장
             </Button>
@@ -548,6 +715,69 @@ export default function SupplierProductManagement() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Find and Replace Text</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 gap-4">
+              <Input
+                id="replaceFrom"
+                placeholder="단어를 입력해주세요."
+                value={replaceFrom}
+                onChange={(e) => setReplaceFrom(e.target.value)}
+                className="w-full"
+              />
+              <Input
+                id="replaceTo"
+                placeholder="변경할 단어를 입력해주세요."
+                value={replaceTo}
+                onChange={(e) => setReplaceTo(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="flex justify-between space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleAddWordToCorrection('front')} // 맨 앞에 추가
+              >
+                맨 앞에 추가
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleAddWordToCorrection('back')} // 맨 뒤에 추가
+              >
+                맨 뒤에 추가
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <div className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsReplaceDialogOpen(false);
+                  setReplaceFrom('');
+                  setReplaceTo('');
+                }}
+              >
+                취소
+              </Button>
+              <Button 
+                variant="default"
+                onClick={handleReplace}
+                className="bg-blue-500"
+              >
+                REPLACE
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -555,14 +785,16 @@ export default function SupplierProductManagement() {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  searchTerm: string
-  onSearchTermChange: (term: string) => void
+  searchTerm?: string
+  onSearchTermChange?: (term: string) => void
+  onSearch?: () => void
   showActionButtons: boolean
   categories?: string[]
   selectedCategory?: string
   onCategoryChange?: (category: string) => void
   currentPage?: number
   onPageChange?: (page: number) => void
+  selectedSupplier?: any
 }
 
 function DataTable<TData, TValue>({
@@ -570,12 +802,14 @@ function DataTable<TData, TValue>({
   data,
   searchTerm,
   onSearchTermChange,
+  onSearch,
   showActionButtons,
   categories,
   selectedCategory,
   onCategoryChange,
   currentPage,
   onPageChange,
+  selectedSupplier,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -605,33 +839,33 @@ function DataTable<TData, TValue>({
     },
   })
 
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+  }
+
   return (
     <div className="w-full">
       {showActionButtons && (
         <div className="flex items-center justify-between py-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center w-full">
             <Input
-              placeholder="Filter..."
+              placeholder="SKU 또는 상품명을 입력하세요"
               value={searchTerm}
-              onChange={(event) => onSearchTermChange(event.target.value)}
-              className="max-w-sm"
+              onChange={(event) => onSearchTermChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  onSearch?.();
+                }
+              }}
+              className="max-w-full mr-2"
             />
-            {categories && onCategoryChange && (
-              <Select value={selectedCategory} onValueChange={onCategoryChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="테고리 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button variant="outline" size="icon">
-              <Search className="h-4 w-4" />
+            <Button onClick={onSearch}>
+              <Search className="h-4 w-4 mr-2" />
+              검색
             </Button>
           </div>
           <div className="flex items-center space-x-2">
@@ -640,12 +874,18 @@ function DataTable<TData, TValue>({
                 <Button variant="outline" size="sm">상품 등록</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem>직접 입력</DropdownMenuItem>
-                <DropdownMenuItem>Url 입력</DropdownMenuItem>
-                <DropdownMenuItem>파일 업로드</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("direct")}>
+                  직접 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("url")}>
+                  Url 입력
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleProductRegistration("upload")}>
+                  파일 업로드
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleDownloadList}>
               <Download className="mr-2 h-4 w-4" />
               목록 다운로드
             </Button>
@@ -678,17 +918,28 @@ function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={`
+                    ${row.getIsSelected() ? "bg-blue-50" : ""} 
+                    ${selectedSupplier?.id === (row.original as any)?.id ? "bg-blue-100" : ""}
+                    hover:bg-gray-50 transition-colors
+                  `}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <TableCell key={cell.id} className="px-4 py-2">
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>

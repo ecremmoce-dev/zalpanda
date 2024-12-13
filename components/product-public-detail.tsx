@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { supabase } from "@/utils/supabase/client"
 import { useRouter } from 'next/navigation'
 import ProductEditPage from "@/components/product-public-edit"
+import { Label } from "@/components/ui/label"
 
 interface ProductDetail {
   id: string
@@ -25,6 +26,7 @@ interface ProductDetail {
   memo: string
   thumbnailurl: string
   content: string
+  contenthtml: string
   brandname: string
   purchaseprice: number
   consumerprice: number
@@ -41,34 +43,35 @@ interface ProductDetail {
   categorymapid: string
   categoryid: string
   categorypath: string
+  stocks: {
+    nowstock: number
+    safetystock: number
+  }
 }
 
 interface ProductDetailProps {
   productId: string
 }
 
-// 옵션 인터페이스 추가
+// 옵션 타입 정의
 interface ItemOption {
-  id: string
-  itemid: string
-  variationsku: string
-  consumerprice: number
-  purchaseprice: number
-  groupname: string
-  groupvalue: string
-  color: string
-  material: string
-  noticeinfo: string
-  size: string
-  voproductid: string
-  expirationday: number
-  feature: string
-  packageunit: string
-  weightunit: string
-  createdat: string
-  updatedat: string
-  currentstock: number
-  safetystock: number
+  label: string;
+  price: number;
+  stock: number;
+  value: string;
+  children: ItemOption[];
+  optionNo: number;
+  // 테이블 표시를 위한 추가 필드들
+  variationsku?: string;
+  groupname?: string;
+  groupvalue?: string;
+  consumerprice?: number;
+  purchaseprice?: number;
+  color?: string;
+  size?: string;
+  currentstock?: number;
+  safetystock?: number;
+  packageunit?: string;
 }
 
 // 인터페이스 추가
@@ -83,6 +86,41 @@ interface ItemImage {
   createdat: string
 }
 
+// 인터페이스 추가
+interface NoticeInfo {
+  [key: string]: string;
+}
+
+// Product 인터페이스 수정
+interface Product {
+  id: string
+  name: string
+  variationsku: string
+  thumbnailurl: string
+  stocks: {
+    nowstock: number
+    safetystock: number
+  }
+  // ... 다른 필드들
+}
+
+// priorityFields 배열 추가 (컴���트 외부에 선언)
+const priorityFields = [
+  '상품번호',
+  '상품상태',
+  '제조사',
+  '브랜드',
+  '모델명',
+  '원산지',
+  '제조일자',
+  '유효기간',
+  '치수',
+  '색상',
+  '제품소재',
+  '취급주의사항',
+  'KC인증정보'
+];
+
 export default function ProductDetail({ productId }: ProductDetailProps) {
   const router = useRouter()
   const [productData, setProductData] = React.useState<ProductDetail | null>(null)
@@ -91,34 +129,90 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   const [contentImages, setContentImages] = React.useState<ItemImage[]>([])
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
 
-  // 옵션 데이터 조회 함수 수정
-  const fetchOptionData = async (itemId: string) => {
+  // 옵션 데이터를 가져오는 부분 수정
+  const fetchItemOptions = async (itemId: string) => {
     try {
-      const { data: optionsData, error: optionsError } = await supabase
-        .from('item_options')
-        .select('*')
-        .eq('itemid', itemId)
+      const { data, error } = await supabase
+        .from('item_options_new')
+        .select('modified_json')
+        .eq('itemid', itemId);
 
-      if (optionsError) throw optionsError
+      if (error) throw error;
 
-      // 재고 정보는 items 테이블의 stocks에서 가져옴
-      const { data: stockData } = await supabase
-        .from('items')
-        .select('stocks!left (nowstock, safetystock)')
-        .eq('id', itemId)
-        .single()
+      const options = data.map((option: any) => {
+        const parsedOption = JSON.parse(option.modified_json);
+        return {
+          ...parsedOption,
+          variationsku: parsedOption.value,
+          groupname: parsedOption.label,
+          groupvalue: parsedOption.value,
+          consumerprice: parsedOption.price,
+          purchaseprice: parsedOption.price,
+          currentstock: parsedOption.stock,
+          safetystock: 0,
+          color: '-',
+          size: '-',
+          packageunit: '-'
+        };
+      });
 
-      const optionsWithStock = optionsData.map(option => ({
-        ...option,
-        currentstock: stockData?.stocks?.[0]?.nowstock || 0,
-        safetystock: stockData?.stocks?.[0]?.safetystock || 0
-      }))
-
-      setOptionData(optionsWithStock)
+      setOptionData(options);
+      return options;
     } catch (error) {
-      console.error('Failed to fetch option data:', error)
+      console.error('옵션 데이터 로딩 중 오류 발생:', error);
+      return [];
+    }
+  };
+
+  // 옵션 선택 핸들러
+  const handleOptionSelect = async (selectedOption: ItemOption) => {
+    const optionId = selectedOption.optionNo;
+    const itemId = productId;
+
+    // 옵션 업데이트 API 호출
+    try {
+      await fetch(`/api/items/${itemId}/options/${optionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          modified_json: {
+            label: selectedOption.label,
+            price: selectedOption.price,
+            stock: selectedOption.stock,
+            value: selectedOption.value,
+            children: selectedOption.children,
+            optionNo: selectedOption.optionNo
+          }
+        })
+      });
+    } catch (error) {
+      console.error('옵션 업데이트 중 오류 발생:', error);
     }
   }
+
+  // 옵션 렌더링 부분
+  const renderOptions = (options: ItemOption[]) => {
+    return options.map((option) => (
+      <div key={option.optionNo}>
+        <select 
+          onChange={(e) => handleOptionSelect(JSON.parse(e.target.value))}
+        >
+          <option value="">선택하세요</option>
+          {options.map((opt) => (
+            <option 
+              key={opt.optionNo}
+              value={JSON.stringify(opt)}
+            >
+              {opt.label} {opt.price > 0 ? `(+${opt.price}원)` : ''} 
+              {opt.stock <= 0 ? ' (품절)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+    ));
+  };
 
   // 이미지 데이터 조회 함수 수정
   const fetchImageData = async (itemId: string) => {
@@ -168,7 +262,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
   React.useEffect(() => {
     if (productId) {
       fetchProductDetail()
-      fetchOptionData(productId)
+      fetchItemOptions(productId)
       fetchImageData(productId)
     }
   }, [productId])
@@ -193,14 +287,16 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
           memo,
           thumbnailurl,
           content,
+          contenthtml,
           brandname,
           consumerprice,
+          purchaseprice,
+          noticeinfo,
           status,
           item_options!left (
             purchaseprice,
             color,
             material,
-            noticeinfo,
             size
           ),
           stocks!left (
@@ -250,13 +346,15 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
       const formattedData: ProductDetail = {
         ...data,
-        purchaseprice: data.item_options?.[0]?.purchaseprice || 0,
+        contenthtml: data.contenthtml || '',
+        purchaseprice: data.purchaseprice || 0,
         color: data.item_options?.[0]?.color || '',
         material: data.item_options?.[0]?.material || '',
-        noticeinfo: data.item_options?.[0]?.noticeinfo || '',
         size: data.item_options?.[0]?.size || '',
-        currentstock: data.stocks?.[0]?.nowstock || 0,
-        safetystock: data.stocks?.[0]?.safetystock || 0,
+        stocks: {
+          nowstock: data.stocks?.nowstock || 0,
+          safetystock: data.stocks?.safetystock || 0
+        },
         producturl: '',
         supplyid: data.company_supply?.id || '',
         supplyname: data.company_supply?.supplyname || '',
@@ -284,7 +382,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     <div className="container mx-auto py-2">
       <Card className="bg-card">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-2xl font-bold">상품 상세</CardTitle>
+          <CardTitle className="text-2xl font-bold">기본 정보</CardTitle>
           <div className="flex items-center space-x-2">
             <Button 
               variant="outline" 
@@ -300,86 +398,16 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium">공급사</h3>
-                  <p className="text-sm text-muted-foreground">{productData.supplyname}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.supplyname}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium">상품명</h3>
-                  <p className="text-sm text-muted-foreground">{productData.name}</p>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.name}</p>
                 </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium">카테고리</h3>
-                <p className="text-sm text-muted-foreground">{productData.categorypath || '-'}</p>
-              </div>
-            </div>
-            <Separator />
-            <div className="grid gap-4">
-              <h3 className="text-lg font-semibold">무게 / 크기</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">무게</h4>
-                  <p className="text-sm text-muted-foreground">{productData.weight || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">가로(Length)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.length || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">세로(Width)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.width || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">높이(Height)</h4>
-                  <p className="text-sm text-muted-foreground">{productData.height || '-'}</p>
-                </div>
-              </div>
-            </div>
-            <Separator />
-            <div className="grid gap-4">
-              <h3 className="text-lg font-semibold">가격 / 재고</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">소비자가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.consumerprice?.toLocaleString()}원</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">구매가</h4>
-                  <p className="text-sm text-muted-foreground">{productData.purchaseprice?.toLocaleString()}원</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.currentstock?.toLocaleString()}개</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">안전재고</h4>
-                  <p className="text-sm text-muted-foreground">{productData.safetystock?.toLocaleString()}개</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">SKU</h4>
-                  <p className="text-sm text-muted-foreground">{productData.variationsku}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">HSCode</h4>
-                  <p className="text-sm text-muted-foreground">{productData.hscode || '-'}</p>
-                </div>
-              </div>
-            </div>
-            <Separator />
-            <div className="grid gap-4">
-              <h3 className="text-lg font-semibold">고시정보</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium">사이즈</h4>
-                  <p className="text-sm text-muted-foreground">{productData.size || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">색상</h4>
-                  <p className="text-sm text-muted-foreground">{productData.color || '-'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium">소재</h4>
-                  <p className="text-sm text-muted-foreground">{productData.material || '-'}</p>
-                </div>
+                <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.categorypath || '-'}</p>
               </div>
             </div>
             {thumbnailImages.length > 0 && (
@@ -387,25 +415,36 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                 <Separator />
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">상품 이미지</h3>
-                  <Carousel className="w-full max-w-xl mx-auto">
-                    <CarouselContent>
-                      {thumbnailImages.map((image, index) => (
-                        <CarouselItem key={image.id}>
-                          <div className="p-1">
-                            <div className="relative aspect-square overflow-hidden rounded-lg">
-                              <img
-                                src={image.url}
-                                alt={`상품 이미지 ${index + 1}`}
-                                className="object-contain w-full h-full max-h-[300px]"
-                              />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                    {thumbnailImages.map((image, index) => (
+                      <Dialog key={image.id}>
+                        <DialogTrigger asChild>
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer group max-h-[250px]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-cover w-full h-full transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <span className="text-white text-sm">클릭하여 확대</span>
                             </div>
+                            <span className="absolute top-2 left-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                              {index + 1}
+                            </span>
                           </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious />
-                    <CarouselNext />
-                  </Carousel>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-[70vw] max-h-[70vh] overflow-y-auto">
+                          <div className="relative aspect-[3/4] max-h-[70vh]">
+                            <img
+                              src={image.url}
+                              alt={`상품 이미지 ${index + 1}`}
+                              className="object-contain w-full h-full"
+                            />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
@@ -432,8 +471,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                             </span>
                           </div>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                          <div className="relative aspect-[3/4] max-h-[600px]">
+                        <DialogContent className="max-w-[70vw] max-h-[70vh] overflow-y-auto">
+                          <div className="relative aspect-[3/4] max-h-[70vh]">
                             <img
                               src={image.url}
                               alt={`상세 이미지 ${index + 1}`}
@@ -447,6 +486,109 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                 </div>
               </>
             )}
+            <Separator />
+            <div className="grid gap-4">
+              <h3 className="text-lg font-semibold">무게 / 크기</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium">무게</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.weight || '-'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">가로(Length)</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.length || '-'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">세로(Width)</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.width || '-'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">높이(Height)</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.height || '-'}</p>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div className="grid gap-4">
+              <h3 className="text-lg font-semibold">가격 / 재고</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <h4 className="text-sm font-medium">공급가</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.consumerprice?.toLocaleString()} 원</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">판매가</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.purchaseprice?.toLocaleString()} 원</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">재고</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.stocks?.nowstock?.toLocaleString() || 0} 개</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">안전재고</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.stocks?.safetystock?.toLocaleString() || 0} 개</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">SKU</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.variationsku}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">HSCode</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.hscode || '-'}</p>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div className="grid gap-4">
+              <h3 className="text-lg font-semibold">고시정보</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {(() => {
+                  // 기본값을 빈 객체로 설정
+                  let noticeData: NoticeInfo = {};
+                  
+                  try {
+                    // initialData가 있고 noticeinfo가 있을 때만 파싱 시도
+                    if (productData?.noticeinfo) {
+                      noticeData = JSON.parse(productData.noticeinfo);
+                    }
+                    console.log('Parsed Notice Data:', noticeData);
+                  } catch (e) {
+                    console.error('Failed to parse noticeinfo:', e);
+                    // 파싱 실패시 빈 객체 유지
+                    noticeData = {};
+                  }
+
+                  // 우선순위가 있는 필드를 먼저 표시
+                  const priorityEntries = priorityFields
+                    .filter(field => noticeData && noticeData[field])
+                    .map(field => [field, noticeData[field]]);
+
+                  // 나머지 필드 표시 (우선순위에 없는 필드들)
+                  const otherEntries = Object.entries(noticeData || {})
+                    .filter(([key]) => !priorityFields.includes(key))
+                    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+
+                  const allEntries = [...priorityEntries, ...otherEntries];
+
+                  return allEntries.length > 0 ? (
+                    allEntries.map(([key, value], index) => (
+                      <div key={index} className="space-y-2">
+                        <Label className="text-sm font-medium text-muted-foreground">
+                          {key}
+                        </Label>
+                        <div className="text-sm font-medium break-words bg-gray-50 p-2 rounded">
+                          {value}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 text-center text-muted-foreground">
+                      고시정보가 없습니다.
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
             {optionData.length > 0 && (
               <>
                 <Separator />
@@ -456,44 +598,24 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     <table className="w-full border-collapse">
                       <thead>
                         <tr className="bg-muted">
-                          <th className="p-2 text-left text-sm font-medium">SKU</th>
-                          <th className="p-2 text-left text-sm font-medium">옵션그룹</th>
+                          <th className="p-2 text-left text-sm font-medium">옵션명</th>
                           <th className="p-2 text-left text-sm font-medium">옵션값</th>
-                          <th className="p-2 text-left text-sm font-medium">소비자가</th>
-                          <th className="p-2 text-left text-sm font-medium">구매가</th>
-                          <th className="p-2 text-left text-sm font-medium">색상</th>
-                          <th className="p-2 text-left text-sm font-medium">사이즈</th>
+                          <th className="p-2 text-left text-sm font-medium">가격</th>
                           <th className="p-2 text-left text-sm font-medium">재고</th>
-                          <th className="p-2 text-left text-sm font-medium">안전재고</th>
-                          <th className="p-2 text-left text-sm font-medium">포장단위</th>
                         </tr>
                       </thead>
                       <tbody>
                         {optionData.map((option) => (
-                          <tr key={option.id} className="border-b">
-                            <td className="p-2 text-sm">{option.variationsku || '-'}</td>
-                            <td className="p-2 text-sm">{option.groupname || '-'}</td>
-                            <td className="p-2 text-sm">{option.groupvalue || '-'}</td>
-                            <td className="p-2 text-sm">{option.consumerprice?.toLocaleString()}원</td>
-                            <td className="p-2 text-sm">{option.purchaseprice?.toLocaleString()}원</td>
-                            <td className="p-2 text-sm">{option.color || '-'}</td>
-                            <td className="p-2 text-sm">{option.size || '-'}</td>
-                            <td className="p-2 text-sm">{option.currentstock?.toLocaleString()}</td>
-                            <td className="p-2 text-sm">{option.safetystock?.toLocaleString()}</td>
-                            <td className="p-2 text-sm">{option.packageunit || '-'}</td>
+                          <tr key={option.optionNo} className="border-b">
+                            <td className="p-2 text-sm">{option.label}</td>
+                            <td className="p-2 text-sm">{option.value}</td>
+                            <td className="p-2 text-sm">{option.price?.toLocaleString()} 원</td>
+                            <td className="p-2 text-sm">{option.stock?.toLocaleString()}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                  {optionData.some(option => option.feature) && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium mb-2">특징</h4>
-                      {optionData.map(option => option.feature && (
-                        <p key={option.id} className="text-sm text-muted-foreground">{option.feature}</p>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -516,8 +638,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     id: productData.id,
                     name: productData.name,
                     content: productData.content,
-                    contenthtml: productData.content, // HTML 내용도 전달
-                    originalcontent: productData.content, // 원본 내용도 전달
+                    contenthtml: productData.contenthtml,
                     weight: productData.weight || 0,
                     width: productData.width || 0,
                     length: productData.length || 0,
@@ -529,9 +650,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     size: productData.size || '',
                     color: productData.color || '',
                     material: productData.material || '',
-                    options: optionData || [], // 옵션 데이터 전달
+                    options: optionData || [],
                     categorypath: productData.categorypath || '',
-                    // 추가 데이터
                     brandname: productData.brandname || '',
                     purchaseprice: productData.purchaseprice || 0,
                     currentstock: productData.currentstock || 0,
@@ -544,11 +664,13 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                   }}
                   onSave={async (formData) => {
                     try {
+                      // 1. 상품 기본 정보 업데이트
                       const { error } = await supabase
                         .from('items')
                         .update({
                           name: formData.name,
                           content: formData.content,
+                          contenthtml: formData.contenthtml,
                           weight: formData.weight,
                           width: formData.width,
                           length: formData.length,
@@ -558,13 +680,17 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                           consumerprice: formData.consumerprice,
                           status: formData.status,
                           brandname: formData.brandname,
-                          memo: formData.memo
+                          memo: formData.memo,
+                          noticeinfo: formData.noticeinfo,
+                          purchaseprice: formData.purchaseprice,
+                          variationsku: formData.variationsku,
+                          updatedat: new Date().toISOString()
                         })
                         .eq('id', productId);
 
                       if (error) throw error;
 
-                      // 옵션 정보 업데이트
+                      // 2. 옵션 정보 업데이트
                       if (formData.options) {
                         for (const option of formData.options) {
                           const { error: optionError } = await supabase
@@ -578,7 +704,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                               groupname: option.groupname,
                               groupvalue: option.groupvalue,
                               packageunit: option.packageunit,
-                              weightunit: option.weightunit
+                              weightunit: option.weightunit,
+                              updatedat: new Date().toISOString()
                             })
                             .eq('id', option.id);
 
@@ -586,11 +713,15 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                         }
                       }
 
-                      alert('상품 정보가 성공적으로 수정되었습니다.');
+                      // 3. 상품 데이터 새로고침
+                      await fetchProductDetail();
+                      await fetchItemOptions(productId);
+                      await fetchImageData(productId);
+
+                      // 4. 다이얼로그 닫기
                       setIsEditDialogOpen(false);
-                      // 상품 정보 새로고침
-                      fetchProductDetail();
-                      fetchOptionData(productId);
+                      
+                      alert('상품 정보가 성공적으로 수정되었습니다.');
                     } catch (error) {
                       console.error('Failed to update product:', error);
                       alert('상품 수정에 실패했습니다.');
