@@ -36,6 +36,7 @@ export function Sidebar() {
   const [isLazadaMenuOpen, setIsLazadaMenuOpen] = useState(pathname.startsWith('/lazada'))
   const [isTmallMenuOpen, setIsTmallMenuOpen] = useState(pathname.startsWith('/tmall'))
   const [isImageMenuOpen, setIsImageMenuOpen] = useState(pathname.startsWith('/image'))
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const toggleProductMenu = () => {
     setIsProductMenuOpen(!isProductMenuOpen)
@@ -63,6 +64,10 @@ export function Sidebar() {
 
   const toggleQoo10Menu = () => {
     setIsQoo10MenuOpen(!isQoo10MenuOpen)
+  }
+
+  const toggleSettingsMenu = () => {
+    setIsSettingsOpen(prev => !prev)
   }
   
   useEffect(() => {
@@ -418,13 +423,12 @@ export function Sidebar() {
                   <Settings className="h-4 w-4" />
                   <span className="font-semibold">설정</span>
                 </div>
-                {isSettingsMenuOpen ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
+                <ChevronDown
+                  size={16}
+                  className={`transition-all ${isSettingsOpen ? 'rotate-180' : ''}`}
+                />
               </button>
-              {isSettingsMenuOpen && (
+              {isSettingsOpen && (
                 <div className="ml-6 mt-2 space-y-1">
                   <Link
                     className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-500 transition-all hover:text-gray-900"
