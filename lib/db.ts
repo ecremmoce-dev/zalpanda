@@ -1,9 +1,13 @@
-import { PrismaClient } from '@prisma/client'
+import { Pool } from 'pg';
 
-const globalForPrisma = global as unknown as {
-  prisma: PrismaClient | undefined
-}
+const pool = new Pool({
+  user: 'your_username',
+  host: 'localhost',
+  database: 'your_database',
+  password: 'your_password',
+  port: 5432,
+});
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma 
+export const db = {
+  query: (text: string, params: any[]) => pool.query(text, params),
+}; 

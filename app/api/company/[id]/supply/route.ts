@@ -28,6 +28,7 @@ export async function GET(
         paymentterms,
         currency,
         notes,
+        vendproductcd,
         created,
         updated
       `)
@@ -35,6 +36,8 @@ export async function GET(
       .order('created', { ascending: false })
 
     if (error) throw error
+
+    console.log('API response data:', data)  // API 응답 데이터 확인
 
     return NextResponse.json(data || [])
   } catch (error) {

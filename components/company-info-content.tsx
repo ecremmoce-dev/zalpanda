@@ -78,13 +78,17 @@ export function CompanyInfoContent() {
       }
       const data = await response.json()
       
-      // 데이터가 배열인지 확인하고 처리
-      const supplies = Array.isArray(data) ? data : []
-      console.log('Fetched supplies:', supplies)  // 디버깅용
+      console.log('Fetched supplies raw data:', data)  // 원본 데이터 확인용 로그
+      
+      const supplies = Array.isArray(data) ? data.map(supply => ({
+        ...supply,
+        vendproductcd: supply.vendproductcd || null  // vendproductcd 필드 명시적 처리
+      })) : []
+      
+      console.log('Processed supplies data:', supplies)  // 처리된 데이터 확인용 로그
       return supplies
     } catch (error) {
       console.error('Failed to fetch suppliers:', error)
-      // 오류 발생 시 빈 배열 반환
       return []
     }
   }
@@ -214,12 +218,25 @@ export function CompanyInfoContent() {
 
   const handleAddSupply = (companyId: string) => {
     setSelectedCompany(companies.find(c => c.id === companyId) || null);
+    setSupplyToEdit(null);
     setIsSupplyDialogOpen(true);
   };
 
   const handleEditSupply = (supply: CompanySupply) => {
+    console.log('Original Supply Data:', supply)  // 전체 데이터 로그
+    console.log('Original Supply Data - vendproductcd:', supply.vendproductcd)
+    
+    // 수정할 데이터 포맷팅
+    const formattedSupply = {
+      ...supply,  // 모든 필드를 복사
+      vendproductcd: supply.vendproductcd || null  // vendproductcd 명시적 처리
+    };
+
+    console.log('Formatted Supply Data:', formattedSupply)  // 전체 포맷팅된 데이터 로그
+    console.log('Formatted Supply Data - vendproductcd:', formattedSupply.vendproductcd)
+    
     setSelectedCompany(companies.find(c => c.id === supply.companyid) || null);
-    setSupplyToEdit(supply);
+    setSupplyToEdit(formattedSupply);
     setIsSupplyDialogOpen(true);
   };
 
@@ -293,7 +310,7 @@ export function CompanyInfoContent() {
               <TableHead>연락처</TableHead>
               <TableHead>이메일</TableHead>
               <TableHead>담당자</TableHead>
-              <TableHead>등록일</TableHead>
+              <TableHead>등록���</TableHead>
               <TableHead className="w-[100px]">관리</TableHead>
             </TableRow>
           </TableHeader>
@@ -372,6 +389,7 @@ export function CompanyInfoContent() {
                                     <TableHead>담당자 연락처</TableHead>
                                     <TableHead>결제조건</TableHead>
                                     <TableHead>통화</TableHead>
+                                    <TableHead>밴드코드</TableHead>
                                     <TableHead>등록일</TableHead>
                                     <TableHead className="w-[100px] text-right">관리</TableHead>
                                   </TableRow>
@@ -390,6 +408,7 @@ export function CompanyInfoContent() {
                                       <TableCell>{supply.managertel || '-'}</TableCell>
                                       <TableCell>{supply.paymentterms || '-'}</TableCell>
                                       <TableCell>{supply.currency || 'KRW'}</TableCell>
+                                      <TableCell>{supply.vendproductcd || '-'}</TableCell>
                                       <TableCell>
                                         {new Date(supply.created).toLocaleDateString()}
                                       </TableCell>
@@ -605,7 +624,12 @@ export function CompanyInfoContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isSupplyDialogOpen} onOpenChange={setIsSupplyDialogOpen}>
+      <Dialog open={isSupplyDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setSupplyToEdit(null);
+        }
+        setIsSupplyDialogOpen(open);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -618,24 +642,17 @@ export function CompanyInfoContent() {
           <SupplyForm 
             companyId={selectedCompany?.id || ''}
             initialData={supplyToEdit}
-            onSuccess={async () => {
-              try {
-                setIsSupplyDialogOpen(false);
-                setSupplyToEdit(null);
-                
-                if (selectedCompany) {
-                  const supplies = await fetchSuppliers(selectedCompany.id);
+            onSuccess={() => {
+              setIsSupplyDialogOpen(false);
+              setSupplyToEdit(null);
+              if (selectedCompany) {
+                fetchSuppliers(selectedCompany.id).then(supplies => {
                   setCompanies(prevCompanies => prevCompanies.map(company => 
                     company.id === selectedCompany.id 
                       ? { ...company, supplies }
                       : company
                   ));
-                }
-                
-                alert(supplyToEdit ? '공급업체 정보가 수정되었습니다.' : '공급업체가 등록되었습니다.');
-              } catch (error) {
-                console.error('Failed to refresh after supply update:', error);
-                alert('공급업체 목록 새로고침에 실패했습니다.');
+                });
               }
             }}
           />
