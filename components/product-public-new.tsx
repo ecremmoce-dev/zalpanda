@@ -45,10 +45,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-
+import { SupplierSelector } from "@/components/supplier-selector"
 import { useSearchParams } from 'next/navigation'
-import { useSupplierStore } from "@/store/modules/supplierStore"
-
 
 const PAGE_SIZE = 10;
 
@@ -60,26 +58,6 @@ const STATUS_LABELS: Record<StatusType, string> = {
   completed: '완료',
   failed: '실패',
   binding: '바인딩'
-};
-
-const QUEUE_STATUS_LABELS: Record<string, string> = {
-  'pending': '대기',
-  'in_progress': '진행중',
-  'completed': '완료',
-  'failed': '실패'
-};
-
-// 날짜 포맷팅 유틸리티 함수 수정
-const formatDateTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 export default function ProductRegistration() {
@@ -123,7 +101,7 @@ export default function ProductRegistration() {
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
-  
+
   const { user } = useUserDataStore()
   const selectedStoreSupplier = useSupplierStore(state => state.selectedSupplier)
 
@@ -132,16 +110,9 @@ export default function ProductRegistration() {
   const crawlingTotalPages = Math.ceil(crawlingProgress.length / itemsPerPage)
 
   const handleSearch = () => {
-    if (!searchTerm) {
-      if (user) {
-        fetchSupplierData(user.companyid)
-      }
-      return
-    }
-    
     const filtered = filteredSuppliers.filter(supplier =>
-      supplier.supplyname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      supplier.managername.toLowerCase().includes(searchTerm.toLowerCase())
+      supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      supplier.code.toLowerCase().includes(searchTerm.toLowerCase())
     )
     setFilteredSuppliers(filtered)
     setCurrentPage(1)
@@ -150,10 +121,7 @@ export default function ProductRegistration() {
   const paginatedSuppliers = filteredSuppliers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
-  ).map(supplier => ({
-    ...supplier,
-    isSelected: supplier.id === selectedSupplier?.id
-  }))
+  )
 
   const paginatedCrawlingProgress = crawlingProgress.slice(
     (crawlingCurrentPage - 1) * itemsPerPage,
@@ -191,9 +159,8 @@ export default function ProductRegistration() {
   const handleSetCrawlingtaskqueue = async () => {
     try {
       if (selectedSupplier) {
-
         const { id : supplierId, companyid } = selectedSupplier
- 
+        
         const { error } = await supabase
           .from('crawlingtaskqueue')
           .insert([
@@ -203,7 +170,6 @@ export default function ProductRegistration() {
               status: 'pending',
               task_type: selectedCrawlingTaskType,
               target_url: selectedCrawlingBrand?.url ?? crawlingUrl,
-
               updated_at: new Date().toISOString(),
               brand_title: selectedCrawlingBrand?.title ?? null,
               brand_code: selectedCrawlingBrand?.brand_code ?? null,
@@ -238,7 +204,7 @@ export default function ProductRegistration() {
 
     if (error) throw error
       
-      // 데이트 성공 후 선택 초기화
+      // 업데이트 성공 후 선택 초기화
       setSelectedCrawlingResults([])
       
       // 필요한 경우 목록 새로고침
@@ -339,31 +305,29 @@ export default function ProductRegistration() {
 
   const fetchSupplierData = async (companyid: string) => {
     try {
-      const { data, error } = await supabase
-        .from('company_supply')
+      const { data, error } = await supabase.from('company_supply')
         .select('*')
         .eq('companyid', companyid)
 
-      if (error) throw error
+      if (error) throw error;
       
-      setFilteredSuppliers(data || [])
+      setFilteredSuppliers(data)
     } catch (error) {
-      console.error('Failed to fetch supplier data:', error)
-      setFilteredSuppliers([])
+      console.log(error);
     }
   }
 
   const fetchCrawlingBrandList = async () => {
     try {
       const { data, error } = await supabase.from('crawlingbrand').select('*')
+
       if (error) throw error;
 
-      const sortedData = data.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
-      setCrawlingBrandList(sortedData);
+      setCrawlingBrandList(data)
     } catch (error) {
       console.log(error);
     }
-  };
+  }
 
   const fetchCrawlingProductList = async (id: string) => {
     try {
@@ -384,56 +348,6 @@ export default function ProductRegistration() {
     return crawlingResults.filter(item => selectedStatuses.includes(item.detail_status as StatusType));
   };
 
-  const getEcsku = async (companyid: string, supplyid: string): Promise<string> => {
-    try {
-      // 현재 maxidx 조회
-      const { data: historyData, error: historyError } = await supabase
-        .from('items_sku_history')
-        .select('*')
-        .eq('companyid', companyid)
-        .eq('supplyid', supplyid)
-        .single();
-
-      let nextIdx: number;
-
-      if (!historyData || (historyError && historyError.code !== 'PGRST116')) { // PGRST116는 데이터가 없는 경우
-        const { data: insertData, error: insertError } = await supabase
-          .from('items_sku_history')
-          .insert([
-            {
-              companyid,
-              supplyid,
-              maxidx: 1
-            }
-          ])
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        nextIdx = 1;
-      } else {
-        const newMaxIdx = (historyData.maxidx || 0) + 1;
-        const { error: updateError } = await supabase
-          .from('items_sku_history')
-          .update({ 
-            maxidx: newMaxIdx
-          })
-          .eq('companyid', companyid)
-          .eq('supplyid', supplyid);
-
-        if (updateError) throw updateError;
-        nextIdx = newMaxIdx;
-      }
-
-      const formattedIdx = nextIdx.toString().padStart(5, '0');
-      return `${selectedSupplier?.vendproductcd}${formattedIdx}`;
-
-    } catch (error) {
-      console.error('Error in getEcsku:', error);
-      throw error;
-    }
-  };
-
   const filteredResultsTotalPages = Math.ceil(getFilteredResults().length / PAGE_SIZE);
 
   const handleBinding = async () => {
@@ -446,108 +360,269 @@ export default function ProductRegistration() {
           .select('*')
           .eq('product_id', item.id)
           .single();
+        
         if (detailError) throw detailError;
 
         const detail = detailData.detail_json;
         const specs = detailData.specifications;
-        // ecsku 생성
-        const ecsku = await getEcsku(
-          user?.companyid?.toString() ?? '', 
-          selectedSupplier?.id?.toString() ?? '' 
-        );
 
-        const itemData = {
-          id: crypto.randomUUID(), // 브라우저 내장 UUID 생성 함수 사용
-          variationsku: null,
-          name: detail.title,
-          hscode: null,
-          barcode: null,
-          weight: null,
-          width: null,
-          length: null,
-          height: null,
-          memo: null,
-          thumbnailurl: detail.thumbnails?.[0] || null,
-          companyid: user?.companyid,
-          createdat: new Date().toISOString(),
-          updatedat: new Date().toISOString(),
-          brandname: detail.brand,
-          content: detail.contentHtml,
-          status: 'PENDING',
-          consumerprice: detail.price,
-          contenthtml: detail.contentHtml,
-          supplyid: selectedSupplier?.id,
-          originalcontent: detail.contentHtml,
-          originalname: detail.title,
-          noticeinfo: JSON.stringify(detail.productNotice || specs),
-          purchaseprice: detail.beforeDiscount || detail.price,
-          orginurl: item.url, 
-          ecsku,
-          sellersku: detail.sku?.toString() || null
-        };
+        // task_type이 naver인 경우에만 카테고리 처리
+        if (item.task_type === 'naver' && detail.category?.path) {
+          const categoryPaths = detail.category.path.split('>');
+          const categoryIds = detail.category.wholeId.split('>');
+          
+          // 각 깊이별 카테고리 ID를 저장할 맵
+          const depthToDbId: { [key: number]: string } = {};
+          
+          for (let i = 0; i < categoryPaths.length; i++) {
+            const categoryName = categoryPaths[i].trim();
+            const categoryId = categoryIds[i];
+            const fullPath = categoryPaths.slice(0, i + 1).join('>');
+            
+            // 카테고리가 이미 존재하는지 확인
+            const { data: existingCategory, error: checkError } = await supabase
+              .from('categories')
+              .select('id')
+              .eq('categoryid', categoryId)
+              .eq('platform', 'SMART_STORE')
+              .eq('country', 'KR')
+              .single();
 
-        const { data: savedItem, error: itemError } = await supabase
-          .from('items')
-          .insert([itemData])
-          .select()
-          .single();
-        if (itemError) throw itemError;
+            if (checkError && checkError.code !== 'PGRST116') {
+              throw checkError;
+            }
 
-        if (detail.modifyOptions && detail.modifyOptions.length > 0) {
-          const optionsData = detail.modifyOptions.map((option: any) => ({
-            id: crypto.randomUUID(), 
-            itemid: savedItem.id, 
-            original_json: JSON.stringify(option), 
-            modified_json: JSON.stringify(option), 
-            createdat: new Date().toISOString(), 
-            updatedat: new Date().toISOString(), 
-          }));
-        
-          const { error: optionsError } = await supabase
-            .from('item_options_new') 
-            .insert(optionsData);
+            if (!existingCategory) {
+              // 새로운 UUID 생성
+              const newCategoryId = crypto.randomUUID();
+              
+              // 상위 카테고리 ID 설정
+              const parentCategoryId = i > 0 ? depthToDbId[i - 1] : null;
 
-          if (optionsError) throw optionsError;
+              const { data: insertedCategory, error: categoryError } = await supabase
+                .from('categories')
+                .insert({
+                  id: newCategoryId,
+                  categoryid: categoryId,
+                  platform: 'SMART_STORE',
+                  country: 'KR',
+                  parentcategoryid: parentCategoryId,
+                  name: categoryName,
+                  pathname: fullPath,
+                  createdat: new Date().toISOString(),
+                  depth: i
+                })
+                .select()
+                .single();
+
+              if (categoryError) throw categoryError;
+              
+              // 현재 깊이의 DB ID 저장
+              depthToDbId[i] = newCategoryId;
+            } else {
+              // 이미 존재하는 카테고리의 ID를 저장
+              depthToDbId[i] = existingCategory.id;
+            }
+          }
+
+          // 최하위 카테고리 ID 가져오기 (마지막 인덱스의 카테고리)
+          const lowestCategoryId = depthToDbId[categoryPaths.length - 1];
+
+          const itemData = {
+            id: crypto.randomUUID(),
+            variationsku: detail.sku?.toString() || null,
+            name: detail.title,
+            hscode: null,
+            barcode: null,
+            weight: null,
+            width: null,
+            length: null,
+            height: null,
+            memo: null,
+            thumbnailurl: detail.thumbnails?.[0] || null,
+            companyid: user?.companyid,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            brandname: detail.brand,
+            content: detail.contentHtml,
+            status: 'PENDING',
+            consumerprice: detail.price,
+            contenthtml: detail.contentHtml,
+            supplyid: selectedSupplier?.id,
+            originalcontent: detail.contentHtml,
+            originalname: detail.title,
+            noticeinfo: JSON.stringify(detail.productNotice || specs),
+            purchaseprice: detail.beforeDiscount || detail.price,
+          };
+
+          // 먼저 item 저장
+          const { data: savedItem, error: itemError } = await supabase
+            .from('items')
+            .insert([itemData])
+            .select()
+            .single();
+          if (itemError) throw itemError;
+
+          // naver 타입일 때만 카테고리 매핑 저장
+          const { error: mapError } = await supabase
+            .from('item_category_maps')
+            .insert({
+              id: crypto.randomUUID(),
+              companyid: user?.companyid,
+              categoryid: lowestCategoryId,
+              itemid: savedItem.id,
+              createdat: new Date().toISOString()
+            });
+
+          if (mapError) throw mapError;
+
+          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+            const optionsData = detail.modifyOptions.map((option: any) => ({
+              id: crypto.randomUUID(), 
+              itemid: savedItem.id, 
+              original_json: JSON.stringify(option), 
+              modified_json: JSON.stringify(option), 
+              createdat: new Date().toISOString(), 
+              updatedat: new Date().toISOString(), 
+            }));
+          
+            const { error: optionsError } = await supabase
+              .from('item_options_new') 
+              .insert(optionsData);
+
+            if (optionsError) throw optionsError;
+          }
+
+          const images = [
+            ...(detail.thumbnails || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'THUMBNAIL',
+              url,
+              index: 4,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            })),
+            ...(detail.detailImages || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'MAIN_CONTENT',
+              url,
+              index,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            }))
+          ];
+
+          const { error: imageError } = await supabase
+            .from('item_images')
+            .insert(images);
+
+          if (imageError) throw imageError;
+        } else {
+          // naver가 아닌 경우는 카테고리 처리 없이 item만 저장
+          const itemData = {
+            id: crypto.randomUUID(),
+            variationsku: detail.sku?.toString() || null,
+            name: detail.title,
+            hscode: null,
+            barcode: null,
+            weight: null,
+            width: null,
+            length: null,
+            height: null,
+            memo: null,
+            thumbnailurl: detail.thumbnails?.[0] || null,
+            companyid: user?.companyid,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            brandname: detail.brand,
+            content: detail.contentHtml,
+            status: 'PENDING',
+            consumerprice: detail.price,
+            contenthtml: detail.contentHtml,
+            supplyid: selectedSupplier?.id,
+            originalcontent: detail.contentHtml,
+            originalname: detail.title,
+            noticeinfo: JSON.stringify(detail.productNotice || specs),
+            purchaseprice: detail.beforeDiscount || detail.price,
+          };
+
+          const { data: savedItem, error: itemError } = await supabase
+            .from('items')
+            .insert([itemData])
+            .select()
+            .single();
+          if (itemError) throw itemError;
+
+          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+            const optionsData = detail.modifyOptions.map((option: any) => ({
+              id: crypto.randomUUID(), 
+              itemid: savedItem.id, 
+              original_json: JSON.stringify(option), 
+              modified_json: JSON.stringify(option), 
+              createdat: new Date().toISOString(), 
+              updatedat: new Date().toISOString(), 
+            }));
+          
+            const { error: optionsError } = await supabase
+              .from('item_options_new') 
+              .insert(optionsData);
+
+            if (optionsError) throw optionsError;
+          }
+
+          const images = [
+            ...(detail.thumbnails || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'THUMBNAIL',
+              url,
+              index: 4,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            })),
+            ...(detail.detailImages || []).map((url: string, index: number) => ({
+              id: crypto.randomUUID(),
+              type: 'MAIN_CONTENT',
+              url,
+              index,
+              itemid: savedItem.id,
+              width: null,
+              height: null,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              groupalias: null,
+              groupseq: null,
+              tag: null,
+              language: 'ko'
+            }))
+          ];
+
+          const { error: imageError } = await supabase
+            .from('item_images')
+            .insert(images);
+
+          if (imageError) throw imageError;
         }
-
-        const images = [
-          ...(detail.thumbnails || []).map((url: string, index: number) => ({
-            id: crypto.randomUUID(),
-            type: 'THUMBNAIL',
-            url,
-            index: 4,
-            itemid: savedItem.id,
-            width: null,
-            height: null,
-            createdat: new Date().toISOString(),
-            updatedat: new Date().toISOString(),
-            groupalias: null,
-            groupseq: null,
-            tag: null,
-            language: 'ko'
-          })),
-          ...(detail.detailImages || []).map((url: string, index: number) => ({
-            id: crypto.randomUUID(),
-            type: 'MAIN_CONTENT',
-            url,
-            index,
-            itemid: savedItem.id,
-            width: null,
-            height: null,
-            createdat: new Date().toISOString(),
-            updatedat: new Date().toISOString(),
-            groupalias: null,
-            groupseq: null,
-            tag: null,
-            language: 'ko'
-          }))
-        ];
-
-        const { error: imageError } = await supabase
-          .from('item_images')
-          .insert(images);
-
-        if (imageError) throw imageError;
       }
 
       setSelectedCrawlingResults([]);
@@ -555,9 +630,27 @@ export default function ProductRegistration() {
         fetchCrawlingProductList(selectedCrawlingItem);
       }
       
-    } catch (error) {
-      console.error('Error in handleBinding:', error);
-      alert('바인딩 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } catch (bindingError) {
+      const { error: rollbackError } = await supabase
+        .from('crawlingproductlist')
+        .upsert(
+          itemsToUpdate.map(item => ({
+            ...item,
+            detail_status: 'completed',
+            updated_at: new Date().toISOString(),
+          }))
+        )
+        .select();
+
+      if (rollbackError) {
+        console.error('Failed to rollback status:', rollbackError);
+      }
+
+      if (selectedCrawlingItem) {
+        fetchCrawlingProductList(selectedCrawlingItem);
+      }
+
+      throw new Error('바인딩 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -567,7 +660,7 @@ export default function ProductRegistration() {
         ? prev.filter(s => s !== status)
         : [...prev, status];
       
-      // 상태가 변경될 페이지 초기화
+      // 상태가 변경될 때 페이지 초기화
       setCrawlingResultsCurrentPage(1);
       return newStatuses;
     });
@@ -582,9 +675,7 @@ export default function ProductRegistration() {
       try {
         const { data, error } = await supabase.from('crawlingselectlist').select('name, code');
         if (error) throw error;
-        
-        const sortedData = data.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-        setCrawlingSelectList(sortedData);
+        setCrawlingSelectList(data);
       } catch (error) {
         console.error('Failed to fetch crawling select list:', error);
       }
@@ -593,54 +684,11 @@ export default function ProductRegistration() {
     fetchCrawlingSelectList();
   }, []);
 
-  // 태별 개수를 계산하는 함수 추가
-  const getProgressStatusCounts = () => {
-    const counts = {
-      total: crawlingProgress.length,
-      pending: 0,
-      in_progress: 0,
-      completed: 0,
-      failed: 0
-    };
-
-    crawlingProgress.forEach(item => {
-      if (item.status in counts) {
-        counts[item.status as keyof typeof counts]++;
-      }
-    });
-
-    return counts;
-  };
-
-  const getResultStatusCounts = () => {
-    const counts = {
-      total: crawlingResults.length,
-      pending: 0,
-      start: 0,
-      completed: 0,
-      failed: 0,
-      binding: 0
-    };
-
-    crawlingResults.forEach(item => {
-      if (item.detail_status in counts) {
-        counts[item.detail_status as keyof typeof counts]++;
-      }
-    });
-
-    return counts;
-  };
-
-  // 선택된 진행상황 개수를 계산하는 함수 추가
-  const getSelectedProgressCount = () => {
-    return selectedCrawlingItem ? 1 : 0;
-  };
-
   return (
     <div className="container mx-auto py-6">
       <Tabs defaultValue={getInitialTab()} className="space-y-4">
         <TabsList className="w-fit mb-6">
-          <TabsTrigger value="job">직접 입력</TabsTrigger>
+          <TabsTrigger value="job">직접 력</TabsTrigger>
           <TabsTrigger value="url">URL 입력</TabsTrigger>
           <TabsTrigger value="file">파일 업로드</TabsTrigger>
         </TabsList>
@@ -717,10 +765,8 @@ export default function ProductRegistration() {
                       <SelectValue placeholder="네이버 스토어 스마트" />
                     </SelectTrigger>
                     <SelectContent>
-                      {crawlingSelectList.map((item) => (
-                        <SelectItem key={item.code} value={item.code}>
-                          {item.name}
-                        </SelectItem>
+                    {crawlingSelectList.map((item) => ( // DB에서 가져온 데이터로 SelectItem 생성
+                        <SelectItem key={item.code} value={item.code}>{item.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -729,10 +775,10 @@ export default function ProductRegistration() {
                       selectedCrawlingTaskType === 'naver'
                       ? <>
                         <Input 
-                          placeholder="URL을 입력하세요" 
-                          value={crawlingUrl}
-                          onChange={(e) => setCrawlingUrl(e.target.value)}
-                        />
+                        placeholder="URL을 입력하세요" 
+                        value={crawlingUrl}
+                        onChange={(e) => setCrawlingUrl(e.target.value)}
+                      />
                       </>
                       : <>
                         <Select onValueChange={(value) => setSelectedCrawlingBrand(value)}>
@@ -740,13 +786,13 @@ export default function ProductRegistration() {
                             <SelectValue placeholder={null} />
                           </SelectTrigger>
                           <SelectContent>
-                            {crawlingBrandList
-                              .filter(brand => brand.source === selectedCrawlingTaskType)
-                              .map((brand) => (
-                                <SelectItem key={brand.id} value={brand}>
-                                  {brand.title}
-                                </SelectItem>
-                              ))}
+                            {
+                              crawlingBrandList
+                                .filter(brand => brand.source === selectedCrawlingTaskType)
+                                .map((brand) => (
+                                  <SelectItem value={brand}>{brand.title}</SelectItem>
+                                ))
+                            }
                           </SelectContent>
                         </Select>
                       </>
@@ -755,7 +801,7 @@ export default function ProductRegistration() {
                   <Button
                     disabled={selectedCrawlingTaskType === 'naver' ? !crawlingUrl : !selectedCrawlingBrand}
                     onClick={handleSetCrawlingtaskqueue}
-                  >목록 요청</Button>
+                  >검색</Button>
                 </div>
                 <div className="space-y-4">
                   <div>
@@ -771,120 +817,109 @@ export default function ProductRegistration() {
                             <TableHead>요청일시</TableHead>
                             <TableHead className="text-right">선택</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <Pagination className="mt-2">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCrawlingCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={crawlingCurrentPage === 1}
-                        />
-                      </PaginationItem>
-                      {[...Array(crawlingTotalPages)].map((_, index) => (
-                        <PaginationItem key={index}>
-                          <PaginationLink
-                            onClick={() => setCrawlingCurrentPage(index + 1)}
-                            isActive={crawlingCurrentPage === index + 1}
-                          >
-                            {index + 1}
-                          </PaginationLink>
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedCrawlingProgress.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.task_type}</TableCell>
+                              <TableCell>{item.brand_title ? `${item.task_type} - ${item.brand_title}` : "네이버"}</TableCell>
+                              <TableCell>
+                                <p className="truncate overflow-ellipsis overflow-hidden max-w-[500px]">{item.target_url}</p>
+                              </TableCell>
+                              <TableCell>{item.status}</TableCell>
+                              <TableCell>{`${item.updated_at.slice(0, 10)} ${item.updated_at.slice(11, 13)}:${item.updated_at.slice(14, 16)}`}</TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedCrawlingItem(item.id);
+                                    setCrawlingResultsCurrentPage(1);
+                                    fetchCrawlingProductList(item.id)
+                                    setSelectedCrawlingResults([])
+                                  }}
+                                >
+                                  {selectedCrawlingItem === item.id ? "선택됨" : "선택"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <Pagination className="mt-2">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCrawlingCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={crawlingCurrentPage === 1}
+                          />
                         </PaginationItem>
-                      ))}
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCrawlingCurrentPage(prev => Math.min(prev + 1, crawlingTotalPages))}
-                          disabled={crawlingCurrentPage === crawlingTotalPages}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-                <div className="flex flex-col gap-4 mb-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">
-                      결과목록 (전체: {getResultStatusCounts().total}, 선택: {selectedCrawlingResults.length})
-                    </h3>
-                    <div className="flex gap-4">
-                      <div className="flex items-center gap-4 border rounded-md p-2">
-                        {(Object.entries(STATUS_LABELS) as [StatusType, string][]).map(([status, label]) => (
-                          <label key={status} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedStatuses.includes(status)}
-                              onChange={() => handleStatusChange(status)}
-                              className="w-4 h-4"
-                            />
-                            <span>{label}</span>
-                          </label>
+                        {[...Array(crawlingTotalPages)].map((_, index) => (
+                          <PaginationItem key={index}>
+                            <PaginationLink
+                              onClick={() => setCrawlingCurrentPage(index + 1)}
+                              isActive={crawlingCurrentPage === index + 1}
+                            >
+                              {index + 1}
+                            </PaginationLink>
+                          </PaginationItem>
                         ))}
-                      </div>
-                      <div className="space-x-2">
-                        <Button 
-                          onClick={() => handleSaveSelectedCrawlingResults()}
-                          disabled={selectedCrawlingResults.length === 0}
-                        >
-                          선택항목 저장 ({selectedCrawlingResults.length})
-                        </Button>
-                        <Button 
-                          onClick={handleBinding}
-                          disabled={selectedCrawlingResults.filter(item => item.detail_status === 'completed').length === 0}
-                        >
-                          선택항목 바인딩 ({selectedCrawlingResults.filter(item => item.detail_status === 'completed').length})
-                        </Button>
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCrawlingCurrentPage(prev => Math.min(prev + 1, crawlingTotalPages))}
+                            disabled={crawlingCurrentPage === crawlingTotalPages}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">결과목록</h3>
+                      <div className="flex gap-4">
+                        <div className="flex items-center gap-4 border rounded-md p-2">
+                          {(Object.entries(STATUS_LABELS) as [StatusType, string][]).map(([status, label]) => (
+                            <label key={status} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedStatuses.includes(status)}
+                                onChange={() => handleStatusChange(status)}
+                                className="w-4 h-4"
+                              />
+                              <span>{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="space-x-2">
+                          <Button 
+                            onClick={handleBinding}
+                            disabled={selectedCrawlingResults.filter(item => item.detail_status === 'completed').length === 0}
+                          >
+                            선택항목 바인딩 ({selectedCrawlingResults.filter(item => item.detail_status === 'completed').length})
+                          </Button>
+                          <Button 
+                            onClick={() => handleSaveSelectedCrawlingResults()}
+                            disabled={selectedCrawlingResults.length === 0}
+                          >
+                            선택항목 저장 ({selectedCrawlingResults.length})
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[50px]">
-                          <input 
-                            type="checkbox"
-                            checked={crawlingResults.length > 0 && selectedCrawlingResults.length === crawlingResults.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedCrawlingResults(crawlingResults);
-                              } else {
-                                setSelectedCrawlingResults([]);
-                              }
-                            }}
-                            className="w-4 h-4"
-                          />
-                        </TableHead>
-                        <TableHead className="w-[60px]">No.</TableHead>
-                        <TableHead>쇼핑몰</TableHead>
-                        <TableHead>브랜드</TableHead>
-                        <TableHead>이미지</TableHead>
-                        <TableHead>상품명</TableHead>
-                        <TableHead>가격</TableHead>
-                        <TableHead>상태</TableHead>
-                        <TableHead>선택</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {getFilteredResults()
-                        .slice((crawlingResultsCurrentPage - 1) * PAGE_SIZE, crawlingResultsCurrentPage * PAGE_SIZE)
-                        .map((item, index) => (
-                          <TableRow 
-                            key={item.id}
-                            className={selectedCrawlingResults.includes(item) ? "bg-muted/50" : ""}
-                          >
-                            <TableCell>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">
                               <input 
                                 type="checkbox"
-                                checked={selectedCrawlingResults.includes(item)}
+                                checked={crawlingResults.length > 0 && selectedCrawlingResults.length === crawlingResults.length}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedCrawlingResults([...selectedCrawlingResults, item]);
+                                    setSelectedCrawlingResults(crawlingResults);
                                   } else {
-                                    setSelectedCrawlingResults(
-                                      selectedCrawlingResults.filter((selected) => selected.id !== item.id)
-                                    );
+                                    setSelectedCrawlingResults([]);
                                   }
                                 }}
                                 className="w-4 h-4"
@@ -905,84 +940,92 @@ export default function ProductRegistration() {
                             .map((item) => (
                               <TableRow 
                                 key={item.id}
+                                className={selectedCrawlingResults.includes(item) ? "bg-muted/50" : ""}
                               >
-                                <img 
-                                  src={item.image_src} 
-                                  alt="상품이미지" 
-                                  className="w-32 h-32 object-cover"
-                                />
-                              </a>
-                            </TableCell>
-                            <TableCell>{item.item_name}</TableCell>
-                            <TableCell>{item.price}</TableCell>
-                            <TableCell>{STATUS_LABELS[item.detail_status as StatusType] || item.detail_status}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="outline" 
-                                  size="sm" 
-                                  disabled={item.detail_status !== 'completed'}
-                                  onClick={() => {
-                                    handleShowCrawlingProductDetail(item)
-                                  }}
+                                <TableCell>
+                                  <input 
+                                    type="checkbox"
+                                    checked={selectedCrawlingResults.includes(item)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedCrawlingResults([...selectedCrawlingResults, item]);
+                                      } else {
+                                        setSelectedCrawlingResults(
+                                          selectedCrawlingResults.filter((selected) => selected.id !== item.id)
+                                        );
+                                      }
+                                    }}
+                                    className="w-4 h-4"
+                                  />
+                                </TableCell>
+                                <TableCell>{item.task_type}</TableCell>
+                                <TableCell>{item.brand_title}</TableCell>
+                                <TableCell>
+                                  <img src={item.image_src} alt="상품이미지" className="w-32 h-32 object-cover" />
+                                </TableCell>
+                                <TableCell>{item.item_name}</TableCell>
+                                <TableCell>{item.price}</TableCell>
+                                <TableCell>{STATUS_LABELS[item.detail_status as StatusType] || item.detail_status}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="outline" 
+                                    size="sm" 
+                                    disabled={item.detail_status !== 'completed'}
+                                    onClick={() => {
+                                      handleShowCrawlingProductDetail(item)
+                                    }}
+                                  >
+                                    상세보기
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <Pagination className="mt-2">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCrawlingResultsCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={crawlingResultsCurrentPage === 1}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: filteredResultsTotalPages }, (_, i) => i + 1)
+                          .filter(page => 
+                            page === 1 || 
+                            page === filteredResultsTotalPages || 
+                            Math.abs(page - crawlingResultsCurrentPage) <= 2
+                          )
+                          .map((page, index, array) => (
+                            <React.Fragment key={page}>
+                              {index > 0 && array[index - 1] !== page - 1 && (
+                                <PaginationItem>
+                                  <PaginationEllipsis />
+                                </PaginationItem>
+                              )}
+                              <PaginationItem>
+                                <PaginationLink
+                                  onClick={() => setCrawlingResultsCurrentPage(page)}
+                                  isActive={crawlingResultsCurrentPage === page}
                                 >
-                                  상세보기
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => window.open(item.url, '_blank', 'noopener,noreferrer')}
-                                >
-                                  원문보기
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
+                            </React.Fragment>
+                          ))}
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCrawlingResultsCurrentPage(prev => 
+                              Math.min(prev + 1, filteredResultsTotalPages)
+                            )}
+                            disabled={crawlingResultsCurrentPage === filteredResultsTotalPages}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
                 </div>
-                <Pagination className="mt-2">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious 
-                        onClick={() => setCrawlingResultsCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={crawlingResultsCurrentPage === 1}
-                      />
-                    </PaginationItem>
-                    {Array.from({ length: filteredResultsTotalPages }, (_, i) => i + 1)
-                      .filter(page => 
-                        page === 1 || 
-                        page === filteredResultsTotalPages || 
-                        Math.abs(page - crawlingResultsCurrentPage) <= 2
-                      )
-                      .map((page, index, array) => (
-                        <React.Fragment key={page}>
-                          {index > 0 && array[index - 1] !== page - 1 && (
-                            <PaginationItem>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                          )}
-                          <PaginationItem>
-                            <PaginationLink
-                              onClick={() => setCrawlingResultsCurrentPage(page)}
-                              isActive={crawlingResultsCurrentPage === page}
-                            >
-                              {page}
-                            </PaginationLink>
-                          </PaginationItem>
-                        </React.Fragment>
-                      ))}
-                    <PaginationItem>
-                      <PaginationNext 
-                        onClick={() => setCrawlingResultsCurrentPage(prev => 
-                          Math.min(prev + 1, filteredResultsTotalPages)
-                        )}
-                        disabled={crawlingResultsCurrentPage === filteredResultsTotalPages}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
               </div>
             </CardContent>
           </Card>
@@ -1065,7 +1108,7 @@ export default function ProductRegistration() {
                               <div key={index} className="aspect-square relative">
                                 <img 
                                   src={url} 
-                                  alt={`썸네일 ���미지 ${index + 1}`}
+                                  alt={`썸네일 이미지 ${index + 1}`}
                                   className="object-cover rounded-lg w-full h-full"
                                 />
                               </div>
