@@ -41,6 +41,8 @@ import { SupplierSelector } from "@/components/supplier-selector"
 interface Product {
   id: string
   variationsku: string
+  ecsku: string
+  sellersku: string
   name: string
   thumbnailurl: string
   stocks: {
@@ -115,18 +117,6 @@ export function ProductOptionsStock() {
     }
   }
 
-  const handleSupplierSearch = () => {
-    if (!supplierSearchTerm.trim()) {
-      fetchSupplierData(user.companyid)
-      return
-    }
-    
-    const filteredSuppliers = supplierData.filter(supplier => 
-      supplier.supplyname.toLowerCase().includes(supplierSearchTerm.toLowerCase()) ||
-      supplier.managername.toLowerCase().includes(supplierSearchTerm.toLowerCase())
-    )
-    setSupplierData(filteredSuppliers)
-  }
 
   const handleSupplierSelect = async (supplier: any) => {
     if (user && supplier && supplier.id) {
@@ -148,6 +138,8 @@ export function ProductOptionsStock() {
         .select(`
           id,
           variationsku,
+          ecsku,
+          sellersku,
           name,
           thumbnailurl,
           consumerprice,
@@ -217,6 +209,24 @@ export function ProductOptionsStock() {
       cell: ({ row }) => row.index + 1
     },
     { 
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
+        </div>
+      )
+    },
+    { 
       accessorKey: "name", 
       header: "상품명",
       cell: ({ row }) => (
@@ -227,18 +237,6 @@ export function ProductOptionsStock() {
           <div className="truncate">
             {row.original.name}
           </div>
-        </div>
-      )
-    },
-    { 
-      accessorKey: "variationsku", 
-      header: "SKU",
-      cell: ({ row }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku || '미등록'}
         </div>
       )
     },

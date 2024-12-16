@@ -58,6 +58,8 @@ import { SupplierSelector } from "@/components/supplier-selector"
 interface Product {
   id: string
   variationsku: string
+  ecsku: string
+  sellersku: string
   name: string
   thumbnailurl: string
   weight: string | number
@@ -76,8 +78,7 @@ export default function ProductOptionsVolume() {
   const [searchQuery, setSearchQuery] = React.useState<string>("")
   const [supplierProducts, setSupplierProducts] = useState<Product[]>([])
   const [supplierData, setSupplierData] = useState<any[]>([])
-  const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
-  const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
+
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
@@ -125,9 +126,6 @@ export default function ProductOptionsVolume() {
     }
   }
 
-  const handleSupplierSearch = () => {
-    console.log("Searching for:", supplierSearchTerm)
-  }
 
   const products = [
     { id: '1', sku: 'st11111', name: '청상추, 로즈마드 RC 팜채 녹황색 청상추, 야채 자루형 청상추, 신선한 수삼 6년', category: '식품', weight: '1 kg', packageWeight: '1.38 kg', length: '25 cm', width: '15 cm', height: '22 cm' },
@@ -145,13 +143,6 @@ export default function ProductOptionsVolume() {
     }
   }
 
-  const handleProductSelect = (id: string) => {
-    setSelectedProducts(prev => 
-      prev.includes(id) 
-        ? prev.filter(p => p !== id)
-        : [...prev, id]
-    )
-  }
 
   const handleCategoryChange = (value: string) => {
     setSelectedCategory(value);
@@ -171,6 +162,8 @@ export default function ProductOptionsVolume() {
         .select(`
           id,
           variationsku,
+          ecsku,
+          sellersku,
           name,
           thumbnailurl,
           weight,
@@ -258,44 +251,31 @@ export default function ProductOptionsVolume() {
       ),
     },
     { 
-      accessorKey: "variationsku", 
-      header: "SKU",
-      cell: ({ row }) => {
-        const sku = row.original.variationsku || '미등록'
-        
-        const handleCopy = (e: React.MouseEvent) => {
-          e.stopPropagation() // 상 다이얼로그가 열리는 것을 방지
-          if (sku === '미등록') return
-          
-          navigator.clipboard.writeText(sku)
-            .then(() => {
-              // 복사 성공 시 시각적 피드백
-              const target = e.currentTarget
-              target.classList.add('text-green-500')
-              setTimeout(() => {
-                target.classList.remove('text-green-500')
-              }, 500)
-            })
-            .catch(err => console.error('Failed to copy:', err))
-        }
-
-        return (
-          <div className="flex items-center space-x-2">
-            <div 
-              className="cursor-pointer hover:text-blue-500"
-              onClick={() => handleProductClick(row.original.id)}
-            >
-              {sku}
-            </div>
-            {sku !== '미등록' && (
-              <Copy 
-                className="h-4 w-4 cursor-pointer hover:text-blue-500 transition-colors"
-                onClick={handleCopy}
-              />
-            )}
-          </div>
-        )
-      }
+      id: "number",
+      header: "번호",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.index + 1}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
+        </div>
+      )
     },
     { 
       accessorKey: "name", 

@@ -227,19 +227,7 @@ export default function SupplierProductPage() {
       },
       size: 30,
     },
-    { 
-      accessorKey: "variationsku", 
-      header: "SKU",
-      size: 120,
-      cell: ({ row }: { row: any }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku}
-        </div>
-      )
-    },
+ 
     { 
       accessorKey: "ecsku",
       header: "EC SKU",
