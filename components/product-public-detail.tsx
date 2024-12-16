@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label"
 interface ProductDetail {
   id: string
   variationsku: string
+  ecsku: string
+  sellersku: string
   name: string
   hscode: string
   barcode: string
@@ -276,6 +278,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
         .select(`
           id,
           variationsku,
+          ecsku,
+          sellersku,
           name,
           hscode,
           barcode,
@@ -345,6 +349,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
 
       const formattedData: ProductDetail = {
         ...data,
+        ecsku: data.ecsku || '',
+        sellersku: data.sellersku || '',
         contenthtml: data.contenthtml || '',
         purchaseprice: data.purchaseprice || 0,
         color: data.item_options?.[0]?.color || '',
@@ -527,9 +533,14 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                   <h4 className="text-sm font-medium">안전재고</h4>
                   <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.stocks?.safetystock?.toLocaleString() || 0} 개</p>
                 </div>
+                
                 <div>
-                  <h4 className="text-sm font-medium">SKU</h4>
-                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.variationsku}</p>
+                  <h4 className="text-sm font-medium">EC SKU</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.ecsku || '-'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium">판매자 SKU</h4>
+                  <p className="text-sm text-muted-foreground bg-gray-100 p-2 rounded">{productData.sellersku || '-'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium">HSCode</h4>
@@ -659,7 +670,9 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                     noticeinfo: productData.noticeinfo || '',
                     memo: productData.memo || '',
                     thumbnailurl: productData.thumbnailurl || '',
-                    variationsku: productData.variationsku || ''
+                    variationsku: productData.variationsku || '',
+                    ecsku: productData.ecsku || '',
+                    sellersku: productData.sellersku || ''
                   }}
                   onSave={async (formData) => {
                     try {
@@ -683,6 +696,8 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
                           noticeinfo: formData.noticeinfo,
                           purchaseprice: formData.purchaseprice,
                           variationsku: formData.variationsku,
+                          ecsku: formData.ecsku,
+                          sellersku: formData.sellersku,
                           updatedat: new Date().toISOString()
                         })
                         .eq('id', productId);
