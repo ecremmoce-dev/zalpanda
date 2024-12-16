@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CompanySupply } from '@/types'
-import { z } from 'zod'
 
 interface SupplyFormProps {
   companyId: string
@@ -47,10 +46,6 @@ const generateVendorCode = (name: string) => {
   // 첫 5글자만 사용하고, 부족한 경우 'x'로 채움
   return (eng + 'xxxxx').slice(0, 5);
 }
-
-const formSchema = z.object({
-  vendproductcd: z.string().nullable().optional(),
-})
 
 export function SupplyForm({ companyId, initialData, onSuccess }: SupplyFormProps) {
   const [isLoading, setIsLoading] = useState(false)

@@ -106,7 +106,6 @@ interface Product {
   // ... 다른 필드들
 }
 
-// priorityFields 배열 추가 (컴트 외부에 선언)
 const priorityFields = [
   '상품번호',
   '상품상태',

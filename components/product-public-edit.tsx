@@ -565,7 +565,6 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
   const [selectedFourthCategory, setSelectedFourthCategory] = React.useState<Category | null>(null);
   const [selectedFifthCategory, setSelectedFifthCategory] = React.useState<Category | null>(null);
 
-  // ��택된 카테고리 표시 부분 수정
   const selectedCategoryPath = React.useMemo(() => {
     if (!selectedCategory) {
       return initialData.categorypath || '';
@@ -737,7 +736,6 @@ export default function ProductEditPage({ initialData, onSave, onCancel }: Produ
     console.log('Initial contenthtml:', initialData?.contenthtml);
   }, [initialData]);
 
-  // ���태 추가 (포넌트 최상단 상태 선언부에 추가)
   const [isContentExpanded, setIsContentExpanded] = React.useState(true);
 
   // 상 설명 에디터 부분 수정

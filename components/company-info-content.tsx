@@ -310,7 +310,7 @@ export function CompanyInfoContent() {
               <TableHead>연락처</TableHead>
               <TableHead>이메일</TableHead>
               <TableHead>담당자</TableHead>
-              <TableHead>등록���</TableHead>
+              <TableHead>등록일자</TableHead>
               <TableHead className="w-[100px]">관리</TableHead>
             </TableRow>
           </TableHeader>

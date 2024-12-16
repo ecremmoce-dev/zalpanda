@@ -24,22 +24,55 @@ import { ChevronUp, Pencil, Trash, Globe, Languages } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useUserDataStore } from "@/store/modules"
 import { supabase } from "@/utils/supabase/client"
+import { SupplierSelector } from "@/components/supplier-selector"
+
+interface CountryLanguagePair {
+  country: string;
+  language: string;
+}
+
+interface PlatformSelection {
+  platform: string;
+  countryLanguagePairs: CountryLanguagePair[];
+}
+
+const initialPlatformSelections: PlatformSelection[] = [
+  {
+    platform: 'SHOPEE',
+    countryLanguagePairs: [
+      { country: 'MY', language: 'my' },
+      { country: 'ID', language: 'id' }
+    ]
+  },
+  {
+    platform: 'LAZADA',
+    countryLanguagePairs: [
+      { country: 'TH', language: 'th' },
+      { country: 'VN', language: 'vi' },
+      { country: 'ID', language: 'id' }
+    ]
+  }
+]
 
 export default function ProductTranslation() {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
+  const [platformSelections, setPlatformSelections] = useState<PlatformSelection[]>(initialPlatformSelections)
   const [products, setProducts] = useState<any[]>([])
   const [selectedProducts, setSelectedProducts] = useState<number[]>([])
-  const [isSupplierCardExpanded, setIsSupplierCardExpanded] = useState(true)
+  const [expandedRows, setExpandedRows] = useState<number[]>([])
   const [activeTab, setActiveTab] = useState('product-name')
   const [categoryFilter, setCategoryFilter] = useState('전체')
   const [nameFilter, setNameFilter] = useState('')
   const [categories, setCategories] = useState(['전체', '자동차용품', '스포츠용품', '서비스'])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  
+  // 필터 관련 state 추가
   const [platformFilter, setPlatformFilter] = useState('SHOPEE')
   const [countryFilter, setCountryFilter] = useState('KR')
   const [languageFilter, setLanguageFilter] = useState('en')
-  const [suppliers, setSuppliers] = useState<any[]>([])
 
-  const { user } = useUserDataStore();
+  const { user } = useUserDataStore()
 
   useEffect(() => {
     if (user) fetchSupplierData(user!.companyid)
@@ -91,12 +124,10 @@ export default function ProductTranslation() {
     }
   }
 
-  const toggleSupplierCard = () => setIsSupplierCardExpanded(!isSupplierCardExpanded)
-
-  const handleSupplierSelect = (supplier: any) => {
-    const { name: supplierName, id: itemCustomerId, companyid } = supplier;
-
-    fetchProductData(itemCustomerId, companyid, supplierName)
+  const handleSupplierSelect = async (supplier: any) => {
+    if (user && supplier && supplier.id) {
+      await fetchProductData(supplier.id, user.companyid)
+    }
   }
 
   const handleProductSelect = (productId: number) => {
@@ -116,8 +147,12 @@ export default function ProductTranslation() {
   };
 
   const filteredProducts = useMemo(() => {
-    return products.filter(product => true)
-  }, [products, categoryFilter, nameFilter, platformFilter, countryFilter, languageFilter])
+    return products.filter(product => {
+      const matchesCategory = categoryFilter === '전체' || product.category === categoryFilter
+      const matchesName = product.name?.toLowerCase().includes(nameFilter.toLowerCase())
+      return matchesCategory && matchesName
+    })
+  }, [products, categoryFilter, nameFilter])
 
   const handleTranslate = async () => {
     const selectedItems = products.filter(product => 
@@ -261,71 +296,12 @@ export default function ProductTranslation() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      {/* Supplier Card - Now with collapsible functionality */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>공급사</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleSupplierCard}
-            aria-label={isSupplierCardExpanded ? "Collapse supplier card" : "Expand supplier card"}
-          >
-            {isSupplierCardExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronUp className="h-4 w-4 rotate-180" />}
-          </Button>
-        </CardHeader>
-        {isSupplierCardExpanded && (
-          <CardContent>
-            <div className="flex justify-between items-center mb-4">
-              <Input placeholder="공급사를 검색하세요" className="max-w-sm" />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>회사명</TableHead>
-                  <TableHead>담당자</TableHead>
-                  <TableHead>등록일</TableHead>
-                  <TableHead className="text-right">선택</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {suppliers.map((supplier) => (
-                  <TableRow key={supplier.id}>
-                    <TableCell>{supplier.supplyname}</TableCell>
-                    <TableCell>{supplier.managername}</TableCell>
-                    <TableCell>{supplier.created}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleSupplierSelect(supplier)}
-                      >
-                        선택
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        )}
-      </Card>
+    <div className="container mx-auto py-6">
+      <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
-      {/* Updated Product List Card */}
-      <Card>
+      <Card className="mt-6">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle>검색결과</CardTitle>
-              <div className="text-sm text-muted-foreground">
-                <span className="font-medium">{filteredProducts.length}</span> results found
-              </div>
-              <div className="text-sm text-green-600">
-                <span className="font-medium">{selectedProducts.length}</span> selected
-              </div>
-            </div>
-          </div>
+          <CardTitle>언어 및 플랫폼 선택</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
