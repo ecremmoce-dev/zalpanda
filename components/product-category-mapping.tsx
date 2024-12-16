@@ -527,20 +527,30 @@ export default function CategoryMapping() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((category, index) => (
-                      <TableRow key={category.categoryid} className="h-16">
-                        <TableCell>
-                          <Checkbox 
-                            checked={selectedInboundCategories.some(c => c.categoryid === category.categoryid)}
-                            onCheckedChange={(checked) => handleInboundSelection(category, checked as boolean)}
-                          />
+                    {categories.length > 0 ? (
+                      categories.map((category, index) => (
+                        <TableRow key={category.categoryid} className="h-16">
+                          <TableCell>
+                            <Checkbox 
+                              checked={selectedInboundCategories.some(c => c.categoryid === category.categoryid)}
+                              onCheckedChange={(checked) => handleInboundSelection(category, checked as boolean)}
+                            />
+                          </TableCell>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>{category.categoryid}</TableCell>
+                          <TableCell>{category.category_name}</TableCell>
+                          <TableCell>{category.category_path}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          {!selectedPlatform 
+                            ? "플랫폼을 선택해주세요." 
+                            : "표시할 카테고리가 없습니다."}
                         </TableCell>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{category.categoryid}</TableCell>
-                        <TableCell>{category.category_name}</TableCell>
-                        <TableCell>{category.category_path}</TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -628,7 +638,7 @@ export default function CategoryMapping() {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">로딩 중...</TableCell>
+                        <TableCell colSpan={4} className="text-center">��딩 중...</TableCell>
                       </TableRow>
                     ) : paginateQoo10Categories(qoo10Categories).map((category, index) => (
                       <TableRow key={`${category.CATE_L_CD}-${category.CATE_M_CD}-${category.CATE_S_CD}`} className="h-16">
