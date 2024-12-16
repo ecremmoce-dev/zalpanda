@@ -62,6 +62,9 @@ export default function CategoryMapping() {
   const [selectedInboundPlatform, setSelectedInboundPlatform] = useState<string>('SMART_STORE');
   const [selectedOutboundPlatform, setSelectedOutboundPlatform] = useState<string>('QOO10');
   const [selectedCountry, setSelectedCountry] = useState<string>('JP');
+  const [rightPlatform, setRightPlatform] = useState<string>("");
+  const [rightCountry, setRightCountry] = useState<string>("");
+  const [selectedMapItems, setSelectedMapItems] = useState<string[]>([]);
 
   const fetchTest = async (platform?: string) => {
     try {
@@ -203,30 +206,66 @@ export default function CategoryMapping() {
         return;
       }
 
+      // 선택된 카테고리들의 맵핑 데이터 생성
       const mappings = selectedInboundCategories.map(inbound => 
         selectedOutboundCategories.map(outbound => ({
-          id: crypto.randomUUID(),
           inboundcategoryid: inbound.categoryid,
           inboundplatform: selectedPlatform,
           outboundcategoryid: outbound.CATE_S_CD || outbound.CATE_M_CD || outbound.CATE_L_CD,
           outboundplatform: 'QOO10',
-          outboundcountry: 'JP',
-          createdat: new Date().toISOString(),
-          updatedat: null,
-          companyid: null
+          outboundcountry: rightCountry
         }))
       ).flat();
 
-      const { error } = await supabase
-        .from('category_maps')
-        .insert(mappings);
+      // 각 맵핑에 대해 존재 여부 확인 후 업데이트 또는 삽입
+      for (const mapping of mappings) {
+        // inboundcategoryid로 기존 데이터 확인
+        const { data: existingData, error: checkError } = await supabase
+          .from('category_maps')
+          .select('id')
+          .eq('inboundcategoryid', mapping.inboundcategoryid)
+          .single();
 
-      if (error) throw error;
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116는 결과가 없는 경우
+          throw checkError;
+        }
+
+        if (existingData?.id) {
+          // 기존 데이터가 있으면 업데이트
+          const { error: updateError } = await supabase
+            .from('category_maps')
+            .update({
+              ...mapping,
+              updatedat: new Date().toISOString()
+            })
+            .eq('id', existingData.id);
+
+          if (updateError) throw updateError;
+        } else {
+          // 새로운 데이터 삽입
+          const { error: insertError } = await supabase
+            .from('category_maps')
+            .insert({
+              ...mapping,
+              id: crypto.randomUUID(),
+              createdat: new Date().toISOString(),
+              updatedat: null,
+              companyid: null
+            });
+
+          if (insertError) throw insertError;
+        }
+      }
 
       alert('맵핑이 저장되었습니다.');
       
+      // 선택 초기화
       setSelectedInboundCategories([]);
       setSelectedOutboundCategories([]);
+
+      // MAPLIST가 열려있는 경우 목록 새로고침
+      fetchMappedCategories();
+
     } catch (error) {
       console.error('Error saving category mapping:', error);
       alert('맵핑 저장 중 오류가 발생했습니다.');
@@ -307,6 +346,43 @@ export default function CategoryMapping() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('category_maps')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // 삭제 후 목록 새로고침
+      fetchMappedCategories();
+      alert('삭제되었습니다.');
+    } catch (error) {
+      console.error('Error deleting category mapping:', error);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    try {
+      const { error } = await supabase
+        .from('category_maps')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+
+      // 삭제 후 목록 새로고침
+      fetchMappedCategories();
+      alert('선택한 항목이 삭제되었습니다.');
+      setSelectedMapItems([]); // 선택 초기화
+    } catch (error) {
+      console.error('Error deleting category mappings:', error);
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     if (selectedPlatform) {
       fetchTest(selectedPlatform);
@@ -315,16 +391,19 @@ export default function CategoryMapping() {
 
   useEffect(() => {
     fetchPlatforms();
-    fetchQoo10Categories();
   }, []);
+
+  useEffect(() => {
+    if (rightPlatform === 'QOO10' && rightCountry) {
+      fetchQoo10Categories();
+    } else {
+      setQoo10Categories([]);
+    }
+  }, [rightPlatform, rightCountry]);
 
   useEffect(() => {
     if (selectedInboundPlatform && selectedOutboundPlatform && selectedCountry) {
       fetchMappedCategories();
-      // QOO10 카테고리도 함께 로드
-      if (!qoo10Categories.length) {
-        fetchQoo10Categories();
-      }
     }
   }, [selectedInboundPlatform, selectedOutboundPlatform, selectedCountry]);
 
@@ -377,7 +456,16 @@ export default function CategoryMapping() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">
-                        <Checkbox />
+                        <Checkbox 
+                          checked={categories.length > 0 && selectedInboundCategories.length === categories.length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedInboundCategories(categories);
+                            } else {
+                              setSelectedInboundCategories([]);
+                            }
+                          }}
+                        />
                       </TableHead>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>카테고리 ID</TableHead>
@@ -422,23 +510,25 @@ export default function CategoryMapping() {
               <div className="flex items-end gap-4">
                 <div className="grid gap-2">
                   <span className="text-sm">플랫폼 선택</span>
-                  <Select>
+                  <Select value={rightPlatform} onValueChange={setRightPlatform}>
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="플랫폼선택" />
+                      <SelectValue placeholder="플랫폼을 선택하세요" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="lazada">QOO10</SelectItem>
+                      <SelectItem value="QOO10">QOO10</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
                   <span className="text-sm">국가 선택</span>
-                  <Select>
+                  <Select value={rightCountry} onValueChange={setRightCountry}>
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="국가선택" />
+                      <SelectValue placeholder="국가를 선택하세요" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="jp">JP</SelectItem>
+                      <SelectItem value="JP">JP</SelectItem>
+                      <SelectItem value="SG">SG</SelectItem>
+                      <SelectItem value="MY">MY</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -454,7 +544,10 @@ export default function CategoryMapping() {
 
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  4,433 results found | 0 selected
+                  {!rightPlatform || !rightCountry 
+                    ? "플랫폼과 국가를 선택해주세요" 
+                    : `${qoo10Categories.length} results found | ${selectedOutboundCategories.length} selected`
+                  }
                 </div>
               </div>
 
@@ -463,7 +556,16 @@ export default function CategoryMapping() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">
-                        <Checkbox />
+                        <Checkbox 
+                          checked={qoo10Categories.length > 0 && selectedOutboundCategories.length === paginateQoo10Categories(qoo10Categories).length}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedOutboundCategories(paginateQoo10Categories(qoo10Categories));
+                            } else {
+                              setSelectedOutboundCategories([]);
+                            }
+                          }}
+                        />
                       </TableHead>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>카테고리 ID</TableHead>
@@ -571,8 +673,17 @@ export default function CategoryMapping() {
 
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-              {mappedCategories.length} results found
+              {mappedCategories.length} results found | {selectedMapItems.length} selected
             </div>
+            {selectedMapItems.length > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => handleBulkDelete(selectedMapItems)}
+              >
+                선택 삭제
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">
@@ -580,20 +691,39 @@ export default function CategoryMapping() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
-                    <Checkbox />
+                    <Checkbox 
+                      checked={selectedMapItems.length === mappedCategories.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedMapItems(mappedCategories.map(c => c.id));
+                        } else {
+                          setSelectedMapItems([]);
+                        }
+                      }}
+                    />
                   </TableHead>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Inbound Category ID</TableHead>
                   <TableHead>Inbound Category Name</TableHead>
                   <TableHead>Outbound Category ID</TableHead>
                   <TableHead>Outbound Category Name</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {mappedCategories.map((category, index) => (
                   <TableRow key={category.id} className="h-16">
                     <TableCell>
-                      <Checkbox />
+                      <Checkbox 
+                        checked={selectedMapItems.includes(category.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedMapItems(prev => [...prev, category.id]);
+                          } else {
+                            setSelectedMapItems(prev => prev.filter(id => id !== category.id));
+                          }
+                        }}
+                      />
                     </TableCell>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{category.inboundcategoryid}</TableCell>
@@ -609,6 +739,15 @@ export default function CategoryMapping() {
                       qoo10Categories.find(c => 
                         (c.CATE_S_CD || c.CATE_M_CD || c.CATE_L_CD) === category.outboundcategoryid
                       )?.CATE_L_NM}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(category.id)}
+                      >
+                        삭제
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
