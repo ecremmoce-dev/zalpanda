@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import { Category } from '@/types/category';
 import { supabase } from "@/utils/supabase/client"
 import { Qoo10Category, Qoo10Response } from '@/types/qoo10'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface CategoryMap {
   id: string;
@@ -65,6 +66,12 @@ export default function CategoryMapping() {
   const [rightPlatform, setRightPlatform] = useState<string>("");
   const [rightCountry, setRightCountry] = useState<string>("");
   const [selectedMapItems, setSelectedMapItems] = useState<string[]>([]);
+  const [isChangeDialogOpen, setIsChangeDialogOpen] = useState(false);
+  const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [filteredCategories, setFilteredCategories] = useState<Qoo10Category[]>([]);
+  const [dialogCurrentPage, setDialogCurrentPage] = useState(1);
+  const dialogItemsPerPage = 10;
 
   const fetchTest = async (platform?: string) => {
     try {
@@ -182,6 +189,7 @@ export default function CategoryMapping() {
       const data: Qoo10Response = await response.json();
       
       if (data.ResultCode === 0) {
+        console.log('Fetched QOO10 categories:', data.ResultObject);
         setQoo10Categories(data.ResultObject);
       } else {
         console.error("Error fetching QOO10 categories:", data.ResultMsg);
@@ -381,6 +389,51 @@ export default function CategoryMapping() {
       console.error('Error deleting category mappings:', error);
       alert('삭제 중 오류가 발생했습니다.');
     }
+  };
+
+  const searchCategories = (term: string) => {
+    const filtered = qoo10Categories.filter(category => {
+      const searchStr = term.toLowerCase();
+      return (
+        (category.CATE_L_NM?.toLowerCase() || '').includes(searchStr) ||
+        (category.CATE_M_NM?.toLowerCase() || '').includes(searchStr) ||
+        (category.CATE_S_NM?.toLowerCase() || '').includes(searchStr) ||
+        (category.CATE_L_CD?.toLowerCase() || '').includes(searchStr) ||
+        (category.CATE_M_CD?.toLowerCase() || '').includes(searchStr) ||
+        (category.CATE_S_CD?.toLowerCase() || '').includes(searchStr)
+      );
+    });
+    setFilteredCategories(filtered);
+  };
+
+  const handleCategoryChange = async (mapId: string, newCategoryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('category_maps')
+        .update({
+          outboundcategoryid: newCategoryId,
+          updatedat: new Date().toISOString()
+        })
+        .eq('id', mapId);
+
+      if (error) throw error;
+
+      alert('카테고리가 변경되었습니다.');
+      fetchMappedCategories();
+      setIsChangeDialogOpen(false);
+      setSelectedMapId(null);
+      setCategorySearchTerm('');
+      setFilteredCategories([]);
+    } catch (error) {
+      console.error('Error updating category:', error);
+      alert('카테고리 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  const paginateDialogCategories = (categories: Qoo10Category[]) => {
+    const indexOfLastItem = dialogCurrentPage * dialogItemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - dialogItemsPerPage;
+    return categories.slice(indexOfFirstItem, indexOfLastItem);
   };
 
   useEffect(() => {
@@ -648,7 +701,7 @@ export default function CategoryMapping() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <span className="text-sm">Outbound 플랫폼 선택</span>
+              <span className="text-sm">Outbound ���랫폼 선택</span>
               <Select value={selectedOutboundPlatform} onValueChange={setSelectedOutboundPlatform}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="플랫폼 선택" />
@@ -741,13 +794,32 @@ export default function CategoryMapping() {
                       )?.CATE_L_NM}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(category.id)}
-                      >
-                        삭제
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            setSelectedMapId(category.id);
+                            setIsChangeDialogOpen(true);
+                            
+                            // QOO10 카테고리가 없으면 로드
+                            if (qoo10Categories.length === 0) {
+                              await fetchQoo10Categories();
+                            }
+                            
+                            searchCategories(''); // 초기 검색 결과 표시
+                          }}
+                        >
+                          변경
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(category.id)}
+                        >
+                          삭제
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -756,6 +828,98 @@ export default function CategoryMapping() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isChangeDialogOpen} onOpenChange={setIsChangeDialogOpen}>
+        <DialogContent className="max-w-[800px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>카테고리 변경</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <Input
+                placeholder="카테고리 검색"
+                value={categorySearchTerm}
+                onChange={(e) => {
+                  setCategorySearchTerm(e.target.value);
+                  searchCategories(e.target.value);
+                  setDialogCurrentPage(1); // 검색 시 첫 페이지로 이동
+                }}
+              />
+            </div>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>카테고리 ID</TableHead>
+                    <TableHead>카테고리명</TableHead>
+                    <TableHead className="w-[100px]">선택</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginateDialogCategories(categorySearchTerm ? filteredCategories : qoo10Categories)
+                    .map((category) => (
+                      <TableRow key={`${category.CATE_L_CD}-${category.CATE_M_CD}-${category.CATE_S_CD}`}>
+                        <TableCell>
+                          {category.CATE_S_CD || category.CATE_M_CD || category.CATE_L_CD}
+                        </TableCell>
+                        <TableCell>
+                          {category.CATE_L_NM}
+                          {category.CATE_M_NM && ` > ${category.CATE_M_NM}`}
+                          {category.CATE_S_NM && ` > ${category.CATE_S_NM}`}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (selectedMapId) {
+                                handleCategoryChange(
+                                  selectedMapId,
+                                  category.CATE_S_CD || category.CATE_M_CD || category.CATE_L_CD
+                                );
+                              }
+                            }}
+                          >
+                            선택
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+            
+            {/* 페이지네이션 추가 */}
+            <div className="flex items-center justify-between px-4 py-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                Total {(categorySearchTerm ? filteredCategories : qoo10Categories).length} items
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialogCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={dialogCurrentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="text-sm">
+                  Page {dialogCurrentPage} of {Math.ceil((categorySearchTerm ? filteredCategories : qoo10Categories).length / dialogItemsPerPage)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDialogCurrentPage(prev => 
+                    Math.min(Math.ceil((categorySearchTerm ? filteredCategories : qoo10Categories).length / dialogItemsPerPage), prev + 1)
+                  )}
+                  disabled={dialogCurrentPage === Math.ceil((categorySearchTerm ? filteredCategories : qoo10Categories).length / dialogItemsPerPage)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
