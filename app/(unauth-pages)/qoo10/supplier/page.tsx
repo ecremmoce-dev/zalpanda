@@ -138,7 +138,6 @@ export default function SupplierManagement() {
         return
       }
 
-      // 공급사코드가 없는 경��� 자동 생성
       const vendproductcd = newSupplier.vendproductcd || generateVendProductCode(newSupplier.supplyname);
 
       const supplierData = {

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { supabase } from "@/utils/supabase/client"
 import { useUserDataStore } from "@/store/modules"
-import SupplierSection from "@/components/supplier-section"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import {
   Table,
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, ChevronDown, ChevronRight } from "lucide-react"
+import { Search, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -25,6 +24,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface OptionData {
   label: string
@@ -71,22 +71,14 @@ const chunkArray = <T,>(array: T[], size: number): T[][] => {
 }
 
 export function ProductExchange() {
-  const [supplierData, setSupplierData] = useState<any[]>([])
-  const [supplierSearchTerm, setSupplierSearchTerm] = useState("")
-  const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
-  const { user } = useUserDataStore()
-  const { selectedSupplier, setSelectedSupplier } = useSupplierStore()
   const [products, setProducts] = useState<ProductPrice[]>([])
   const [productSearchTerm, setProductSearchTerm] = useState("")
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  useEffect(() => {
-    if (user && user.companyid) {
-      fetchSupplierData(user.companyid)
-    }
-  }, [user])
+  const { user } = useUserDataStore()
+  const { selectedSupplier, setSelectedSupplier } = useSupplierStore()
 
   useEffect(() => {
     const loadData = async () => {
@@ -105,20 +97,6 @@ export function ProductExchange() {
 
     loadData()
   }, [selectedSupplier?.id])
-
-  const fetchSupplierData = async (companyid: string) => {
-    try {
-      const { data, error } = await supabase.from('company_supply')
-        .select('*')
-        .eq('companyid', companyid)
-
-      if (error) throw error
-      
-      setSupplierData(data)
-    } catch (error) {
-      console.error('Failed to fetch suppliers:', error)
-    }
-  }
 
   const fetchProductPrices = async () => {
     try {
@@ -292,21 +270,6 @@ export function ProductExchange() {
     }
   }
 
-  const handleSupplierSearch = () => {
-    if (!supplierSearchTerm || !user) {
-      if (user) {
-        fetchSupplierData(user.companyid)
-      }
-      return
-    }
-
-    const filteredData = supplierData.filter(supplier =>
-      supplier.supplyname.includes(supplierSearchTerm) ||
-      supplier.managername.includes(supplierSearchTerm)
-    )
-    setSupplierData(filteredData)
-  }
-
   const handleSupplierSelect = async (supplier: any) => {
     try {
       if (!supplier?.id || !user?.companyid) return
@@ -325,159 +288,13 @@ export function ProductExchange() {
         companyid: supplier.companyid
       })
 
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('items')
-        .select(`
-          id,
-          variationsku,
-          name,
-          thumbnailurl,
-          purchaseprice,
-          consumerprice,
-          supplyid
-        `)
-        .eq('supplyid', supplier.id.toString())
-        .eq('companyid', user.companyid)
-        .order('createdat', { ascending: false })
-
-      if (itemsError) {
-        console.error('Items Error:', itemsError)
-        return
-      }
-
-      if (!itemsData || itemsData.length === 0) {
-        setProducts([])
-        return
-      }
-
-      const itemIds = itemsData.map(item => item.id)
-      const chunkedItemIds = chunkArray(itemIds, 10) // 10개씩 나누기
-
-      let allPricesData: any[] = []
-      let allOptionsData: any[] = []
-
-      // 청크별로 prices 데이터 조회
-      for (const chunk of chunkedItemIds) {
-        const { data: pricesData, error: pricesError } = await supabase
-          .from('prices')
-          .select('*')
-          .in('itemid', chunk)
-
-        if (pricesError) {
-          console.error('Prices Error:', pricesError)
-          continue
-        }
-
-        if (pricesData) {
-          allPricesData = [...allPricesData, ...pricesData]
-        }
-      }
-
-      // 청크별로 options 데이터 조회
-      for (const chunk of chunkedItemIds) {
-        const { data: optionsData, error: optionsError } = await supabase
-          .from('item_options_new')
-          .select(`
-            id,
-            itemid,
-            original_json,
-            modified_json,
-            createdat,
-            updatedat
-          `)
-          .in('itemid', chunk)
-          .order('createdat', { ascending: false })
-
-        if (optionsError) {
-          console.error('Options Error:', optionsError)
-          continue
-        }
-
-        if (optionsData) {
-          console.log('Options Data for chunk:', chunk, optionsData)
-          allOptionsData = [...allOptionsData, ...optionsData]
-        }
-      }
-
-      // 데이터 포맷팅
-      const formattedData: ProductPrice[] = []
-      
-      itemsData.forEach(item => {
-        const itemPrices = allPricesData.filter(price => price.itemid === item.id)
-        const itemOption = allOptionsData.find(opt => opt.itemid === item.id)
-        
-        let parsedModifiedJson = null
-        if (itemOption?.modified_json) {
-          try {
-            if (typeof itemOption.modified_json === 'string') {
-              parsedModifiedJson = JSON.parse(itemOption.modified_json)
-            } else {
-              parsedModifiedJson = itemOption.modified_json
-            }
-          } catch (e) {
-            console.error('Failed to parse modified_json:', e)
-          }
-        }
-
-        if (itemPrices.length > 0) {
-          itemPrices.forEach(price => {
-            formattedData.push({
-              id: price.id,
-              variationsku: item.variationsku || '',
-              name: item.name || '',
-              thumbnailurl: item.thumbnailurl || '',
-              purchaseprice: item.purchaseprice || 0,
-              consumerprice: item.consumerprice || 0,
-              platformprice: price.platformprice || 0,
-              currency: price.currency || '',
-              exchangerate: price.exchangerate || 0,
-              krw: price.krw || 0,
-              platform: price.platform || '',
-              country: price.country || '',
-              exchangedate: price.exchangedate || '',
-              brandname: itemOption?.modified_json?.brandName || '',
-              groupname: itemOption?.modified_json?.groupName || '',
-              groupvalue: itemOption?.modified_json?.groupValue || '',
-              options: itemOption ? {
-                modified_json: parsedModifiedJson,
-                original_json: itemOption.original_json
-              } : undefined,
-              isExpanded: false,
-            })
-          })
-        } else {
-          formattedData.push({
-            id: item.id,
-            variationsku: item.variationsku || '',
-            name: item.name || '',
-            thumbnailurl: item.thumbnailurl || '',
-            purchaseprice: item.purchaseprice || 0,
-            consumerprice: item.consumerprice || 0,
-            platformprice: 0,
-            currency: '',
-            exchangerate: 0,
-            krw: 0,
-            platform: '',
-            country: '',
-            exchangedate: '',
-            brandname: itemOption?.modified_json?.brandName || '',
-            groupname: itemOption?.modified_json?.groupName || '',
-            groupvalue: itemOption?.modified_json?.groupValue || '',
-            options: itemOption ? {
-              modified_json: parsedModifiedJson,
-              original_json: itemOption.original_json
-            } : undefined,
-            isExpanded: false,
-          })
-        }
-      })
-
-      setProducts(formattedData)
-      console.log('Formatted Products:', formattedData)
-
+      setLoading(true)
+      await fetchProductPrices()
+      setLoading(false)
     } catch (error) {
       console.error('Error selecting supplier:', error)
       setProducts([])
+      setLoading(false)
     }
   }
 
@@ -625,15 +442,7 @@ export function ProductExchange() {
 
   return (
     <div className="container mx-auto p-4 space-y-8">
-      <SupplierSection 
-        supplierData={supplierData}
-        supplierSearchTerm={supplierSearchTerm}
-        setSupplierSearchTerm={setSupplierSearchTerm}
-        handleSupplierSearch={handleSupplierSearch}
-        isSupplierTableExpanded={isSupplierTableExpanded}
-        setIsSupplierTableExpanded={setIsSupplierTableExpanded}
-        handleSupplierSelect={handleSupplierSelect}
-      />
+      <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
       <Card className="w-full p-6">
         <div className="flex justify-between items-center mb-6">
@@ -741,25 +550,27 @@ export function ProductExchange() {
               전체 {filteredProducts.length}개 중 {indexOfFirstItem + 1}-
               {Math.min(indexOfLastItem, filteredProducts.length)}개 표시
             </div>
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  />
-                </PaginationItem>
-                
-                {renderPagination()}
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {renderPagination()}
 
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <div className="flex items-center space-x-2">
               <span className="text-sm text-gray-500">페이지당 항목:</span>
               <select

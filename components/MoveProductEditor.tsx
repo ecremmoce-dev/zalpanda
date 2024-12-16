@@ -802,7 +802,6 @@ export default function MoveProductEditor({ product, onSave, onCancel, onApplyTo
 
                       const result = await response.json();
 
-                      // 결과 메시��� 생성
                       let message = '== QOO10 옵션정보 전송 결과 ==\n\n';
                       
                       if (result.ResultCode === 0) {

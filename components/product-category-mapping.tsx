@@ -701,7 +701,7 @@ export default function CategoryMapping() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <span className="text-sm">Outbound ���랫폼 선택</span>
+              <span className="text-sm">Outbound 플랫폼 선택</span>
               <Select value={selectedOutboundPlatform} onValueChange={setSelectedOutboundPlatform}>
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="플랫폼 선택" />
