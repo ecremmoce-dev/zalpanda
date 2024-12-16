@@ -65,6 +65,8 @@ interface Supplier {
 interface Product {
   id: string
   variationsku: string
+  ecsku: string
+  sellersku: string
   thumbnailurl: string
   name: string
   originalname: string
@@ -139,6 +141,8 @@ export default function SupplierProductManagement() {
         .select(`
           id,
           variationsku,
+          ecsku,
+          sellersku,
           thumbnailurl,
           name,
           originalname,
@@ -284,14 +288,20 @@ export default function SupplierProductManagement() {
       )
     },
     { 
-      accessorKey: "variationsku",
-      header: "SKU",
-      cell: ({ row }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku || '-'}
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
         </div>
       )
     },
@@ -394,14 +404,20 @@ export default function SupplierProductManagement() {
       ),
     },
     { 
-      accessorKey: "variationsku",
-      header: "SKU",
-      cell: ({ row }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku || '-'}
+      accessorKey: "ecsku",
+      header: "EC SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.ecsku || '-'}
+        </div>
+      )
+    },
+    { 
+      accessorKey: "sellersku",
+      header: "Seller SKU",
+      cell: ({ row }: { row: any }) => (
+        <div className="text-center">
+          {row.original.sellersku || '-'}
         </div>
       )
     },
