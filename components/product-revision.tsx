@@ -52,7 +52,15 @@ import {
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import { useRouter } from 'next/navigation'
-import { SupplierSelector } from "@/components/supplier-selector"
+
+interface Supplier {
+  id: number
+  code: string
+  company: string
+  website: string
+  brand: string
+  registrationDate: string
+}
 
 interface Product {
   id: string
@@ -78,10 +86,13 @@ const DEFAULT_IMAGE = 'https://via.placeholder.com/150'
 
 export default function SupplierProductManagement() {
   const [userData, setUserData] = useState<any>(null)
+  const [supplierData, setSupplierData] = useState<any[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [supplierSearch, setSupplierSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('전체')
   const [selectedProducts, setSelectedProducts] = useState<number[]>([])
+  const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [editingContent, setEditingContent] = useState<string>('')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -97,12 +108,29 @@ export default function SupplierProductManagement() {
   useEffect(() => {
     const initializeData = async () => {
       if (user) {
-        await fetchProductData(selectedSupplier.id, user.companyid)
+        await fetchSupplierData(user.companyid)
+        if (selectedSupplier?.id) {
+          await fetchProductData(selectedSupplier.id, user.companyid)
+        }
       }
     }
     
     initializeData()
   }, [user, selectedSupplier])
+
+  const fetchSupplierData = async (companyid: string) => {
+    try {
+      const { data, error } = await supabase.from('company_supply')
+        .select('*')
+        .eq('companyid', companyid)
+
+      if (error) throw error;
+      
+      setSupplierData(data)
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   const fetchProductData = async (supplyid: string | number, companyid: string) => {
     try {
@@ -201,17 +229,36 @@ export default function SupplierProductManagement() {
   const handleSupplierSearch = () => {
     if (!supplierSearchTerm || !user) {
       if (user) {
-        fetchProductData(selectedSupplier.id, user.companyid);
+        fetchSupplierData(user.companyid);
       }
       return;
     }
 
-    const filteredData = products.filter(product =>
-      product.supplyname.includes(supplierSearchTerm) ||
-      product.managername.includes(supplierSearchTerm)
+    const filteredData = supplierData.filter(supplier =>
+      supplier.supplyname.includes(supplierSearchTerm) ||
+      supplier.managername.includes(supplierSearchTerm)
     );
-    setProducts(filteredData);
+    setSupplierData(filteredData);
   }
+
+  const supplierColumns: ColumnDef<any>[] = [
+    { accessorKey: "supplyname", header: "회사명" },
+    { accessorKey: "managername", header: "담당자" },
+    { accessorKey: "created", header: "등록일" },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          onClick={() => handleSupplierSelect(row.original)}
+          variant={selectedSupplier?.id === row.original.id ? "default" : "outline"}
+          className={selectedSupplier?.id === row.original.id ? "bg-blue-500 text-white" : ""}
+        >
+          선택
+        </Button>
+      ),
+    },
+  ]
 
   const productColumns: ColumnDef<Product>[] = [
     {
@@ -461,12 +508,43 @@ export default function SupplierProductManagement() {
 
   return (
     <>
-      <div className="container mx-auto py-6 space-y-8">
-        <SupplierSelector onSupplierSelect={handleSupplierSelect} />
+      <div className="container mx-auto p-4 space-y-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
+            <div className="flex items-center space-x-2">
+              {selectedSupplier && (
+                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
+              >
+                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isSupplierTableExpanded && (
+              <DataTable 
+                columns={supplierColumns}
+                data={supplierData}
+                searchTerm={supplierSearchTerm}
+                onSearchTermChange={setSupplierSearchTerm}
+                onSearch={handleSupplierSearch}
+                showActionButtons={true}
+                selectedSupplier={selectedSupplier}
+              />
+            )}
+          </CardContent>
+        </Card>
 
-        <Card>
+        <Card className="w-full">
           <CardHeader>
-            <CardTitle>상품 목록</CardTitle>
+            <CardTitle className="text-xl font-bold">
+              {selectedSupplier ? `${selectedSupplier.supplyname} 상품 목록` : '상품 목록'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="product-name-correction" className="w-full">
