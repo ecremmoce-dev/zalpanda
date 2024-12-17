@@ -52,6 +52,7 @@ import {
 import ProductDetail from "@/components/product-public-detail"
 import { useSupplierStore } from "@/store/modules/supplierStore"
 import { useRouter } from 'next/navigation'
+import { SupplierSelector } from "@/components/supplier-selector"
 
 interface Supplier {
   id: number
@@ -93,7 +94,6 @@ export default function SupplierProductManagement() {
   const [productSearch, setProductSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('전체')
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [isSupplierTableExpanded, setIsSupplierTableExpanded] = useState(true)
   const [editingContent, setEditingContent] = useState<string>('')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -112,7 +112,7 @@ export default function SupplierProductManagement() {
   useEffect(() => {
     const initializeData = async () => {
       if (user) {
-        await fetchSupplierData(user.companyid)
+        await initializeSupplierData(user.companyid)
         if (selectedSupplier?.id) {
           await fetchProductData(selectedSupplier.id, user.companyid)
         }
@@ -181,17 +181,9 @@ export default function SupplierProductManagement() {
   }
 
   const handleSupplierSelect = async (supplier: any) => {
+    setSelectedSupplier(supplier);
     if (user && supplier && supplier.id) {
-      const { supplyname, id, companyid } = supplier
-      setSelectedSupplier({
-        id,
-        supplyname,
-        managername: supplier.managername,
-        created: supplier.created,
-        companyid
-      })
-      
-      await fetchProductData(id, user.companyid)
+      await fetchProductData(supplier.id, user.companyid)
     }
   }
 
@@ -234,10 +226,8 @@ export default function SupplierProductManagement() {
   });
 
   const handleSupplierSearch = () => {
-    if (!supplierSearchTerm || !user) {
-      if (user) {
-        fetchSupplierData(user.companyid);
-      }
+    if (!supplierSearchTerm) {
+      initializeSupplierData(user.companyid);
       return;
     }
 
@@ -248,7 +238,8 @@ export default function SupplierProductManagement() {
     setSupplierData(filteredData);
   }
 
-  const supplierColumns: ColumnDef<any>[] = [
+  // Supplier columns
+  const supplierColumns: ColumnDef<typeof supplierData[0]>[] = [
     { accessorKey: "supplyname", header: "회사명" },
     { accessorKey: "managername", header: "담당자" },
     { accessorKey: "created", header: "등록일" },
@@ -325,18 +316,6 @@ export default function SupplierProductManagement() {
       cell: ({ row }) => (
         <div className="text-center">
           {row.original.sellersku || '-'}
-        </div>
-      )
-    },
-    { 
-      accessorKey: "variationsku",
-      header: "SKU",
-      cell: ({ row }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku || '-'}
         </div>
       )
     },
@@ -455,18 +434,6 @@ export default function SupplierProductManagement() {
       ),
     },
     { 
-      accessorKey: "variationsku",
-      header: "SKU",
-      cell: ({ row }) => (
-        <div 
-          className="cursor-pointer hover:text-blue-500"
-          onClick={() => handleProductClick(row.original.id)}
-        >
-          {row.original.variationsku || '-'}
-        </div>
-      )
-    },
-    { 
       accessorKey: "ecsku",
       header: "EC SKU",
       cell: ({ row }) => (
@@ -564,10 +531,6 @@ export default function SupplierProductManagement() {
     setSelectedProductId(productId);
     setIsDetailDialogOpen(true);
   };
-
-  const handleProductRegistration = (method: string) => {
-    router.push(`/product/public/new?type=${method}`)
-  }
 
   const handleOptionSelect = (option: string) => {
     switch (option) {
@@ -699,41 +662,37 @@ export default function SupplierProductManagement() {
     }
   };
 
+  const initializeSupplierData = async (companyid: string) => {
+    try {
+      const { data, error } = await supabase.from('company_supply')
+        .select('*')
+        .eq('companyid', companyid);
+
+      if (error) throw error;
+      setSupplierData(data);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  const handleDownloadList = () => {
+    console.log("Downloading list")
+    // 실제 다운로드 로직 구현
+  }
+
+  const handleProductRegistration = (method: string) => {
+    router.push(`/product/public/new?type=${method}`)
+  }
+
   return (
     <>
       <div className="container mx-auto p-4 space-y-8">
-        <Card className="w-full">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">공급사</CardTitle>
-            <div className="flex items-center space-x-2">
-              {selectedSupplier && (
-                <span className="text-lg font-medium">{selectedSupplier.supplyname}</span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsSupplierTableExpanded(!isSupplierTableExpanded)}
-              >
-                {isSupplierTableExpanded ? <ChevronDown /> : <ChevronRight />}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isSupplierTableExpanded && (
-              <DataTable 
-                columns={supplierColumns}
-                data={supplierData}
-                searchTerm={supplierSearchTerm}
-                onSearchTermChange={setSupplierSearchTerm}
-                onSearch={handleSupplierSearch}
-                showActionButtons={true}
-                selectedSupplier={selectedSupplier}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="w-full">
+        <SupplierSelector 
+          onSupplierSelect={handleSupplierSelect}
+          onDownloadList={handleDownloadList}
+          onProductRegistration={handleProductRegistration}
+        />
+        <Card>
           <CardHeader>
             <CardTitle className="text-xl font-bold">
               {selectedSupplier ? `${selectedSupplier.supplyname} 상품 목록` : '상품 목록'}
@@ -789,11 +748,6 @@ export default function SupplierProductManagement() {
                   searchTerm={productSearch}
                   onSearchTermChange={setProductSearch}
                   showActionButtons={true}
-                  categories={categories}
-                  selectedCategory={selectedCategory}
-                  onCategoryChange={setSelectedCategory}
-                  currentPage={currentPage}
-                  onPageChange={handlePageChange}
                   selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
@@ -804,11 +758,6 @@ export default function SupplierProductManagement() {
                   searchTerm={productSearch}
                   onSearchTermChange={setProductSearch}
                   showActionButtons={true}
-                  categories={categories}
-                  selectedCategory={selectedCategory}
-                  onCategoryChange={setSelectedCategory}
-                  currentPage={currentPage}
-                  onPageChange={handlePageChange}
                   selectedSupplier={selectedSupplier}
                 />
               </TabsContent>
@@ -954,11 +903,6 @@ interface DataTableProps<TData, TValue> {
   onSearchTermChange?: (term: string) => void
   onSearch?: () => void
   showActionButtons: boolean
-  categories?: string[]
-  selectedCategory?: string
-  onCategoryChange?: (category: string) => void
-  currentPage?: number
-  onPageChange?: (page: number) => void
   selectedSupplier?: any
 }
 
@@ -969,11 +913,6 @@ function DataTable<TData, TValue>({
   onSearchTermChange,
   onSearch,
   showActionButtons,
-  categories,
-  selectedCategory,
-  onCategoryChange,
-  currentPage,
-  onPageChange,
   selectedSupplier,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -998,7 +937,7 @@ function DataTable<TData, TValue>({
       columnVisibility,
       rowSelection,
       pagination: {
-        pageIndex: currentPage || 0,
+        pageIndex: 0,
         pageSize: 10,
       },
     },
@@ -1093,7 +1032,6 @@ function DataTable<TData, TValue>({
             size="sm"
             onClick={() => {
               const newPage = table.getState().pagination.pageIndex - 1;
-              onPageChange && onPageChange(newPage);
               table.previousPage();
             }}
             disabled={!table.getCanPreviousPage()}
@@ -1109,7 +1047,6 @@ function DataTable<TData, TValue>({
             size="sm"
             onClick={() => {
               const newPage = table.getState().pagination.pageIndex + 1;
-              onPageChange && onPageChange(newPage);
               table.nextPage();
             }}
             disabled={!table.getCanNextPage()}

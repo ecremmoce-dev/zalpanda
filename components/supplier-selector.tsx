@@ -231,4 +231,6 @@ export function SupplierSelector({
       </CardContent>
     </Card>
   )
-} 
+}
+
+export default SupplierSelector; 

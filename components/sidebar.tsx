@@ -112,7 +112,11 @@ export function Sidebar() {
       href: '/qoo10/cosmos',
       icon: Globe
     },
-    
+    {
+      title: 'QOO10 리스팅',
+      href: '/qoo10/qoo10listing',
+      icon: ShoppingCart
+    },
   ]
 
   const isCurrentPath = (path: string) => {
@@ -212,7 +216,7 @@ export function Sidebar() {
                     className={getSubLinkClassName("/product/options/volume")}
                   >
                     <Package2 className="h-4 w-4" />
-                    무게/크기 등록
+                    무게/크기 등��
                   </Link>
                   <Link 
                     href="/product/options/stock" 
@@ -283,19 +287,27 @@ export function Sidebar() {
               {isQoo10MenuOpen && (
                 <div className="ml-6 mt-2 space-y-1">
                   <Link
+                    className={getSubLinkClassName("/qoo10/qoo10listing")}
+                    href="/qoo10/qoo10listing"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    QOO10 리스팅
+                  </Link>
+                  <Link
+                    className={getSubLinkClassName("/qoo10/qoo10prodmange")}
+                    href="/qoo10/qoo10prodmange"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    QOO10 상품 관리
+                  </Link>
+                  <Link
                     className={getSubLinkClassName("/qoo10/cosmos")}
                     href="/qoo10/cosmos"
                   >
                     <Globe className="h-4 w-4" />
-                    상품관리
+                    상품관리 API
                   </Link>
-                  <Link
-                    className={getSubLinkClassName("/qoo10/orders")}
-                    href="/qoo10/orders"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    주문관리
-                  </Link>
+                  
                   <Link
                     className={getSubLinkClassName("/qoo10/inquiries")}
                     href="/qoo10/inquiries"
