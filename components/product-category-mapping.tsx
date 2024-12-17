@@ -60,7 +60,7 @@ export default function CategoryMapping() {
   const [selectedInboundCategories, setSelectedInboundCategories] = useState<Category[]>([]);
   const [selectedOutboundCategories, setSelectedOutboundCategories] = useState<Qoo10Category[]>([]);
   const [mappedCategories, setMappedCategories] = useState<CategoryMapList[]>([]);
-  const [selectedInboundPlatform, setSelectedInboundPlatform] = useState<string>('SMART_STORE');
+  const [selectedInboundPlatform, setSelectedInboundPlatform] = useState<string>('');
   const [selectedOutboundPlatform, setSelectedOutboundPlatform] = useState<string>('QOO10');
   const [selectedCountry, setSelectedCountry] = useState<string>('JP');
   const [rightPlatform, setRightPlatform] = useState<string>("");
@@ -72,6 +72,9 @@ export default function CategoryMapping() {
   const [filteredCategories, setFilteredCategories] = useState<Qoo10Category[]>([]);
   const [dialogCurrentPage, setDialogCurrentPage] = useState(1);
   const dialogItemsPerPage = 10;
+  const [inboundPlatforms, setInboundPlatforms] = useState<string[]>([]);
+  const [outboundPlatforms, setOutboundPlatforms] = useState<string[]>([]);
+  const [outboundCountries, setOutboundCountries] = useState<string[]>([]);
 
   const fetchTest = async (platform?: string) => {
     try {
@@ -436,6 +439,96 @@ export default function CategoryMapping() {
     return categories.slice(indexOfFirstItem, indexOfLastItem);
   };
 
+  const fetchDropdownData = async () => {
+    try {
+      console.log('Fetching dropdown data...');
+
+      // Fetch unique inbound platforms
+      const { data: inboundData, error: inboundError } = await supabase
+        .from('category_maps')
+        .select('inboundplatform');
+
+      console.log('Inbound Data:', inboundData);
+
+      if (inboundError) {
+        console.error('Error fetching inbound platforms:', inboundError);
+        return;
+      }
+
+      // Filter and transform the data
+      const uniqueInboundPlatforms = Array.from(new Set(
+        inboundData
+          ?.map(item => item.inboundplatform)
+          .filter(platform => platform && platform.trim() !== '') || []
+      ));
+
+      console.log('Unique Inbound Platforms:', uniqueInboundPlatforms);
+
+      // Fetch unique outbound platforms
+      const { data: outboundData, error: outboundError } = await supabase
+        .from('category_maps')
+        .select('outboundplatform');
+
+      if (outboundError) {
+        console.error('Error fetching outbound platforms:', outboundError);
+        return;
+      }
+
+      // Filter and transform the data
+      const uniqueOutboundPlatforms = Array.from(new Set(
+        outboundData
+          ?.map(item => item.outboundplatform)
+          .filter(platform => platform && platform.trim() !== '') || []
+      ));
+
+      // Fetch unique outbound countries
+      const { data: countryData, error: countryError } = await supabase
+        .from('category_maps')
+        .select('outboundcountry');
+
+      if (countryError) {
+        console.error('Error fetching countries:', countryError);
+        return;
+      }
+
+      // Filter and transform the data
+      const uniqueCountries = Array.from(new Set(
+        countryData
+          ?.map(item => item.outboundcountry)
+          .filter(country => country && country.trim() !== '') || []
+      ));
+
+      console.log('Setting state with:', {
+        inbound: uniqueInboundPlatforms,
+        outbound: uniqueOutboundPlatforms,
+        countries: uniqueCountries
+      });
+
+      // Set the state with the filtered unique values
+      setInboundPlatforms(uniqueInboundPlatforms);
+      setOutboundPlatforms(uniqueOutboundPlatforms);
+      setOutboundCountries(uniqueCountries);
+
+      // If no data is found, set default values
+      if (uniqueInboundPlatforms.length === 0) {
+        setInboundPlatforms(['smartstore']);
+      }
+      if (uniqueOutboundPlatforms.length === 0) {
+        setOutboundPlatforms(['QOO10']);
+      }
+      if (uniqueCountries.length === 0) {
+        setOutboundCountries(['JP']);
+      }
+
+    } catch (error) {
+      console.error('Error in fetchDropdownData:', error);
+      // Set default values in case of error
+      setInboundPlatforms(['smartstore']);
+      setOutboundPlatforms(['QOO10']);
+      setOutboundCountries(['JP']);
+    }
+  };
+
   useEffect(() => {
     if (selectedPlatform) {
       fetchTest(selectedPlatform);
@@ -460,9 +553,20 @@ export default function CategoryMapping() {
     }
   }, [selectedInboundPlatform, selectedOutboundPlatform, selectedCountry]);
 
+  useEffect(() => {
+    fetchDropdownData();
+  }, []);
+
   return (
     <div className="container mx-auto py-6">
-      <Tabs defaultValue="mapping" className="w-full">
+      <Tabs defaultValue="mapping" className="w-full" onValueChange={(value) => {
+        if (value === 'maplist') {
+          fetchDropdownData();
+          if (selectedInboundPlatform && selectedOutboundPlatform && selectedCountry) {
+            fetchMappedCategories();
+          }
+        }
+      }}>
         <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
           <TabsTrigger value="mapping">카테고리 맵핑</TabsTrigger>
           <TabsTrigger value="maplist">카테고리 MAPLIST</TabsTrigger>
@@ -527,20 +631,30 @@ export default function CategoryMapping() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categories.map((category, index) => (
-                      <TableRow key={category.categoryid} className="h-16">
-                        <TableCell>
-                          <Checkbox 
-                            checked={selectedInboundCategories.some(c => c.categoryid === category.categoryid)}
-                            onCheckedChange={(checked) => handleInboundSelection(category, checked as boolean)}
-                          />
+                    {categories.length > 0 ? (
+                      categories.map((category, index) => (
+                        <TableRow key={category.categoryid} className="h-16">
+                          <TableCell>
+                            <Checkbox 
+                              checked={selectedInboundCategories.some(c => c.categoryid === category.categoryid)}
+                              onCheckedChange={(checked) => handleInboundSelection(category, checked as boolean)}
+                            />
+                          </TableCell>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>{category.categoryid}</TableCell>
+                          <TableCell>{category.category_name}</TableCell>
+                          <TableCell>{category.category_path}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                          {!selectedPlatform 
+                            ? "플랫폼을 선택해주세요." 
+                            : "표시할 카테고리가 없습니다."}
                         </TableCell>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>{category.categoryid}</TableCell>
-                        <TableCell>{category.category_name}</TableCell>
-                        <TableCell>{category.category_path}</TableCell>
                       </TableRow>
-                    ))}
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -628,7 +742,7 @@ export default function CategoryMapping() {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center">로딩 중...</TableCell>
+                        <TableCell colSpan={4} className="text-center">딩 중...</TableCell>
                       </TableRow>
                     ) : paginateQoo10Categories(qoo10Categories).map((category, index) => (
                       <TableRow key={`${category.CATE_L_CD}-${category.CATE_M_CD}-${category.CATE_S_CD}`} className="h-16">
@@ -691,12 +805,16 @@ export default function CategoryMapping() {
           <div className="flex items-end gap-4 my-4">
             <div className="grid gap-2">
               <span className="text-sm">Inbound 플랫폼 선택</span>
-              <Select value={selectedInboundPlatform} onValueChange={setSelectedInboundPlatform}>
+              <Select value={selectedInboundPlatform} onValueChange={(value) => setSelectedInboundPlatform(value as string)}>
                 <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="플랫폼 선택" />
+                  <SelectValue placeholder="Inbound 플랫폼 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SMART_STORE">스마트 스토어</SelectItem>
+                  {inboundPlatforms.map(platform => (
+                    <SelectItem key={platform} value={platform}>
+                      {platform}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -707,7 +825,11 @@ export default function CategoryMapping() {
                   <SelectValue placeholder="플랫폼 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="QOO10">QOO10</SelectItem>
+                  {outboundPlatforms.map(platform => (
+                    <SelectItem key={platform} value={platform}>
+                      {platform}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -718,7 +840,11 @@ export default function CategoryMapping() {
                   <SelectValue placeholder="국가 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="JP">JP</SelectItem>
+                  {outboundCountries.map(country => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -923,4 +1049,3 @@ export default function CategoryMapping() {
     </div>
   )
 }
-

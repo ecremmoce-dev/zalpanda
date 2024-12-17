@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Collapsible,
@@ -59,6 +60,8 @@ const STATUS_LABELS: Record<StatusType, string> = {
   failed: '실패',
   binding: '바인딩'
 };
+
+const EXCLUDED_CATEGORIES = ['HOME', 'ALL', 'SHOP'];
 
 export default function ProductRegistration() {
   const searchParams = useSearchParams()
@@ -101,6 +104,22 @@ export default function ProductRegistration() {
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
   const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
+  const [showExcludedCategoriesModal, setShowExcludedCategoriesModal] = useState(false);
+  const [excludedItems, setExcludedItems] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<{[key: string]: string}>({});
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [filteredCategories, setFilteredCategories] = useState<any[]>([]);
+  const [newCategories, setNewCategories] = useState<{
+    [key: string]: {
+      name: string;
+      pathname: string;
+      depth: number;
+      parentId: string | null;
+    }
+  }>({});
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [categoryInputModes, setCategoryInputModes] = useState<{[key: string]: 'select' | 'input'}>({});
 
   const { user } = useUserDataStore()
   const selectedStoreSupplier = useSupplierStore(state => state.selectedSupplier)
@@ -352,6 +371,39 @@ export default function ProductRegistration() {
 
   const handleBinding = async () => {
     const itemsToUpdate = selectedCrawlingResults.filter(item => item.detail_status === 'completed');
+    const excludedCategories = EXCLUDED_CATEGORIES;
+    
+    const itemsWithExcludedCategories = [];
+    
+    for (const item of itemsToUpdate) {
+      const { data: detailData } = await supabase
+        .from('crawlingproductdetail')
+        .select('*')
+        .eq('product_id', item.id)
+        .single();
+        
+      if (!detailData?.detail_json?.category || 
+          excludedCategories.some(excluded => 
+            detailData.detail_json.category.toUpperCase().split('>').some(cat => 
+              cat.trim() === excluded
+            )
+          )) {
+        itemsWithExcludedCategories.push({
+          ...item,
+          category: detailData?.detail_json?.category || '카테고리 없음',
+          title: detailData.detail_json.title,
+          id: item.id
+        });
+      }
+    }
+    
+    if (itemsWithExcludedCategories.length > 0) {
+      console.log('제외된 카테고리 항목:', itemsWithExcludedCategories);
+      setExcludedItems(itemsWithExcludedCategories);
+      setSelectedCategories({});
+      setShowExcludedCategoriesModal(true);
+      return;
+    }
     
     try {
       for (const item of itemsToUpdate) {
@@ -371,7 +423,7 @@ export default function ProductRegistration() {
           const categoryPaths = detail.category.path.split('>');
           const categoryIds = detail.category.wholeId.split('>');
           
-          // 각 깊이별 카테고리 ID를 저장할 맵
+          // 각 깊이 카테고리 ID를 저장할 맵
           const depthToDbId: { [key: number]: string } = {};
           
           for (let i = 0; i < categoryPaths.length; i++) {
@@ -531,8 +583,222 @@ export default function ProductRegistration() {
             .insert(images);
 
           if (imageError) throw imageError;
+        } else if (detail.category) {
+          // 제외할 카테고리 목록
+          const excludedCategories = ['home', 'all', 'shop'];
+          
+          // 일반 카테고리 처리
+          const categoryName = detail.category;
+          
+          // 제외할 카테고리인 경우 카테고리 처리 없이 진행
+          if (excludedCategories.includes(categoryName.toLowerCase())) {
+            const itemData = {
+              id: crypto.randomUUID(),
+              variationsku: detail.sku?.toString() || null,
+              name: detail.title,
+              hscode: null,
+              barcode: null,
+              weight: null,
+              width: null,
+              length: null,
+              height: null,
+              memo: null,
+              thumbnailurl: detail.thumbnails?.[0] || null,
+              companyid: user?.companyid,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              brandname: detail.brand,
+              content: detail.contentHtml,
+              status: 'PENDING',
+              consumerprice: detail.price,
+              contenthtml: detail.contentHtml,
+              supplyid: selectedSupplier?.id,
+              originalcontent: detail.contentHtml,
+              originalname: detail.title,
+              noticeinfo: JSON.stringify(detail.productNotice || specs),
+              purchaseprice: detail.beforeDiscount || detail.price,
+            };
+
+            // item만 저장하고 카테고리 매핑은 하지 않음
+            const { data: savedItem, error: itemError } = await supabase
+              .from('items')
+              .insert([itemData])
+              .select()
+              .single();
+
+            if (itemError) throw itemError;
+
+            // 나머지 옵션과 이미지 처리는 동일하게 진행
+            // ... 기존 옵션 이미지 처리 코드
+
+          } else {
+            // 기존의 카테고리 처리 직
+            const { data: existingCategory, error: checkError } = await supabase
+              .from('categories')
+              .select('id, categoryid')
+              .eq('name', categoryName)
+              .eq('platform', item.task_type.toUpperCase())
+              .eq('country', 'KR')
+              .single();
+
+            if (checkError && checkError.code !== 'PGRST116') {
+              throw checkError;
+            }
+
+            let categoryId;
+            let categoryNumericId;
+            
+            if (!existingCategory) {
+              // 새로운 UUID 생성
+              const newCategoryId = crypto.randomUUID();
+
+              // 해당 플랫폼의 마지막 카테고리 ID 조회
+              const { data: lastCategory } = await supabase
+                .from('categories')
+                .select('categoryid')
+                .eq('platform', item.task_type.toUpperCase())
+                .order('categoryid', { ascending: false })
+                .limit(1)
+                .single();
+
+              // 새로운 카테고리 ID 생성 (마지막 ID + 1 또는 초기 50000000)
+              const newNumericId = lastCategory 
+                ? (parseInt(lastCategory.categoryid) + 1).toString()
+                : '50000000';  // 네이버 스토어 카테고리와 겹치지 않도록 50000000부터 시작
+
+              const { data: insertedCategory, error: categoryError } = await supabase
+                .from('categories')
+                .insert({
+                  id: newCategoryId,
+                  categoryid: newNumericId,
+                  platform: item.task_type.toUpperCase(),
+                  country: 'KR',
+                  parentcategoryid: null,
+                  name: categoryName,
+                  pathname: categoryName,  // 단일 카테고리이므로 이름과 동일하게
+                  createdat: new Date().toISOString(),
+                  depth: 0  // 최상위 카테고리로 처리
+                })
+                .select()
+                .single();
+
+              if (categoryError) throw categoryError;
+              categoryId = newCategoryId;
+              categoryNumericId = newNumericId;
+            } else {
+              categoryId = existingCategory.id;
+              categoryNumericId = existingCategory.categoryid;
+            }
+
+            const itemData = {
+              id: crypto.randomUUID(),
+              variationsku: detail.sku?.toString() || null,
+              name: detail.title,
+              hscode: null,
+              barcode: null,
+              weight: null,
+              width: null,
+              length: null,
+              height: null,
+              memo: null,
+              thumbnailurl: detail.thumbnails?.[0] || null,
+              companyid: user?.companyid,
+              createdat: new Date().toISOString(),
+              updatedat: new Date().toISOString(),
+              brandname: detail.brand,
+              content: detail.contentHtml,
+              status: 'PENDING',
+              consumerprice: detail.price,
+              contenthtml: detail.contentHtml,
+              supplyid: selectedSupplier?.id,
+              originalcontent: detail.contentHtml,
+              originalname: detail.title,
+              noticeinfo: JSON.stringify(detail.productNotice || specs),
+              purchaseprice: detail.beforeDiscount || detail.price,
+            };
+
+            // 먼저 item 저장
+            const { data: savedItem, error: itemError } = await supabase
+              .from('items')
+              .insert([itemData])
+              .select()
+              .single();
+
+            if (itemError) throw itemError;
+
+            // 카테고리 매핑 저장
+            const { error: mapError } = await supabase
+              .from('item_category_maps')
+              .insert({
+                id: crypto.randomUUID(),
+                companyid: user?.companyid,
+                categoryid: categoryId,
+                itemid: savedItem.id,
+                createdat: new Date().toISOString()
+              });
+
+            if (mapError) throw mapError;
+
+            // 옵션 처리
+            if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+              const optionsData = detail.modifyOptions.map((option: any) => ({
+                id: crypto.randomUUID(), 
+                itemid: savedItem.id, 
+                original_json: JSON.stringify(option), 
+                modified_json: JSON.stringify(option), 
+                createdat: new Date().toISOString(), 
+                updatedat: new Date().toISOString(), 
+              }));
+            
+              const { error: optionsError } = await supabase
+                .from('item_options_new') 
+                .insert(optionsData);
+
+              if (optionsError) throw optionsError;
+            }
+
+            // 이미지 처리
+            const images = [
+              ...(detail.thumbnails || []).map((url: string, index: number) => ({
+                id: crypto.randomUUID(),
+                type: 'THUMBNAIL',
+                url,
+                index: 4,
+                itemid: savedItem.id,
+                width: null,
+                height: null,
+                createdat: new Date().toISOString(),
+                updatedat: new Date().toISOString(),
+                groupalias: null,
+                groupseq: null,
+                tag: null,
+                language: 'ko'
+              })),
+              ...(detail.detailImages || []).map((url: string, index: number) => ({
+                id: crypto.randomUUID(),
+                type: 'MAIN_CONTENT',
+                url,
+                index,
+                itemid: savedItem.id,
+                width: null,
+                height: null,
+                createdat: new Date().toISOString(),
+                updatedat: new Date().toISOString(),
+                groupalias: null,
+                groupseq: null,
+                tag: null,
+                language: 'ko'
+              }))
+            ];
+
+            const { error: imageError } = await supabase
+              .from('item_images')
+              .insert(images);
+
+            if (imageError) throw imageError;
+          }
         } else {
-          // naver가 아닌 경우는 카테고리 처리 없이 item만 저장
+          // naver가 아닌 경우는 카테고리 처리 없이 item 저장
           const itemData = {
             id: crypto.randomUUID(),
             variationsku: detail.sku?.toString() || null,
@@ -684,11 +950,395 @@ export default function ProductRegistration() {
     fetchCrawlingSelectList();
   }, []);
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('platform', selectedCrawlingTaskType.toUpperCase())
+          .eq('country', 'KR')
+          .order('pathname', { ascending: true });
+
+        if (error) throw error;
+        setCategories(data || []);
+      } catch (error) {
+        console.error('카테고리 로딩 실패:', error);
+      }
+    };
+
+    fetchCategories();
+  }, [selectedCrawlingTaskType]);
+
+  const handleCategorySearch = (searchTerm: string, itemId: string) => {
+    setCategorySearchTerm(searchTerm);
+    
+    if (!searchTerm.trim()) {
+      setFilteredCategories([]);
+      return;
+    }
+
+    const filtered = categories.filter(category => 
+      category.pathname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredCategories(filtered);
+  };
+
+  const handleAddNewCategory = async (itemId: string) => {
+    try {
+      const newCategory = newCategories[itemId];
+      if (!newCategory?.name) return;
+
+      // 동일한 이름의 카테고리가 있는지 확인 (platform도 함께 체크)
+      const { data: existingCategory, error: checkError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .eq('name', newCategory.name)
+        .single();
+
+      if (existingCategory) {
+        alert(`이미 존재하는 카테고리입니다: ${existingCategory.pathname}`);
+        return;
+      }
+
+      const { data: lastCategory } = await supabase
+        .from('categories')
+        .select('categoryid')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .order('categoryid', { ascending: false })
+        .limit(1)
+        .single();
+
+      const newCategoryId = lastCategory 
+        ? (parseInt(lastCategory.categoryid) + 1).toString()
+        : '50000000';
+
+      const newCategoryData = {
+        id: crypto.randomUUID(),
+        categoryid: newCategoryId,
+        platform: selectedCrawlingTaskType.toUpperCase(),
+        country: 'KR',
+        parentcategoryid: newCategory.parentId,
+        name: newCategory.name,
+        pathname: newCategory.pathname,
+        createdat: new Date().toISOString(),
+        depth: newCategory.depth
+      };
+
+      const { data: insertedCategory, error } = await supabase
+        .from('categories')
+        .insert([newCategoryData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 카테고리 목록 새로고침 (platform 필터 포함)
+      const { data: updatedCategories, error: fetchError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .order('pathname', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      
+      setCategories(updatedCategories || []);
+      setSelectedCategories({
+        ...selectedCategories,
+        [itemId]: insertedCategory.id
+      });
+
+      // 해당 아이템의 새 카테고리 입력 상태 초기화
+      setNewCategories(prev => {
+        const next = { ...prev };
+        delete next[itemId];
+        return next;
+      });
+      setCategoryInputModes(prev => ({
+        ...prev,
+        [itemId]: 'select'
+      }));
+
+    } catch (error) {
+      console.error('새 카테고리 추가 실패:', error);
+      alert('카테고리 추가 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleBindingWithCategories = async () => {
+    try {
+      for (const item of excludedItems) {
+        const selectedCategoryId = selectedCategories[item.id];
+        if (!selectedCategoryId) continue;
+
+        // 상품 상세 정보 가져오기
+        const { data: detailData, error: detailError } = await supabase
+          .from('crawlingproductdetail')
+          .select('*')
+          .eq('product_id', item.id)
+          .single();
+        
+        if (detailError) throw detailError;
+
+        const detail = detailData.detail_json;
+        const specs = detailData.specifications;
+
+        // 상품 데이터 생성
+        const itemData = {
+          id: crypto.randomUUID(),
+          variationsku: detail.sku?.toString() || null,
+          name: detail.title,
+          hscode: null,
+          barcode: null,
+          weight: null,
+          width: null,
+          length: null,
+          height: null,
+          memo: null,
+          thumbnailurl: detail.thumbnails?.[0] || null,
+          companyid: user?.companyid,
+          createdat: new Date().toISOString(),
+          updatedat: new Date().toISOString(),
+          brandname: detail.brand,
+          content: detail.contentHtml,
+          status: 'PENDING',
+          consumerprice: detail.price,
+          contenthtml: detail.contentHtml,
+          supplyid: selectedSupplier?.id,
+          originalcontent: detail.contentHtml,
+          originalname: detail.title,
+          noticeinfo: JSON.stringify(detail.productNotice || specs),
+          purchaseprice: detail.beforeDiscount || detail.price,
+        };
+
+        // 상품 저장
+        const { data: savedItem, error: itemError } = await supabase
+          .from('items')
+          .insert([itemData])
+          .select()
+          .single();
+
+        if (itemError) throw itemError;
+
+        // 카테고리 매핑 저장
+        const { error: mapError } = await supabase
+          .from('item_category_maps')
+          .insert({
+            id: crypto.randomUUID(),
+            companyid: user?.companyid,
+            categoryid: selectedCategoryId,
+            itemid: savedItem.id,
+            createdat: new Date().toISOString()
+          });
+
+        if (mapError) throw mapError;
+
+        // 옵션 저장
+        if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+          const optionsData = detail.modifyOptions.map((option: any) => ({
+            id: crypto.randomUUID(),
+            itemid: savedItem.id,
+            original_json: JSON.stringify(option),
+            modified_json: JSON.stringify(option),
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+          }));
+
+          const { error: optionsError } = await supabase
+            .from('item_options_new')
+            .insert(optionsData);
+
+          if (optionsError) throw optionsError;
+        }
+
+        // 이미지 저장
+        const images = [
+          ...(detail.thumbnails || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'THUMBNAIL',
+            url,
+            index: 4,
+            itemid: savedItem.id,
+            width: null,
+            height: null,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          })),
+          ...(detail.detailImages || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'MAIN_CONTENT',
+            url,
+            index,
+            itemid: savedItem.id,
+            width: null,
+            height: null,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          }))
+        ];
+
+        const { error: imageError } = await supabase
+          .from('item_images')
+          .insert(images);
+
+        if (imageError) throw imageError;
+
+        // 크롤링 상태 업데이트
+        const { error: updateError } = await supabase
+          .from('crawlingproductlist')
+          .update({ detail_status: 'binding' })
+          .eq('id', item.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // 모달 닫고 상태 초기화
+      setShowExcludedCategoriesModal(false);
+      setSelectedCategories({});
+      setExcludedItems([]);
+      
+      // 크롤링 결과 목록 새로고침
+      if (selectedCrawlingItem) {
+        await fetchCrawlingProductList(selectedCrawlingItem);
+      }
+
+      // 선택된 크롤링 결과 초기화
+      setSelectedCrawlingResults(prev => 
+        prev.filter(item => !excludedItems.map(ei => ei.id).includes(item.id))
+      );
+
+    } catch (error) {
+      console.error('카테고리 바인딩 실패:', error);
+      alert('바인딩 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const CategoryInputRow = ({ item }: { item: any }) => {
+    // 로컬 상태로 관리
+    const [mode, setMode] = useState<'select' | 'input'>('select');
+
+    return (
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Button
+            variant={mode === 'select' ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setMode('select');
+              setNewCategories(prev => {
+                const next = { ...prev };
+                delete next[item.id];
+                return next;
+              });
+            }}
+          >
+            카테고리 선택
+          </Button>
+          <Button
+            variant={mode === 'input' ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setMode('input');
+              setSelectedCategories(prev => {
+                const next = { ...prev };
+                delete next[item.id];
+                return next;
+              });
+            }}
+          >
+            카테고리 직접입력
+          </Button>
+        </div>
+
+        {mode === 'select' ? (
+          <div className="w-full">
+            {categories.length > 0 ? (
+              <Select 
+                value={selectedCategories[item.id] || ''} 
+                onValueChange={(value) => {
+                  setSelectedCategories({
+                    ...selectedCategories,
+                    [item.id]: value
+                  });
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="카테고리를 선택하세요" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {categories
+                    .sort((a, b) => a.pathname.localeCompare(b.pathname))
+                    .map((category) => (
+                      <SelectItem 
+                        key={category.id} 
+                        value={category.id}
+                      >
+                        {category.pathname}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                등록된 카테고리가 없습니다.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              value={newCategories[item.id]?.name || ''}
+              onChange={(e) => {
+                const name = e.target.value;
+                setNewCategories(prev => ({
+                  ...prev,
+                  [item.id]: {
+                    name,
+                    pathname: name,
+                    depth: 0,
+                    parentId: null
+                  }
+                }));
+              }}
+              placeholder="새 카테고리명 입력"
+            />
+            <Button
+              size="sm"
+              onClick={() => handleAddNewCategory(item.id)}
+              disabled={!newCategories[item.id]?.name}
+            >
+              추가
+            </Button>
+          </div>
+        )}
+
+        {selectedCategories[item.id] && (
+          <div className="mt-1 text-sm text-blue-600">
+            {categories.find(c => c.id === selectedCategories[item.id])?.pathname}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto py-6">
       <Tabs defaultValue={getInitialTab()} className="space-y-4">
         <TabsList className="w-fit mb-6">
-          <TabsTrigger value="job">직접 력</TabsTrigger>
+          <TabsTrigger value="job">직접 ���</TabsTrigger>
           <TabsTrigger value="url">URL 입력</TabsTrigger>
           <TabsTrigger value="file">파일 업로드</TabsTrigger>
         </TabsList>
@@ -726,7 +1376,7 @@ export default function ProductRegistration() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label>치수</Label>
+                  <Label>치</Label>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="flex items-center gap-2">
                       <Input id="length" type="number" placeholder="0" />
@@ -775,7 +1425,7 @@ export default function ProductRegistration() {
                       selectedCrawlingTaskType === 'naver'
                       ? <>
                         <Input 
-                        placeholder="URL을 입력하세요" 
+                        placeholder="URL 입력하세요" 
                         value={crawlingUrl}
                         onChange={(e) => setCrawlingUrl(e.target.value)}
                       />
@@ -814,13 +1464,16 @@ export default function ProductRegistration() {
                             <TableHead>브랜드</TableHead>
                             <TableHead>URL</TableHead>
                             <TableHead>상태</TableHead>
-                            <TableHead>요청일시</TableHead>
+                            <TableHead>요일시</TableHead>
                             <TableHead className="text-right">선택</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {paginatedCrawlingProgress.map((item) => (
-                            <TableRow key={item.id}>
+                            <TableRow 
+                              key={item.id}
+                              className={selectedCrawlingItem === item.id ? "bg-muted/50" : ""}
+                            >
                               <TableCell>{item.task_type}</TableCell>
                               <TableCell>{item.brand_title ? `${item.task_type} - ${item.brand_title}` : "네이버"}</TableCell>
                               <TableCell>
@@ -830,7 +1483,7 @@ export default function ProductRegistration() {
                               <TableCell>{`${item.updated_at.slice(0, 10)} ${item.updated_at.slice(11, 13)}:${item.updated_at.slice(14, 16)}`}</TableCell>
                               <TableCell className="text-right">
                                 <Button
-                                  variant="outline"
+                                  variant={selectedCrawlingItem === item.id ? "default" : "outline"}
                                   size="sm"
                                   onClick={() => {
                                     setSelectedCrawlingItem(item.id);
@@ -839,7 +1492,7 @@ export default function ProductRegistration() {
                                     setSelectedCrawlingResults([])
                                   }}
                                 >
-                                  {selectedCrawlingItem === item.id ? "선택됨" : "선택"}
+                                  선택
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -1037,7 +1690,7 @@ export default function ProductRegistration() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <Button variant="outline">파일 선택</Button>
-                  <span className="text-sm text-muted-foreground">선택된 파일이 없습니다</span>
+                  <span className="text-sm text-muted-foreground">택된 파일이 없습니다</span>
                 </div>
                 
                 <div className="rounded-lg border h-[400px] flex items-center justify-center text-muted-foreground">
@@ -1056,7 +1709,7 @@ export default function ProductRegistration() {
           </DialogHeader>
           {selectedProductDetail && (
             <div className="space-y-4">
-              {/* 1. 기본 정보 섹션 */}
+              {/* 1. 기본 정 섹션 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">기본 정보</CardTitle>
@@ -1064,7 +1717,7 @@ export default function ProductRegistration() {
                 <CardContent>
                   <Collapsible open={isDescriptionOpen} onOpenChange={setIsDescriptionOpen}>
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">상품 설명</h4>
+                      <h4 className="font-medium">상 설명</h4>
                       <CollapsibleTrigger className="hover:bg-muted p-1 rounded">
                         {isDescriptionOpen ? (
                           <ChevronUp className="h-4 w-4" />
@@ -1220,7 +1873,7 @@ export default function ProductRegistration() {
                 </Card>
               )}
 
-              {/* 5. 기타 정보 섹션 */}
+              {/* 5. 기타 정보 섹 */}
               {Object.entries(selectedProductDetail.detail_json || {})
                 .filter(([key]) => !['options', 'contentHtml', 'productNotice', 'thumbnails', 'detailImages'].includes(key))
                 .length > 0 && (
@@ -1291,6 +1944,56 @@ export default function ProductRegistration() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showExcludedCategoriesModal} onOpenChange={setShowExcludedCategoriesModal}>
+        <DialogContent className="max-w-[1200px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl">제외된 카테고리 항목</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-muted-foreground mb-4">
+              다음 상품은 카테고리가 없거나 제외해야 할 카테고리({EXCLUDED_CATEGORIES.join(', ')})를 포함하고 있습니다.
+            </p>
+            <div className="rounded-md border">
+              <div className="max-h-[500px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-white z-10">
+                    <TableRow>
+                      <TableHead className="w-[400px]">상품명</TableHead>
+                      <TableHead className="w-[200px]">현재 카테고리</TableHead>
+                      <TableHead>
+                        <span>새 카테고리</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {excludedItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="align-top font-medium">{item.title}</TableCell>
+                        <TableCell className="align-top text-sm text-muted-foreground">{item.category}</TableCell>
+                        <TableCell>
+                          <CategoryInputRow item={item} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowExcludedCategoriesModal(false)}>
+              취소
+            </Button>
+            <Button 
+              onClick={handleBindingWithCategories}
+              disabled={Object.keys(selectedCategories).length === 0}
+            >
+              선택한 카테고리로 바인딩
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
