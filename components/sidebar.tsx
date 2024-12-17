@@ -216,7 +216,7 @@ export function Sidebar() {
                     className={getSubLinkClassName("/product/options/volume")}
                   >
                     <Package2 className="h-4 w-4" />
-                    무게/크기 등��
+                    무게/크기 등록
                   </Link>
                   <Link 
                     href="/product/options/stock" 

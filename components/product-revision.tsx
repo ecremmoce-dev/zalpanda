@@ -433,6 +433,15 @@ export default function SupplierProductManagement() {
         />
       ),
     },
+    {
+      id: "number",
+      header: "번호",
+      cell: ({ row }) => (
+        <div className="text-center">
+          {row.index + 1}
+        </div>
+      )
+    },
     { 
       accessorKey: "ecsku",
       header: "EC SKU",
