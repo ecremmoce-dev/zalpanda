@@ -85,8 +85,6 @@ export default function ProductTranslation() {
         .eq('companyid', companyid)
 
       if (error) throw error;
-      
-      setSuppliers(data)
     } catch (error) {
       console.log(error);
     }
@@ -102,20 +100,20 @@ export default function ProductTranslation() {
       `)
       .eq('companyid', companyid)
       .eq('supplyid', itemCustomerId)
-      //.gte('createdat', '2024-03-01T00:00:00.000Z')
-      // .in('variationsku', [
-      //   "3583481362",
-      //   "10359844564",
-      //   "10359844566",
-      //   "33721024644",
-      //   "35329309196",
-      //   "35329309194",
-      //   "35329309192",
-      //   "35329309190",
-      //   "35329309189",
-      //   "9323027126",
-      //   "36213735593"
-      // ])
+      .gte('createdat', '2024-03-01T00:00:00.000Z')
+      .in('variationsku', [
+        "3583481362",
+        "10359844564",
+        "10359844566",
+        "33721024644",
+        "35329309196",
+        "35329309194",
+        "35329309192",
+        "35329309190",
+        "35329309189",
+        "9323027126",
+        "36213735593"
+      ])
       .order('createdat', { ascending: false })
 
     if (!error) {
@@ -125,8 +123,10 @@ export default function ProductTranslation() {
   }
 
   const handleSupplierSelect = async (supplier: any) => {
+    console.log(supplier);
+
     if (user && supplier && supplier.id) {
-      await fetchProductData(supplier.id, user.companyid)
+      await fetchProductData(supplier.id, user.companyid, supplier.supplyname)
     }
   }
 
@@ -154,29 +154,36 @@ export default function ProductTranslation() {
     })
   }, [products, categoryFilter, nameFilter])
 
+  
   const handleTranslate = async () => {
-    const selectedItems = products.filter(product => 
-      selectedProducts.includes(product.id)
-    );
+    const selectedItems = products.filter(product => selectedProducts.includes(product.id));
+
+    let target = 'name';
+    let targetFolder = 'translated_names';
+
+    if (activeTab === 'description') {
+      target = 'content';
+      targetFolder = 'translated_contents';
+    }
 
     try {
-      const result = await translateText(selectedItems.map((item) => item.name), languageFilter);
+      const result = await translateText(selectedItems.map((item) => item[target]), languageFilter);
       
       // 번역 결과를 products 배열에 업데이트
       const updatedProducts = products.map(product => {
         if (selectedProducts.includes(product.id)) {
           const translatedIndex = selectedItems.findIndex(item => item.id === product.id)
-          const translatedNames = [...product.translated_names]
-          const hasTranslated = product.translated_names.find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
+          const translatedResult = [...product[targetFolder]]
+          const hasTranslated = product[targetFolder].find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
 
           if (hasTranslated) {
-            translatedNames.map((item: any) => {
+            translatedResult.map((item: any) => {
               if (item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter) {
                 item.translatedNew = result.translations[translatedIndex].translatedText
               }
             })
           } else {
-            translatedNames.push({
+            translatedResult.push({
               itemid: product.id,
               country: countryFilter,
               language: languageFilter,
@@ -191,30 +198,35 @@ export default function ProductTranslation() {
 
           return {
             ...product,
-            translated_names: translatedNames,
+            [targetFolder]: translatedResult,
           };
         }
         return product;
       });
 
       setProducts(updatedProducts)
-
-      console.log(updatedProducts)
     } catch (error) {
       console.error('Translation error:', error);
     }
   };
 
   const handleTranslateSave = async () => {
-    // 상품 배열의 번역 변경사항 전체 저장
-
     try {
-      const translatedProducts = products.filter((product: any) => product.translated_names.find((item: any) => item.translatedNew))
-      .map((product: any) => product.translated_names.filter((item: any) => item.translatedNew))
-      .flat()
+      // 상품명 번역 데이터 필터링
+      const translatedNames = products
+        .filter((product: any) => product.translated_names.find((item: any) => item.translatedNew))
+        .map((product: any) => product.translated_names.filter((item: any) => item.translatedNew))
+        .flat();
 
-      if (translatedProducts.length > 0) {
-        const upsertData = translatedProducts.map((item: any) => ({
+      // 본문 번역 데이터 필터링
+      const translatedContents = products
+        .filter((product: any) => product.translated_contents.find((item: any) => item.translatedNew))
+        .map((product: any) => product.translated_contents.filter((item: any) => item.translatedNew))
+        .flat();
+
+      // 상품명 번역 저장
+      if (translatedNames.length > 0) {
+        const namesUpsertData = translatedNames.map((item: any) => ({
           id: item.translated ? item.id : crypto.randomUUID(),
           itemid: item.itemid,
           country: item.country,
@@ -225,19 +237,45 @@ export default function ProductTranslation() {
           iscompleted: false,
           compamyid: item.compamyid,
           updatedat: new Date().toISOString()
-        }))
+        }));
 
-        const { data, error } = await supabase.from('translated_names').upsert(upsertData, { onConflict: 'id' })
+        const { error: namesError } = await supabase
+          .from("translated_names")
+          .upsert(namesUpsertData, { onConflict: 'id' });
 
-        if (!error) {
-          console.log('success');
-          console.log(data);
-        }
-      } else {
-        console.log('번역 변경사항이 없습니다.')
+        if (namesError) throw namesError;
       }
+
+      // 본문 번역 저장
+      if (translatedContents.length > 0) {
+        const contentsUpsertData = translatedContents.map((item: any) => ({
+          id: item.translated ? item.id : crypto.randomUUID(),
+          itemid: item.itemid,
+          country: item.country,
+          language: item.language,
+          platform: item.platform,
+          originaltext: item.originaltext,
+          translated: item.translatedNew,
+          iscompleted: false,
+          compamyid: item.compamyid,
+          updatedat: new Date().toISOString()
+        }));
+
+        const { error: contentsError } = await supabase
+          .from("translated_contents")
+          .upsert(contentsUpsertData, { onConflict: 'id' });
+
+        if (contentsError) throw contentsError;
+      }
+
+      if (translatedNames.length === 0 && translatedContents.length === 0) {
+        console.log('번역 변경사항이 없습니다.');
+      } else {
+        console.log('번역이 성공적으로 저장되었습니다.');
+      }
+
     } catch (error) {
-      console.error('Translation error:', error);
+      console.error('Translation save error:', error);
     }
   };
 
@@ -267,27 +305,24 @@ export default function ProductTranslation() {
   };
 
   const handleDeleteClick = async (product: any) => {
-    try {
-      const target = product.translated_names.find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
+    let target = 'translated_names';
+    if (activeTab === 'description') target = "translated_contents"
 
-      console.log(product)
-      console.log(target)
+    try {
+      const targetProduct = product[target].find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
       
-      if (target.id) await supabase.from('translated_names').delete().eq('id', target.id)
+      if (targetProduct.id) await supabase.from(`${target}`).delete().eq('id', targetProduct.id)
 
       const updatedProducts = products.map((e: any) => {
         if (e.id === product.id) {
           return {
             ...e,
-            translated_names: e.translated_names.filter((item: any) => item.id !== target.id)
+            [target]: e[target].filter((item: any) => item.id !== targetProduct.id)
           }
         }
         return e
       })
       setProducts(updatedProducts)
-
-      console.log('success');
-      
     } catch (error) {
       console.error('Translation error:', error);
     }
@@ -400,7 +435,12 @@ export default function ProductTranslation() {
                   <TableRow>
                     <TableHead className="w-[50px]"></TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead className="w-[40%]">상품명</TableHead>
+                    {/* <TableHead className="w-[40%]">상품명</TableHead> */}
+                    <TableHead className="w-[40%]">
+                      {
+                        activeTab === 'product-name' ? '상품명' : activeTab === 'description' ? '본문' : '옵션명'
+                      }
+                    </TableHead>
                     <TableHead className="w-[40%]">번역</TableHead>
                     <TableHead>수정</TableHead>
                     <TableHead>삭제</TableHead>
@@ -416,17 +456,38 @@ export default function ProductTranslation() {
                         />
                       </TableCell>
                       <TableCell>{product.variationsku}</TableCell>
-                      <TableCell>{product.name}</TableCell>
                       <TableCell>
                         {
-                          product.translated_names.find((item: any) => item.language === languageFilter)
-                          ? 
-                            (
-                              product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
-                              ? product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
-                              : product.translated_names.find((item: any) => item.language === languageFilter).translated
-                            )
-                          : ''
+                          activeTab === 'product-name' ? product.name : activeTab === 'description' ? product.content : product.optionname
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {
+                          activeTab === 'product-name' ? (
+                            product.translated_names.find((item: any) => item.language === languageFilter)
+                            ? (
+                                product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
+                                ? product.translated_names.find((item: any) => item.language === languageFilter).translatedNew
+                                : product.translated_names.find((item: any) => item.language === languageFilter).translated
+                              )
+                            : ''
+                          ) : activeTab === 'description' ? (
+                            product.translated_contents.find((item: any) => item.language === languageFilter)
+                            ? (
+                                product.translated_contents.find((item: any) => item.language === languageFilter).translatedNew
+                                ? product.translated_contents.find((item: any) => item.language === languageFilter).translatedNew
+                                : product.translated_contents.find((item: any) => item.language === languageFilter).translated
+                              )
+                            : ''
+                          ) : (
+                            product.translated_options.find((item: any) => item.language === languageFilter)
+                            ? (
+                                product.translated_options.find((item: any) => item.language === languageFilter).translatedNew
+                                ? product.translated_options.find((item: any) => item.language === languageFilter).translatedNew
+                                : product.translated_options.find((item: any) => item.language === languageFilter).translated
+                              )
+                            : ''
+                          )
                         }
                       </TableCell>
                       <TableCell>
