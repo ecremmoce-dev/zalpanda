@@ -20,11 +20,20 @@ import {
 } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronUp, Pencil, Trash, Globe, Languages } from 'lucide-react'
+import { ChevronUp, Pencil, Trash, Globe, Languages, Save, X } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useUserDataStore } from "@/store/modules"
 import { supabase } from "@/utils/supabase/client"
 import { SupplierSelector } from "@/components/supplier-selector"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface CountryLanguagePair {
   country: string;
@@ -63,7 +72,7 @@ export default function ProductTranslation() {
   const [activeTab, setActiveTab] = useState('product-name')
   const [categoryFilter, setCategoryFilter] = useState('전체')
   const [nameFilter, setNameFilter] = useState('')
-  const [categories, setCategories] = useState(['전체', '자동차용품', '스포츠용품', '서비스'])
+  const [categories, setCategories] = useState(['전체', '자동차용품', '스포츠용품', '서스'])
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
   
@@ -73,6 +82,14 @@ export default function ProductTranslation() {
   const [languageFilter, setLanguageFilter] = useState('en')
 
   const { user } = useUserDataStore()
+
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingText, setEditingText] = useState('')
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<any>(null)
 
   useEffect(() => {
     if (user) fetchSupplierData(user!.companyid)
@@ -211,6 +228,8 @@ export default function ProductTranslation() {
   };
 
   const handleTranslateSave = async () => {
+    setShowSaveDialog(false)
+
     try {
       // 상품명 번역 데이터 필터링
       const translatedNames = products
@@ -271,7 +290,7 @@ export default function ProductTranslation() {
       if (translatedNames.length === 0 && translatedContents.length === 0) {
         console.log('번역 변경사항이 없습니다.');
       } else {
-        console.log('번역이 성공적으로 저장되었습니다.');
+        console.log('번역이 성공적으로 ���장되었습니다.');
       }
 
     } catch (error) {
@@ -301,20 +320,76 @@ export default function ProductTranslation() {
   }
 
   const handleEditClick = (product: any) => {
-    console.log('수정 버튼 클릭:', product);
-  };
+    setEditingId(product.id)
+    
+    const translatedText = activeTab === 'product-name' 
+      ? product.translated_names.find((item: any) => item.language === languageFilter)?.translatedNew 
+        || product.translated_names.find((item: any) => item.language === languageFilter)?.translated
+      : activeTab === 'description'
+      ? product.translated_contents.find((item: any) => item.language === languageFilter)?.translatedNew
+        || product.translated_contents.find((item: any) => item.language === languageFilter)?.translated
+      : product.translated_options.find((item: any) => item.language === languageFilter)?.translatedNew
+        || product.translated_options.find((item: any) => item.language === languageFilter)?.translated
 
-  const handleDeleteClick = async (product: any) => {
-    let target = 'translated_names';
+    setEditingText(translatedText || '')
+  }
+
+  const handleEditSave = (product: any) => {
+    const targetFolder = activeTab === 'product-name' 
+      ? 'translated_names' 
+      : activeTab === 'description' 
+      ? 'translated_contents'
+      : 'translated_options'
+
+    const updatedProducts = products.map(p => {
+      if (p.id === product.id) {
+        const updatedTranslations = p[targetFolder].map((item: any) => {
+          if (item.language === languageFilter) {
+            return {
+              ...item,
+              translatedNew: editingText
+            }
+          }
+          return item
+        })
+
+        return {
+          ...p,
+          [targetFolder]: updatedTranslations
+        }
+      }
+      return p
+    })
+
+    setProducts(updatedProducts)
+    setEditingId(null)
+    setEditingText('')
+  }
+
+  const handleDeleteClick = (product: any) => {
+    setDeleteTarget(product)
+    setShowDeleteDialog(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+
+    let target = 'translated_names'
     if (activeTab === 'description') target = "translated_contents"
 
     try {
-      const targetProduct = product[target].find((item: any) => item.platform === platformFilter && item.country === countryFilter && item.language === languageFilter)
+      const targetProduct = deleteTarget[target].find((item: any) => 
+        item.platform === platformFilter && 
+        item.country === countryFilter && 
+        item.language === languageFilter
+      )
       
-      if (targetProduct.id) await supabase.from(`${target}`).delete().eq('id', targetProduct.id)
+      if (targetProduct.id) {
+        await supabase.from(`${target}`).delete().eq('id', targetProduct.id)
+      }
 
       const updatedProducts = products.map((e: any) => {
-        if (e.id === product.id) {
+        if (e.id === deleteTarget.id) {
           return {
             ...e,
             [target]: e[target].filter((item: any) => item.id !== targetProduct.id)
@@ -324,14 +399,56 @@ export default function ProductTranslation() {
       })
       setProducts(updatedProducts)
     } catch (error) {
-      console.error('Translation error:', error);
+      console.error('Translation delete error:', error)
     }
 
-    
-  };
+    setShowDeleteDialog(false)
+    setDeleteTarget(null)
+  }
 
   return (
     <div className="container mx-auto py-6">
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>번역 내용 저장</DialogTitle>
+            <DialogDescription>
+              상품명 번역 및 본문 번역의 모든 내용이 저장됩니다. 계속하시겠습니까?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              취소
+            </Button>
+            <Button onClick={handleTranslateSave}>
+              저장
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>번역 내용 삭제</DialogTitle>
+            <DialogDescription>
+              선택한 번역 내용을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowDeleteDialog(false)
+              setDeleteTarget(null)
+            }}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <SupplierSelector onSupplierSelect={handleSupplierSelect} />
 
       <Card className="mt-6">
@@ -417,7 +534,13 @@ export default function ProductTranslation() {
                   >
                     번역
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleTranslateSave}>저장</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowSaveDialog(true)}
+                  >
+                    저장
+                  </Button>
                 </div>
               </div>
               <div className="flex items-center space-x-2 mb-4">
@@ -461,8 +584,33 @@ export default function ProductTranslation() {
                           activeTab === 'product-name' ? product.name : activeTab === 'description' ? product.content : product.optionname
                         }
                       </TableCell>
-                      <TableCell>
-                        {
+                      <TableCell className="min-w-[300px]">
+                        {editingId === product.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditSave(product)}
+                            >
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => {
+                                setEditingId(null)
+                                setEditingText('')
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
                           activeTab === 'product-name' ? (
                             product.translated_names.find((item: any) => item.language === languageFilter)
                             ? (
@@ -488,13 +636,20 @@ export default function ProductTranslation() {
                               )
                             : ''
                           )
-                        }
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleEditClick(product)}
+                          disabled={
+                            activeTab === 'product-name' 
+                              ? !product.translated_names.find((item: any) => item.language === languageFilter)
+                              : activeTab === 'description'
+                              ? !product.translated_contents.find((item: any) => item.language === languageFilter)
+                              : !product.translated_options?.find((item: any) => item.language === languageFilter)
+                          }
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
