@@ -55,6 +55,25 @@ interface Product {
   length?: number
   width?: number
   height?: number
+  hasOptions?: boolean
+}
+
+interface OptionData {
+  label: string;
+  price: number;
+  stock: number;
+  value: string;
+  children: any[];
+  optionNo: number;
+}
+
+interface ItemOption {
+  id: string;
+  itemid: string;
+  original_json: string;
+  modified_json: string;
+  createdat: string;
+  updatedat: string;
 }
 
 type SortingState = {
@@ -89,6 +108,9 @@ export function ProductOptionsStock() {
   const [priceUnit, setPriceUnit] = useState<string>("%"); // 기본값을 %로 설정
   const [priceAdjustmentType, setPriceAdjustmentType] = useState("ALL");
   const [adjustmentValue, setAdjustmentValue] = useState<number | null>(null);
+  const [selectedProductOptions, setSelectedProductOptions] = useState<ItemOption[]>([])
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false)
+  const [currentProductOptions, setCurrentProductOptions] = useState<OptionData[]>([])
 
   useEffect(() => {
     const initializeData = async () => {
@@ -133,7 +155,8 @@ export function ProductOptionsStock() {
     try {
       console.log('Fetching products with params:', { supplyid, companyid });
       
-      const { data, error } = await supabase
+      // First, fetch the products
+      const { data: productsData, error: productsError } = await supabase
         .from('items')
         .select(`
           id,
@@ -158,17 +181,39 @@ export function ProductOptionsStock() {
         `)
         .eq('companyid', companyid)
         .eq('supplyid', supplyid.toString())
-        .order('createdat', { ascending: false })
+        .order('createdat', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
+      if (productsError) {
+        console.error('Supabase error:', productsError);
+        throw productsError;
       }
+
+      // Then, fetch options data for all products
+      const { data: optionsData, error: optionsError } = await supabase
+        .from('item_options_new')
+        .select('itemid, modified_json')
+        .in('itemid', productsData?.map(p => p.id) || []);
+
+      if (optionsError) {
+        console.error('Error fetching options:', optionsError);
+        throw optionsError;
+      }
+
+      // Create a map of product IDs to their options status
+      const optionsMap = new Map(
+        optionsData?.map(option => [option.itemid, !!option.modified_json]) || []
+      );
+
+      // Add hasOptions flag to products
+      const productsWithOptionsFlag = productsData?.map(product => ({
+        ...product,
+        hasOptions: optionsMap.has(product.id)
+      })) || [];
       
-      console.log('Fetched products:', data)
-      setSupplierProducts(data || [])
+      console.log('Fetched products:', productsWithOptionsFlag);
+      setSupplierProducts(productsWithOptionsFlag);
     } catch (error) {
-      console.error('Error fetching products:', error)
+      console.error('Error fetching products:', error);
     }
   }
 
@@ -470,6 +515,20 @@ export function ProductOptionsStock() {
         </Button>
       ),
     },
+    {
+      accessorKey: "options",
+      header: "옵션",
+      cell: ({ row }) => (
+        row.original.hasOptions ? (
+          <Button
+            variant="outline"
+            onClick={() => fetchProductOptions(row.original.id)}
+          >
+            옵션 보기
+          </Button>
+        ) : null
+      ),
+    },
   ]
 
   const table = useReactTable({
@@ -677,6 +736,51 @@ export function ProductOptionsStock() {
     } catch (error) {
         console.error('Error saving price adjustments:', error);
         alert('가격 저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const fetchProductOptions = async (productId: string) => {
+    try {
+      console.log('Fetching options for product:', productId);
+      const { data, error } = await supabase
+        .from('item_options_new')
+        .select('*')
+        .eq('itemid', productId);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Fetched options data:', data);
+
+      if (data && data.length > 0) {
+        try {
+          // 모든 옵션 데이터를 하나의 배열로 합치기
+          const allOptions = data.reduce((acc: OptionData[], item) => {
+            if (item.modified_json) {
+              const parsedJson = JSON.parse(item.modified_json);
+              // 단일 객체인 경우 배열로 변환
+              const options = Array.isArray(parsedJson) ? parsedJson : [parsedJson];
+              return [...acc, ...options];
+            }
+            return acc;
+          }, []);
+
+          console.log('All parsed options:', allOptions);
+          setCurrentProductOptions(allOptions);
+        } catch (parseError) {
+          console.error('Error parsing JSON:', parseError);
+          setCurrentProductOptions([]);
+        }
+      } else {
+        setCurrentProductOptions([]);
+      }
+      setIsOptionsDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching product options:', error);
+      setCurrentProductOptions([]);
+      setIsOptionsDialogOpen(true);
     }
   };
 
@@ -945,6 +1049,54 @@ export function ProductOptionsStock() {
               productId={selectedProductId}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 옵션 Dialog */}
+      <Dialog open={isOptionsDialogOpen} onOpenChange={setIsOptionsDialogOpen}>
+        <DialogContent className="max-w-[1200px] w-[90vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>상품 옵션 정보 ({currentProductOptions.length}개)</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {currentProductOptions.length > 0 ? (
+              <>
+                <div className="mb-4">
+                  <span className="text-sm text-muted-foreground">
+                    총 {currentProductOptions.length}개의 옵션이 있습니다.
+                  </span>
+                </div>
+                <div className="max-h-[700px] overflow-y-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[300px] sticky top-0 bg-white">옵션명</TableHead>
+                        <TableHead className="w-[300px] sticky top-0 bg-white">옵션값</TableHead>
+                        <TableHead className="w-[150px] sticky top-0 bg-white">가격</TableHead>
+                        <TableHead className="w-[150px] sticky top-0 bg-white">재고</TableHead>
+                        <TableHead className="w-[150px] sticky top-0 bg-white">옵션번호</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentProductOptions.map((option, index) => (
+                        <TableRow key={`${option.optionNo}-${index}`}>
+                          <TableCell className="font-medium">{option.label}</TableCell>
+                          <TableCell>{option.value}</TableCell>
+                          <TableCell>{option.price?.toLocaleString() ?? 0}원</TableCell>
+                          <TableCell>{option.stock?.toLocaleString() ?? 0}</TableCell>
+                          <TableCell>{option.optionNo}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                등록된 옵션이 없습니다.
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
