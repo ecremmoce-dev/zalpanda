@@ -52,10 +52,11 @@ import { platform } from "os"
 
 const PAGE_SIZE = 10;
 
-type StatusType = 'pending' | 'in_progress' | 'completed' | 'failed' | 'binding';
+type StatusType = 'pending' | 'in_progress' | 'completed' | 'failed' | 'binding' | 'start';
 
 const STATUS_LABELS: Record<StatusType, string> = {
   pending: '대기중',
+  start: '진행중',
   in_progress: '진행중',
   completed: '완료',
   failed: '실패',
@@ -103,7 +104,7 @@ export default function ProductRegistration() {
   const [isSpecificationsOpen, setIsSpecificationsOpen] = useState(true)
   const [isThumbnailsOpen, setIsThumbnailsOpen] = useState(true)
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
-  const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'in_progress', 'completed', 'failed', 'binding'])
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'in_progress', 'completed', 'failed', 'binding', 'start'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
   const [showExcludedCategoriesModal, setShowExcludedCategoriesModal] = useState(false);
   const [excludedItems, setExcludedItems] = useState<any[]>([]);
