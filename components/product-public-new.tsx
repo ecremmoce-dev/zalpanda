@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,17 +48,18 @@ import {
 } from "@/components/ui/collapsible"
 import { SupplierSelector } from "@/components/supplier-selector"
 import { useSearchParams } from 'next/navigation'
+import { platform } from "os"
 
 const PAGE_SIZE = 10;
 
-type StatusType = 'pending' | 'start' | 'completed' | 'failed' | 'binding';
+type StatusType = 'pending' | 'in_progress' | 'completed' | 'failed' | 'binding';
 
 const STATUS_LABELS: Record<StatusType, string> = {
-  pending: '대기',
-  start: '진행중',
+  pending: '대기중',
+  in_progress: '진행중',
   completed: '완료',
   failed: '실패',
-  binding: '바인딩'
+  binding: '바인딩완료'
 };
 
 const EXCLUDED_CATEGORIES = ['HOME', 'ALL', 'SHOP'];
@@ -102,7 +103,7 @@ export default function ProductRegistration() {
   const [isSpecificationsOpen, setIsSpecificationsOpen] = useState(true)
   const [isThumbnailsOpen, setIsThumbnailsOpen] = useState(true)
   const [isOtherInfoOpen, setIsOtherInfoOpen] = useState(true)
-  const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'start', 'completed', 'failed', 'binding'])
+  const [selectedStatuses, setSelectedStatuses] = useState<StatusType[]>(['pending', 'in_progress', 'completed', 'failed', 'binding'])
   const [crawlingSelectList, setCrawlingSelectList] = useState<{ name: string; code: string }[]>([])
   const [showExcludedCategoriesModal, setShowExcludedCategoriesModal] = useState(false);
   const [excludedItems, setExcludedItems] = useState<any[]>([]);
@@ -120,6 +121,8 @@ export default function ProductRegistration() {
   }>({});
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [categoryInputModes, setCategoryInputModes] = useState<{[key: string]: 'select' | 'input'}>({});
+  const [showCategoryManageModal, setShowCategoryManageModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   const { user } = useUserDataStore()
   const selectedStoreSupplier = useSupplierStore(state => state.selectedSupplier)
@@ -155,25 +158,62 @@ export default function ProductRegistration() {
 
   const handleSupplierSelect = async (supplier: any) => {
     try {
-      setSelectedSupplier(supplier)
-      setSelectedCrawlingResults([])
-      setSelectedCrawlingItem(null)
-      setCrawlingCurrentPage(1)
+      // 공급사 전체 정보를 다시 조회
+      const { data: fullSupplierData, error: supplierError } = await supabase
+        .from('company_supply')
+        .select(`
+          id,
+          companyid,
+          supplyname,
+          contact,
+          address,
+          businessnumber,
+          email,
+          fax,
+          website,
+          managername,
+          managertel,
+          manageremail,
+          bankaccount,
+          bankname,
+          paymentterms,
+          currency,
+          notes,
+          created,
+          updated,
+          vendproductcd
+        `)
+        .eq('id', supplier.id)
+        .single();
+
+      if (supplierError) throw supplierError;
+
+      console.log('Selected Supplier Full Data:', fullSupplierData); // 데이터 확인용 로그
+
+      if (!fullSupplierData.vendproductcd) {
+        throw new Error('공급사의 vendproductcd가 설정되지 않았습니다.');
+      }
+
+      setSelectedSupplier(fullSupplierData);
+      setSelectedCrawlingResults([]);
+      setSelectedCrawlingItem(null);
+      setCrawlingCurrentPage(1);
       
       const { data, error } = await supabase
         .from('crawlingtaskqueue')
         .select('*')
         .eq('company_supply_id', supplier.id)
         .eq('company_id', supplier.companyid)
-        .order('updated_at', { ascending: false })
+        .order('updated_at', { ascending: false });
 
-      if (error) throw error
-      setCrawlingProgress(data || [])
+      if (error) throw error;
+      setCrawlingProgress(data || []);
     } catch (error) {
-      console.error('크롤링 진행상황 조회 실패:', error)
-      setCrawlingProgress([])
+      console.error('공급사 선택 또는 크롤링 진행상황 조회 실패:', error);
+      alert(error instanceof Error ? error.message : '공급사 정보 로딩 중 오류가 발생했습니다.');
+      setCrawlingProgress([]);
     }
-  }
+  };
 
   const handleSetCrawlingtaskqueue = async () => {
     try {
@@ -223,7 +263,7 @@ export default function ProductRegistration() {
 
     if (error) throw error
       
-      // 업데이트 성공 후 선택 초기화
+      // 업데이트 성공 후 선 기화
       setSelectedCrawlingResults([])
       
       // 필요한 경우 목록 새로고침
@@ -324,17 +364,39 @@ export default function ProductRegistration() {
 
   const fetchSupplierData = async (companyid: string) => {
     try {
-      const { data, error } = await supabase.from('company_supply')
-        .select('*')
-        .eq('companyid', companyid)
+      const { data, error } = await supabase
+        .from('company_supply')
+        .select(`
+          id,
+          companyid,
+          supplyname,
+          contact,
+          address,
+          businessnumber,
+          email,
+          fax,
+          website,
+          managername,
+          managertel,
+          manageremail,
+          bankaccount,
+          bankname,
+          paymentterms,
+          currency,
+          notes,
+          created,
+          updated,
+          vendproductcd
+        `)
+        .eq('companyid', companyid);
 
       if (error) throw error;
       
-      setFilteredSuppliers(data)
+      setFilteredSuppliers(data);
     } catch (error) {
       console.log(error);
     }
-  }
+  };
 
   const fetchCrawlingBrandList = async () => {
     try {
@@ -369,43 +431,149 @@ export default function ProductRegistration() {
 
   const filteredResultsTotalPages = Math.ceil(getFilteredResults().length / PAGE_SIZE);
 
-  const handleBinding = async () => {
-    const itemsToUpdate = selectedCrawlingResults.filter(item => item.detail_status === 'completed');
-    const excludedCategories = EXCLUDED_CATEGORIES;
-    
-    const itemsWithExcludedCategories = [];
-    
-    for (const item of itemsToUpdate) {
-      const { data: detailData } = await supabase
-        .from('crawlingproductdetail')
-        .select('*')
-        .eq('product_id', item.id)
-        .single();
-        
-      if (!detailData?.detail_json?.category || 
-          excludedCategories.some(excluded => 
-            detailData.detail_json.category.toUpperCase().split('>').some(cat => 
-              cat.trim() === excluded
-            )
-          )) {
-        itemsWithExcludedCategories.push({
-          ...item,
-          category: detailData?.detail_json?.category || '카테고리 없음',
-          title: detailData.detail_json.title,
-          id: item.id
-        });
-      }
-    }
-    
-    if (itemsWithExcludedCategories.length > 0) {
-      console.log('제외된 카테고리 항목:', itemsWithExcludedCategories);
-      setExcludedItems(itemsWithExcludedCategories);
-      setSelectedCategories({});
-      setShowExcludedCategoriesModal(true);
-      return;
-    }
-    
+  const saveItem = async (detail: any, supplier: any, product_id: string) => {
     try {
+      // supplier 데이터 재확인
+      const { data: supplierData, error: supplierError } = await supabase
+        .from('company_supply')
+        .select('*')
+        .eq('companyid', user?.companyid)
+        .eq('id', supplier.id)
+        .single();
+
+      if (supplierError) throw supplierError;
+
+      // 원본 URL 가져오기 - detail.product_id 대신 item.id 사용
+      const { data: productData, error: productError } = await supabase
+        .from('crawlingproductlist')
+        .select('url, task_type')
+        .eq('id', product_id)
+        .single();
+
+      if (productError) throw productError;
+
+      // ECSKU 생성을 위한 최대 인덱스 조회
+      const { data: skuHistory, error: skuError } = await supabase
+        .from('items_sku_history')
+        .select('maxidx')
+        .eq('companyid', user?.companyid)
+        .eq('supplyid', supplier.id)
+        .single();
+
+      let nextIdx = 1;
+      if (skuError && skuError.code !== 'PGRST116') {
+        throw skuError;
+      } else if (skuHistory) {
+        nextIdx = (skuHistory.maxidx || 0) + 1;
+      }
+
+      const formattedIdx = nextIdx.toString().padStart(5, '0');
+      const ecsku = supplierData.vendproductcd 
+        ? `${supplierData.vendproductcd}${formattedIdx}`
+        : `TEMP${formattedIdx}`; // vendproductcd가 없는 경우 임시 prefix 사용
+
+      const itemData = {
+        id: crypto.randomUUID(),
+        variationsku: detail.sku?.toString() || null,
+        name: detail.title,
+        hscode: null,
+        barcode: null,
+        weight: null,
+        width: null,
+        length: null,
+        height: null,
+        memo: null,
+        thumbnailurl: detail.thumbnails?.[0] || null,
+        companyid: user?.companyid,
+        createdat: new Date().toISOString(),
+        updatedat: new Date().toISOString(),
+        brandname: detail.brand,
+        content: detail.contentHtml,
+        status: 'PENDING',
+        consumerprice: detail.price,
+        contenthtml: detail.contentHtml,
+        supplyid: supplier.id,
+        originalcontent: detail.contentHtml,
+        originalname: detail.title,
+        noticeinfo: JSON.stringify(detail.productNotice || specs),
+        purchaseprice: detail.beforeDiscount || detail.price,
+        ecsku: ecsku,
+        sellersku: detail.sku?.toString() || null,
+        orginurl: productData.url,
+        fromplatform: productData.task_type
+      };
+
+      // items 테이블 저장
+      const { data: savedItem, error: itemError } = await supabase
+        .from('items')
+        .insert([itemData])
+        .select()
+        .single();
+
+      if (itemError) throw itemError;
+
+      // items_sku_history 업데이트 또는 생성
+      const { error: historyError } = await supabase
+        .from('items_sku_history')
+        .upsert({
+          companyid: user?.companyid,
+          supplyid: supplier.id,
+          maxidx: nextIdx,
+        });
+
+      if (historyError) throw historyError;
+
+      return savedItem;
+    } catch (error) {
+      console.error('상품 저장 실패:', error);
+      throw error;
+    }
+  };
+
+  const handleBinding = async () => {
+    try {
+      const itemsToUpdate = selectedCrawlingResults.filter(item => item.detail_status === 'completed');
+      const excludedCategories = EXCLUDED_CATEGORIES;
+      
+      // 네버가 아닌 상품들만 카테고리 체크
+      const nonNaverItems = itemsToUpdate.filter(item => item.task_type !== 'naver');
+      
+      // 네이버가 아닌 상품들에 대해서만 카테고리 체크
+      const itemsWithExcludedCategories = [];
+      for (const item of nonNaverItems) {
+        const { data: detailData } = await supabase
+          .from('crawlingproductdetail')
+          .select('*')
+          .eq('product_id', item.id)
+          .single();
+
+        const category = detailData?.detail_json?.category;
+        const categoryString = typeof category === 'string' ? category : '';
+        
+        if (!categoryString || 
+            excludedCategories.some(excluded => 
+              categoryString.toUpperCase().split('>').some(cat => 
+                cat.trim() === excluded
+              )
+            )) {
+          itemsWithExcludedCategories.push({
+            ...item,
+            category: categoryString || '카테고리 없음',
+            title: detailData.detail_json.title,
+            id: item.id
+          });
+        }
+      }
+      
+      // 네이버가 아닌 상품 중 제외 카테고리가 있으면 팝업 표시
+      if (itemsWithExcludedCategories.length > 0) {
+        setExcludedItems(itemsWithExcludedCategories);
+        setSelectedCategories({});
+        setShowExcludedCategoriesModal(true);
+        return;
+      }
+
+      // 모든 상품(네이버 + 비네이버) 처리
       for (const item of itemsToUpdate) {
         const { data: detailData, error: detailError } = await supabase
           .from('crawlingproductdetail')
@@ -418,43 +586,40 @@ export default function ProductRegistration() {
         const detail = detailData.detail_json;
         const specs = detailData.specifications;
 
-        // task_type이 naver인 경우에만 카테고리 처리
+        // 상 저장
+        const savedItem = await saveItem(detail, selectedSupplier, detailData.product_id);
+
+        // 네이버 상품의 경우 카테고리 바로 저장
         if (item.task_type === 'naver' && detail.category?.path) {
           const categoryPaths = detail.category.path.split('>');
           const categoryIds = detail.category.wholeId.split('>');
           
-          // 각 깊이 카테고리 ID를 저장할 맵
-          const depthToDbId: { [key: number]: string } = {};
+          let parentCategoryId = null;
           
+          // 카테고리 층 구조 순차로 저장
           for (let i = 0; i < categoryPaths.length; i++) {
             const categoryName = categoryPaths[i].trim();
             const categoryId = categoryIds[i];
             const fullPath = categoryPaths.slice(0, i + 1).join('>');
-            
-            // 카테고리가 이미 존재하는지 확인
-            const { data: existingCategory, error: checkError } = await supabase
+
+            // 현 depth 카테고리가 이미 존재하는지 확인
+            const { data: existingCategory } = await supabase
               .from('categories')
-              .select('id')
-              .eq('categoryid', categoryId)
+              .select('*')
               .eq('platform', 'SMART_STORE')
               .eq('country', 'KR')
+              .eq('categoryid', categoryId)
               .single();
 
-            if (checkError && checkError.code !== 'PGRST116') {
-              throw checkError;
-            }
-
-            if (!existingCategory) {
-              // 새로운 UUID 생성
-              const newCategoryId = crypto.randomUUID();
-              
-              // 상위 카테고리 ID 설정
-              const parentCategoryId = i > 0 ? depthToDbId[i - 1] : null;
-
-              const { data: insertedCategory, error: categoryError } = await supabase
+            let currentCategoryId;
+            if (existingCategory) {
+              currentCategoryId = existingCategory.id;
+            } else {
+              // 새 카테고리 성
+              const { data: savedCategory, error: categoryError } = await supabase
                 .from('categories')
                 .insert({
-                  id: newCategoryId,
+                  id: crypto.randomUUID(),
                   categoryid: categoryId,
                   platform: 'SMART_STORE',
                   country: 'KR',
@@ -468,455 +633,104 @@ export default function ProductRegistration() {
                 .single();
 
               if (categoryError) throw categoryError;
-              
-              // 현재 깊이의 DB ID 저장
-              depthToDbId[i] = newCategoryId;
-            } else {
-              // 이미 존재하는 카테고리의 ID를 저장
-              depthToDbId[i] = existingCategory.id;
-            }
-          }
-
-          // 최하위 카테고리 ID 가져오기 (마지막 인덱스의 카테고리)
-          const lowestCategoryId = depthToDbId[categoryPaths.length - 1];
-
-          const itemData = {
-            id: crypto.randomUUID(),
-            variationsku: detail.sku?.toString() || null,
-            name: detail.title,
-            hscode: null,
-            barcode: null,
-            weight: null,
-            width: null,
-            length: null,
-            height: null,
-            memo: null,
-            thumbnailurl: detail.thumbnails?.[0] || null,
-            companyid: user?.companyid,
-            createdat: new Date().toISOString(),
-            updatedat: new Date().toISOString(),
-            brandname: detail.brand,
-            content: detail.contentHtml,
-            status: 'PENDING',
-            consumerprice: detail.price,
-            contenthtml: detail.contentHtml,
-            supplyid: selectedSupplier?.id,
-            originalcontent: detail.contentHtml,
-            originalname: detail.title,
-            noticeinfo: JSON.stringify(detail.productNotice || specs),
-            purchaseprice: detail.beforeDiscount || detail.price,
-          };
-
-          // 먼저 item 저장
-          const { data: savedItem, error: itemError } = await supabase
-            .from('items')
-            .insert([itemData])
-            .select()
-            .single();
-          if (itemError) throw itemError;
-
-          // naver 타입일 때만 카테고리 매핑 저장
-          const { error: mapError } = await supabase
-            .from('item_category_maps')
-            .insert({
-              id: crypto.randomUUID(),
-              companyid: user?.companyid,
-              categoryid: lowestCategoryId,
-              itemid: savedItem.id,
-              createdat: new Date().toISOString()
-            });
-
-          if (mapError) throw mapError;
-
-          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
-            const optionsData = detail.modifyOptions.map((option: any) => ({
-              id: crypto.randomUUID(), 
-              itemid: savedItem.id, 
-              original_json: JSON.stringify(option), 
-              modified_json: JSON.stringify(option), 
-              createdat: new Date().toISOString(), 
-              updatedat: new Date().toISOString(), 
-            }));
-          
-            const { error: optionsError } = await supabase
-              .from('item_options_new') 
-              .insert(optionsData);
-
-            if (optionsError) throw optionsError;
-          }
-
-          const images = [
-            ...(detail.thumbnails || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'THUMBNAIL',
-              url,
-              index: 4,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            })),
-            ...(detail.detailImages || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'MAIN_CONTENT',
-              url,
-              index,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            }))
-          ];
-
-          const { error: imageError } = await supabase
-            .from('item_images')
-            .insert(images);
-
-          if (imageError) throw imageError;
-        } else if (detail.category) {
-          // 제외할 카테고리 목록
-          const excludedCategories = ['home', 'all', 'shop'];
-          
-          // 일반 카테고리 처리
-          const categoryName = detail.category;
-          
-          // 제외할 카테고리인 경우 카테고리 처리 없이 진행
-          if (excludedCategories.includes(categoryName.toLowerCase())) {
-            const itemData = {
-              id: crypto.randomUUID(),
-              variationsku: detail.sku?.toString() || null,
-              name: detail.title,
-              hscode: null,
-              barcode: null,
-              weight: null,
-              width: null,
-              length: null,
-              height: null,
-              memo: null,
-              thumbnailurl: detail.thumbnails?.[0] || null,
-              companyid: user?.companyid,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              brandname: detail.brand,
-              content: detail.contentHtml,
-              status: 'PENDING',
-              consumerprice: detail.price,
-              contenthtml: detail.contentHtml,
-              supplyid: selectedSupplier?.id,
-              originalcontent: detail.contentHtml,
-              originalname: detail.title,
-              noticeinfo: JSON.stringify(detail.productNotice || specs),
-              purchaseprice: detail.beforeDiscount || detail.price,
-            };
-
-            // item만 저장하고 카테고리 매핑은 하지 않음
-            const { data: savedItem, error: itemError } = await supabase
-              .from('items')
-              .insert([itemData])
-              .select()
-              .single();
-
-            if (itemError) throw itemError;
-
-            // 나머지 옵션과 이미지 처리는 동일하게 진행
-            // ... 기존 옵션 이미지 처리 코드
-
-          } else {
-            // 기존의 카테고리 처리 직
-            const { data: existingCategory, error: checkError } = await supabase
-              .from('categories')
-              .select('id, categoryid')
-              .eq('name', categoryName)
-              .eq('platform', item.task_type.toUpperCase())
-              .eq('country', 'KR')
-              .single();
-
-            if (checkError && checkError.code !== 'PGRST116') {
-              throw checkError;
+              currentCategoryId = savedCategory.id;
             }
 
-            let categoryId;
-            let categoryNumericId;
-            
-            if (!existingCategory) {
-              // 새로운 UUID 생성
-              const newCategoryId = crypto.randomUUID();
+            // 다 depth의 부모 카테고리 ID로 설정
+            parentCategoryId = currentCategoryId;
 
-              // 해당 플랫폼의 마지막 카테고리 ID 조회
-              const { data: lastCategory } = await supabase
-                .from('categories')
-                .select('categoryid')
-                .eq('platform', item.task_type.toUpperCase())
-                .order('categoryid', { ascending: false })
-                .limit(1)
-                .single();
-
-              // 새로운 카테고리 ID 생성 (마지막 ID + 1 또는 초기 50000000)
-              const newNumericId = lastCategory 
-                ? (parseInt(lastCategory.categoryid) + 1).toString()
-                : '50000000';  // 네이버 스토어 카테고리와 겹치지 않도록 50000000부터 시작
-
-              const { data: insertedCategory, error: categoryError } = await supabase
-                .from('categories')
+            // 마지막 depth의 카테고리일 경우 item과 매핑
+            if (i === categoryPaths.length - 1) {
+              const { error: mapError } = await supabase
+                .from('item_category_maps')
                 .insert({
-                  id: newCategoryId,
-                  categoryid: newNumericId,
-                  platform: item.task_type.toUpperCase(),
-                  country: 'KR',
-                  parentcategoryid: null,
-                  name: categoryName,
-                  pathname: categoryName,  // 단일 카테고리이므로 이름과 동일하게
-                  createdat: new Date().toISOString(),
-                  depth: 0  // 최상위 카테고리로 처리
-                })
-                .select()
-                .single();
+                  id: crypto.randomUUID(),
+                  companyid: user?.companyid,
+                  categoryid: currentCategoryId,
+                  itemid: savedItem.id,
+                  createdat: new Date().toISOString()
+                });
 
-              if (categoryError) throw categoryError;
-              categoryId = newCategoryId;
-              categoryNumericId = newNumericId;
-            } else {
-              categoryId = existingCategory.id;
-              categoryNumericId = existingCategory.categoryid;
+              if (mapError) throw mapError;
             }
-
-            const itemData = {
-              id: crypto.randomUUID(),
-              variationsku: detail.sku?.toString() || null,
-              name: detail.title,
-              hscode: null,
-              barcode: null,
-              weight: null,
-              width: null,
-              length: null,
-              height: null,
-              memo: null,
-              thumbnailurl: detail.thumbnails?.[0] || null,
-              companyid: user?.companyid,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              brandname: detail.brand,
-              content: detail.contentHtml,
-              status: 'PENDING',
-              consumerprice: detail.price,
-              contenthtml: detail.contentHtml,
-              supplyid: selectedSupplier?.id,
-              originalcontent: detail.contentHtml,
-              originalname: detail.title,
-              noticeinfo: JSON.stringify(detail.productNotice || specs),
-              purchaseprice: detail.beforeDiscount || detail.price,
-            };
-
-            // 먼저 item 저장
-            const { data: savedItem, error: itemError } = await supabase
-              .from('items')
-              .insert([itemData])
-              .select()
-              .single();
-
-            if (itemError) throw itemError;
-
-            // 카테고리 매핑 저장
-            const { error: mapError } = await supabase
-              .from('item_category_maps')
-              .insert({
-                id: crypto.randomUUID(),
-                companyid: user?.companyid,
-                categoryid: categoryId,
-                itemid: savedItem.id,
-                createdat: new Date().toISOString()
-              });
-
-            if (mapError) throw mapError;
-
-            // 옵션 처리
-            if (detail.modifyOptions && detail.modifyOptions.length > 0) {
-              const optionsData = detail.modifyOptions.map((option: any) => ({
-                id: crypto.randomUUID(), 
-                itemid: savedItem.id, 
-                original_json: JSON.stringify(option), 
-                modified_json: JSON.stringify(option), 
-                createdat: new Date().toISOString(), 
-                updatedat: new Date().toISOString(), 
-              }));
-            
-              const { error: optionsError } = await supabase
-                .from('item_options_new') 
-                .insert(optionsData);
-
-              if (optionsError) throw optionsError;
-            }
-
-            // 이미지 처리
-            const images = [
-              ...(detail.thumbnails || []).map((url: string, index: number) => ({
-                id: crypto.randomUUID(),
-                type: 'THUMBNAIL',
-                url,
-                index: 4,
-                itemid: savedItem.id,
-                width: null,
-                height: null,
-                createdat: new Date().toISOString(),
-                updatedat: new Date().toISOString(),
-                groupalias: null,
-                groupseq: null,
-                tag: null,
-                language: 'ko'
-              })),
-              ...(detail.detailImages || []).map((url: string, index: number) => ({
-                id: crypto.randomUUID(),
-                type: 'MAIN_CONTENT',
-                url,
-                index,
-                itemid: savedItem.id,
-                width: null,
-                height: null,
-                createdat: new Date().toISOString(),
-                updatedat: new Date().toISOString(),
-                groupalias: null,
-                groupseq: null,
-                tag: null,
-                language: 'ko'
-              }))
-            ];
-
-            const { error: imageError } = await supabase
-              .from('item_images')
-              .insert(images);
-
-            if (imageError) throw imageError;
           }
-        } else {
-          // naver가 아닌 경우는 카테고리 처리 없이 item 저장
-          const itemData = {
+        }
+
+        // 옵션과 이미지 처리는 모든 상품에 공통로 적용
+        if (detail.modifyOptions && detail.modifyOptions.length > 0) {
+          const optionsData = detail.modifyOptions.map((option: any) => ({
             id: crypto.randomUUID(),
-            variationsku: detail.sku?.toString() || null,
-            name: detail.title,
-            hscode: null,
-            barcode: null,
-            weight: null,
-            width: null,
-            length: null,
-            height: null,
-            memo: null,
-            thumbnailurl: detail.thumbnails?.[0] || null,
-            companyid: user?.companyid,
+            itemid: savedItem.id,
+            original_json: JSON.stringify(option),
+            modified_json: JSON.stringify(option),
             createdat: new Date().toISOString(),
             updatedat: new Date().toISOString(),
-            brandname: detail.brand,
-            content: detail.contentHtml,
-            status: 'PENDING',
-            consumerprice: detail.price,
-            contenthtml: detail.contentHtml,
-            supplyid: selectedSupplier?.id,
-            originalcontent: detail.contentHtml,
-            originalname: detail.title,
-            noticeinfo: JSON.stringify(detail.productNotice || specs),
-            purchaseprice: detail.beforeDiscount || detail.price,
-          };
+          }));
 
-          const { data: savedItem, error: itemError } = await supabase
-            .from('items')
-            .insert([itemData])
-            .select()
-            .single();
-          if (itemError) throw itemError;
+          const { error: optionsError } = await supabase
+            .from('item_options_new')
+            .insert(optionsData);
 
-          if (detail.modifyOptions && detail.modifyOptions.length > 0) {
-            const optionsData = detail.modifyOptions.map((option: any) => ({
-              id: crypto.randomUUID(), 
-              itemid: savedItem.id, 
-              original_json: JSON.stringify(option), 
-              modified_json: JSON.stringify(option), 
-              createdat: new Date().toISOString(), 
-              updatedat: new Date().toISOString(), 
-            }));
-          
-            const { error: optionsError } = await supabase
-              .from('item_options_new') 
-              .insert(optionsData);
-
-            if (optionsError) throw optionsError;
-          }
-
-          const images = [
-            ...(detail.thumbnails || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'THUMBNAIL',
-              url,
-              index: 4,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            })),
-            ...(detail.detailImages || []).map((url: string, index: number) => ({
-              id: crypto.randomUUID(),
-              type: 'MAIN_CONTENT',
-              url,
-              index,
-              itemid: savedItem.id,
-              width: null,
-              height: null,
-              createdat: new Date().toISOString(),
-              updatedat: new Date().toISOString(),
-              groupalias: null,
-              groupseq: null,
-              tag: null,
-              language: 'ko'
-            }))
-          ];
-
-          const { error: imageError } = await supabase
-            .from('item_images')
-            .insert(images);
-
-          if (imageError) throw imageError;
+          if (optionsError) throw optionsError;
         }
+
+        // 이미지 처리
+        const images = [
+          ...(detail.thumbnails || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'THUMBNAIL',
+            url,
+            index: 4,
+            itemid: savedItem.id,
+            width: null,
+            height: null,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          })),
+          ...(detail.detailImages || []).map((url: string, index: number) => ({
+            id: crypto.randomUUID(),
+            type: 'MAIN_CONTENT',
+            url,
+            index,
+            itemid: savedItem.id,
+            width: null,
+            height: null,
+            createdat: new Date().toISOString(),
+            updatedat: new Date().toISOString(),
+            groupalias: null,
+            groupseq: null,
+            tag: null,
+            language: 'ko'
+          }))
+        ];
+
+        const { error: imageError } = await supabase
+          .from('item_images')
+          .insert(images);
+
+        if (imageError) throw imageError;
+
+        // 크롤링 상태 업이트
+        const { error: updateError } = await supabase
+          .from('crawlingproductlist')
+          .update({ detail_status: 'binding' })
+          .eq('id', item.id);
+
+        if (updateError) throw updateError;
       }
 
       setSelectedCrawlingResults([]);
       if (selectedCrawlingItem) {
         fetchCrawlingProductList(selectedCrawlingItem);
       }
-      
-    } catch (bindingError) {
-      const { error: rollbackError } = await supabase
-        .from('crawlingproductlist')
-        .upsert(
-          itemsToUpdate.map(item => ({
-            ...item,
-            detail_status: 'completed',
-            updated_at: new Date().toISOString(),
-          }))
-        )
-        .select();
 
-      if (rollbackError) {
-        console.error('Failed to rollback status:', rollbackError);
-      }
-
-      if (selectedCrawlingItem) {
-        fetchCrawlingProductList(selectedCrawlingItem);
-      }
-
-      throw new Error('바인딩 처리 중 오류가 발생했습니다.');
+    } catch (error) {
+      console.error('바인딩 처리 중 오류:', error);
+      alert('바인딩 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -926,7 +740,7 @@ export default function ProductRegistration() {
         ? prev.filter(s => s !== status)
         : [...prev, status];
       
-      // 상태가 변경될 때 페이지 초기화
+      // 상태가 변될 때 페이지 초기화
       setCrawlingResultsCurrentPage(1);
       return newStatuses;
     });
@@ -990,7 +804,7 @@ export default function ProductRegistration() {
       const newCategory = newCategories[itemId];
       if (!newCategory?.name) return;
 
-      // 동일한 이름의 카테고리가 있는지 확인 (platform도 함께 체크)
+      // 동일한 이름 카테고리가 있는지 인 (platform 함께 체크)
       const { data: existingCategory, error: checkError } = await supabase
         .from('categories')
         .select('*')
@@ -1037,7 +851,7 @@ export default function ProductRegistration() {
 
       if (error) throw error;
 
-      // 카테고리 목록 새로고침 (platform 필터 포함)
+      // 테고리 목록 새로고침 (platform 필터 포함)
       const { data: updatedCategories, error: fetchError } = await supabase
         .from('categories')
         .select('*')
@@ -1073,22 +887,52 @@ export default function ProductRegistration() {
   const handleBindingWithCategories = async () => {
     try {
       for (const item of excludedItems) {
-        const selectedCategoryId = selectedCategories[item.id];
-        if (!selectedCategoryId) continue;
+        const { data: supplierData, error: supplierError } = await supabase
+          .from('company_supply')
+          .select('*')
+          .eq('companyid', user?.companyid)
+          .eq('id', selectedSupplier.id)
+          .single();
 
-        // 상품 상세 정보 가져오기
+
         const { data: detailData, error: detailError } = await supabase
           .from('crawlingproductdetail')
           .select('*')
           .eq('product_id', item.id)
           .single();
-        
+
         if (detailError) throw detailError;
+
+        // 원본 URL 가져오기
+        const { data: productData, error: productError } = await supabase
+          .from('crawlingproductlist')
+          .select('url, task_type')
+          .eq('id', item.id)
+          .single();
+
+        if (productError) throw productError;
+
+        // ECSKU 생성을 위한 최대 인덱스 조회
+        const { data: skuHistory, error: skuError } = await supabase
+          .from('items_sku_history')
+          .select('maxidx')
+          .eq('companyid', user?.companyid)
+          .eq('supplyid', selectedSupplier.id)
+          .single();
+
+        let nextIdx = 1;
+        if (skuError && skuError.code !== 'PGRST116') {
+          throw skuError;
+        } else if (skuHistory) {
+          nextIdx = (skuHistory.maxidx || 0) + 1;
+        }
+
+        const formattedIdx = nextIdx.toString().padStart(5, '0');
+        const ecsku = `${supplierData.vendproductcd}${formattedIdx}`
 
         const detail = detailData.detail_json;
         const specs = detailData.specifications;
 
-        // 상품 데이터 생성
         const itemData = {
           id: crypto.randomUUID(),
           variationsku: detail.sku?.toString() || null,
@@ -1107,16 +951,20 @@ export default function ProductRegistration() {
           brandname: detail.brand,
           content: detail.contentHtml,
           status: 'PENDING',
-          consumerprice: detail.price,
+          consumerprice: detail.beforeDiscount || detail.price,
           contenthtml: detail.contentHtml,
-          supplyid: selectedSupplier?.id,
+          supplyid: selectedSupplier.id,
           originalcontent: detail.contentHtml,
           originalname: detail.title,
           noticeinfo: JSON.stringify(detail.productNotice || specs),
           purchaseprice: detail.beforeDiscount || detail.price,
+          ecsku: ecsku,
+          sellersku: detail.sku?.toString() || null,
+          orginurl: productData.url,
+          fromplatform: productData.task_type,  
         };
 
-        // 상품 저장
+        // items 테이블에 저장
         const { data: savedItem, error: itemError } = await supabase
           .from('items')
           .insert([itemData])
@@ -1125,18 +973,33 @@ export default function ProductRegistration() {
 
         if (itemError) throw itemError;
 
-        // 카테고리 매핑 저장
-        const { error: mapError } = await supabase
-          .from('item_category_maps')
-          .insert({
-            id: crypto.randomUUID(),
+        // items_sku_history 업데이트
+        const { error: historyError } = await supabase
+          .from('items_sku_history')
+          .upsert({
             companyid: user?.companyid,
-            categoryid: selectedCategoryId,
-            itemid: savedItem.id,
-            createdat: new Date().toISOString()
+            supplyid: selectedSupplier.id,
+            maxidx: nextIdx,
           });
 
-        if (mapError) throw mapError;
+        if (historyError) throw historyError;
+
+        // ... 나머지 코드 (카테고리 매핑, 옵션, 이미지 처리 등)
+        const selectedCategoryId = selectedCategories[item.id];
+        if (selectedCategoryId) {
+          // 카테고리 매핑 저장
+          const { error: mapError } = await supabase
+            .from('item_category_maps')
+            .insert({
+              id: crypto.randomUUID(),
+              companyid: user?.companyid,
+              categoryid: selectedCategoryId,
+              itemid: savedItem.id,
+              createdat: new Date().toISOString()
+            });
+
+          if (mapError) throw mapError;
+        }
 
         // 옵션 저장
         if (detail.modifyOptions && detail.modifyOptions.length > 0) {
@@ -1205,30 +1068,56 @@ export default function ProductRegistration() {
         if (updateError) throw updateError;
       }
 
-      // 모달 닫고 상태 초기화
       setShowExcludedCategoriesModal(false);
-      setSelectedCategories({});
-      setExcludedItems([]);
-      
-      // 크롤링 결과 목록 새로고침
+      setSelectedCrawlingResults([]);
       if (selectedCrawlingItem) {
-        await fetchCrawlingProductList(selectedCrawlingItem);
+        fetchCrawlingProductList(selectedCrawlingItem);
       }
 
-      // 선택된 크롤링 결과 초기화
-      setSelectedCrawlingResults(prev => 
-        prev.filter(item => !excludedItems.map(ei => ei.id).includes(item.id))
-      );
-
     } catch (error) {
-      console.error('카테고리 바인딩 실패:', error);
+      console.error('바인딩 처리 중 오류:', error);
       alert('바인딩 처리 중 오류가 발생했습니다.');
     }
   };
 
   const CategoryInputRow = ({ item }: { item: any }) => {
-    // 로컬 상태로 관리
-    const [mode, setMode] = useState<'select' | 'input'>('select');
+    const [mode, setMode] = useState('select');
+    const [inputValue, setInputValue] = useState('');
+
+    // 카테고리 목록 새로고침 함수
+    const refreshCategories = async () => {
+      try {
+        const { data: updatedCategories, error } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('platform', selectedCrawlingTaskType.toUpperCase())
+          .eq('country', 'KR')
+          .order('pathname', { ascending: true });
+
+        if (error) throw error;
+        setCategories(updatedCategories || []);
+      } catch (error) {
+        console.error('카테고리 목록 새���고침 실패:', error);
+      }
+    };
+
+    const handleAdd = async () => {
+      if (inputValue.trim()) {
+        setNewCategories(prev => ({
+          ...prev,
+          [item.id]: {
+            name: inputValue,
+            pathname: inputValue,
+            depth: 0,
+            parentId: null
+          }
+        }));
+        await handleAddNewCategory(item.id);
+        await refreshCategories(); // 카테고리 목록 새로고침
+        setInputValue('');
+        setMode('select');
+      }
+    };
 
     return (
       <div className="space-y-2">
@@ -1236,28 +1125,14 @@ export default function ProductRegistration() {
           <Button
             variant={mode === 'select' ? "default" : "outline"}
             size="sm"
-            onClick={() => {
-              setMode('select');
-              setNewCategories(prev => {
-                const next = { ...prev };
-                delete next[item.id];
-                return next;
-              });
-            }}
+            onClick={() => setMode('select')}
           >
             카테고리 선택
           </Button>
           <Button
             variant={mode === 'input' ? "default" : "outline"}
             size="sm"
-            onClick={() => {
-              setMode('input');
-              setSelectedCategories(prev => {
-                const next = { ...prev };
-                delete next[item.id];
-                return next;
-              });
-            }}
+            onClick={() => setMode('input')}
           >
             카테고리 직접입력
           </Button>
@@ -1300,25 +1175,14 @@ export default function ProductRegistration() {
         ) : (
           <div className="flex gap-2">
             <Input
-              value={newCategories[item.id]?.name || ''}
-              onChange={(e) => {
-                const name = e.target.value;
-                setNewCategories(prev => ({
-                  ...prev,
-                  [item.id]: {
-                    name,
-                    pathname: name,
-                    depth: 0,
-                    parentId: null
-                  }
-                }));
-              }}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
               placeholder="새 카테고리명 입력"
             />
             <Button
               size="sm"
-              onClick={() => handleAddNewCategory(item.id)}
-              disabled={!newCategories[item.id]?.name}
+              onClick={handleAdd}
+              disabled={!inputValue.trim()}
             >
               추가
             </Button>
@@ -1334,11 +1198,128 @@ export default function ProductRegistration() {
     );
   };
 
+  const handleAddCategory = async (itemId: string) => {
+    try {
+      const newCategory = newCategories[newCategoryName];
+      if (!newCategory?.name) return;
+
+      // 동일한 이름 카테고리가 있는지 확인 (platform 함께 체크)
+      const { data: existingCategory, error: checkError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .eq('name', newCategory.name)
+        .single();
+
+      if (existingCategory) {
+        alert(`이미 존재하는 카테고리입니다: ${existingCategory.pathname}`);
+        return;
+      }
+
+      const { data: lastCategory } = await supabase
+        .from('categories')
+        .select('categoryid')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .order('categoryid', { ascending: false })
+        .limit(1)
+        .single();
+
+      const newCategoryId = lastCategory 
+        ? (parseInt(lastCategory.categoryid) + 1).toString()
+        : '50000000';
+
+      const newCategoryData = {
+        id: crypto.randomUUID(),
+        categoryid: newCategoryId,
+        platform: selectedCrawlingTaskType.toUpperCase(),
+        country: 'KR',
+        parentcategoryid: newCategory.parentId,
+        name: newCategory.name,
+        pathname: newCategory.pathname,
+        createdat: new Date().toISOString(),
+        depth: newCategory.depth
+      };
+
+      const { data: insertedCategory, error } = await supabase
+        .from('categories')
+        .insert([newCategoryData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 카테고리 목록 새로고침 (platform 필터 포함)
+      const { data: updatedCategories, error: fetchError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .order('pathname', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      
+      setCategories(updatedCategories || []);
+      setSelectedCategories({
+        ...selectedCategories,
+        [newCategoryName]: insertedCategory.id
+      });
+
+      // 해당 아이템의 새 카테고리 입력 상태 초기화
+      setNewCategories(prev => {
+        const next = { ...prev };
+        delete next[newCategoryName];
+        return next;
+      });
+      setCategoryInputModes(prev => ({
+        ...prev,
+        [newCategoryName]: 'select'
+      }));
+
+    } catch (error) {
+      console.error('새 카테고리 추가 실패:', error);
+      alert('카테고리 추가중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', categoryId);
+
+      if (error) throw error;
+
+      // 카테고리 목록 새로고침 (platform 필터 포함)
+      const { data: updatedCategories, error: fetchError } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('platform', selectedCrawlingTaskType.toUpperCase())
+        .eq('country', 'KR')
+        .order('pathname', { ascending: true });
+
+      if (fetchError) throw fetchError;
+      
+      setCategories(updatedCategories || []);
+      setSelectedCategories(prev => {
+        const next = { ...prev };
+        delete next[categoryId];
+        return next;
+      });
+
+    } catch (error) {
+      console.error('카테고리 삭제 실패:', error);
+      alert('카테고리 삭제중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="container mx-auto py-6">
       <Tabs defaultValue={getInitialTab()} className="space-y-4">
         <TabsList className="w-fit mb-6">
-          <TabsTrigger value="job">직접 ���</TabsTrigger>
+          <TabsTrigger value="job">직접 등록</TabsTrigger>
           <TabsTrigger value="url">URL 입력</TabsTrigger>
           <TabsTrigger value="file">파일 업로드</TabsTrigger>
         </TabsList>
@@ -1412,10 +1393,10 @@ export default function ProductRegistration() {
                     setSelectedCrawlingResults([])
                   }}>
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="네이버 스토어 스마트" />
+                      <SelectValue placeholder="네이버 스토어 마트" />
                     </SelectTrigger>
                     <SelectContent>
-                    {crawlingSelectList.map((item) => ( // DB에서 가져온 데이터로 SelectItem 생성
+                    {crawlingSelectList.map((item) => ( // DB에서 가져온 이터로 SelectItem 생성
                         <SelectItem key={item.code} value={item.code}>{item.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1479,7 +1460,7 @@ export default function ProductRegistration() {
                               <TableCell>
                                 <p className="truncate overflow-ellipsis overflow-hidden max-w-[500px]">{item.target_url}</p>
                               </TableCell>
-                              <TableCell>{item.status}</TableCell>
+                              <TableCell>{STATUS_LABELS[item.status as StatusType] || item.status}</TableCell>
                               <TableCell>{`${item.updated_at.slice(0, 10)} ${item.updated_at.slice(11, 13)}:${item.updated_at.slice(14, 16)}`}</TableCell>
                               <TableCell className="text-right">
                                 <Button
@@ -1594,8 +1575,19 @@ export default function ProductRegistration() {
                               <TableRow 
                                 key={item.id}
                                 className={selectedCrawlingResults.includes(item) ? "bg-muted/50" : ""}
+                                onClick={() => {
+                                  // 체크박스 토글
+                                  if (selectedCrawlingResults.includes(item)) {
+                                    setSelectedCrawlingResults(
+                                      selectedCrawlingResults.filter((selected) => selected.id !== item.id)
+                                    );
+                                  } else {
+                                    setSelectedCrawlingResults([...selectedCrawlingResults, item]);
+                                  }
+                                }}
+                                style={{ cursor: 'pointer' }}
                               >
-                                <TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
                                   <input 
                                     type="checkbox"
                                     checked={selectedCrawlingResults.includes(item)}
@@ -1614,22 +1606,43 @@ export default function ProductRegistration() {
                                 <TableCell>{item.task_type}</TableCell>
                                 <TableCell>{item.brand_title}</TableCell>
                                 <TableCell>
-                                  <img src={item.image_src} alt="상품이미지" className="w-32 h-32 object-cover" />
+                                  <img 
+                                    src={item.image_src} 
+                                    alt="상품이미지" 
+                                    className="w-32 h-32 object-cover cursor-pointer" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(item.url, '_blank');
+                                    }}
+                                  />
                                 </TableCell>
                                 <TableCell>{item.item_name}</TableCell>
                                 <TableCell>{item.price}</TableCell>
                                 <TableCell>{STATUS_LABELS[item.detail_status as StatusType] || item.detail_status}</TableCell>
                                 <TableCell>
-                                  <Button
-                                    variant="outline" 
-                                    size="sm" 
-                                    disabled={item.detail_status !== 'completed'}
-                                    onClick={() => {
-                                      handleShowCrawlingProductDetail(item)
-                                    }}
-                                  >
-                                    상세보기
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline" 
+                                      size="sm" 
+                                      disabled={item.detail_status !== 'completed'}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleShowCrawlingProductDetail(item);
+                                      }}
+                                    >
+                                      상세보기
+                                    </Button>
+                                    <Button
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.open(item.url, '_blank');
+                                      }}
+                                    >
+                                      원본보기
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -1689,7 +1702,7 @@ export default function ProductRegistration() {
             <CardContent className="pt-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <Button variant="outline">파일 선택</Button>
+                  <Button variant="outline">파일 업로드</Button>
                   <span className="text-sm text-muted-foreground">택된 파일이 없습니다</span>
                 </div>
                 
@@ -1709,7 +1722,7 @@ export default function ProductRegistration() {
           </DialogHeader>
           {selectedProductDetail && (
             <div className="space-y-4">
-              {/* 1. 기본 정 섹션 */}
+              {/* 1. 기본 정보 섹션 */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">기본 정보</CardTitle>
@@ -1717,7 +1730,7 @@ export default function ProductRegistration() {
                 <CardContent>
                   <Collapsible open={isDescriptionOpen} onOpenChange={setIsDescriptionOpen}>
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">상 설명</h4>
+                      <h4 className="font-medium">상세 설명</h4>
                       <CollapsibleTrigger className="hover:bg-muted p-1 rounded">
                         {isDescriptionOpen ? (
                           <ChevronUp className="h-4 w-4" />
@@ -1735,7 +1748,7 @@ export default function ProductRegistration() {
                 </CardContent>
               </Card>
 
-              {/* 2. 이미지 섹션 */}
+              {/* 2. 이미지 션 */}
               {(selectedProductDetail.detail_json?.thumbnails || selectedProductDetail.detail_json?.detailImages) && (
                 <Card>
                   <CardHeader>
@@ -1771,11 +1784,11 @@ export default function ProductRegistration() {
                       </Collapsible>
                     )}
                     
-                    {/* 세 이미지 */}
+                    {/* 세부 이미지 */}
                     {selectedProductDetail.detail_json?.detailImages && (
                       <Collapsible open={isDetailImagesOpen} onOpenChange={setIsDetailImagesOpen}>
                         <div className="flex items-center justify-between">
-                          <h4 className="font-medium">상세 이미지 ({selectedProductDetail.detail_json.detailImages.length})</h4>
+                          <h4 className="font-medium">세부 이미지 ({selectedProductDetail.detail_json.detailImages.length})</h4>
                           <CollapsibleTrigger className="hover:bg-muted p-1 rounded">
                             {isDetailImagesOpen ? (
                               <ChevronUp className="h-4 w-4" />
@@ -1790,7 +1803,7 @@ export default function ProductRegistration() {
                               <div key={index} className="aspect-square relative">
                                 <img 
                                   src={url} 
-                                  alt={`상세 이미지 ${index + 1}`}
+                                  alt={`세부 이미지 ${index + 1}`}
                                   className="object-cover rounded-lg w-full h-full"
                                 />
                               </div>
@@ -1803,7 +1816,7 @@ export default function ProductRegistration() {
                 </Card>
               )}
 
-              {/* 3. 상세 내용 섹션 */}
+              {/* 3. 상세 내용 섹 */}
               {selectedProductDetail.detail_json?.contentHtml && (
                 <Card>
                   <CardHeader>
@@ -1873,7 +1886,7 @@ export default function ProductRegistration() {
                 </Card>
               )}
 
-              {/* 5. 기타 정보 섹 */}
+              {/* 5. 기타 정보 섹션 */}
               {Object.entries(selectedProductDetail.detail_json || {})
                 .filter(([key]) => !['options', 'contentHtml', 'productNotice', 'thumbnails', 'detailImages'].includes(key))
                 .length > 0 && (
@@ -1948,38 +1961,75 @@ export default function ProductRegistration() {
       </Dialog>
 
       <Dialog open={showExcludedCategoriesModal} onOpenChange={setShowExcludedCategoriesModal}>
-        <DialogContent className="max-w-[1200px] max-h-[90vh]">
+        <DialogContent className="max-w-[800px]">
           <DialogHeader>
-            <DialogTitle className="text-xl">제외된 카테고리 항목</DialogTitle>
+            <DialogTitle>제외된 카테고리 항목</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-muted-foreground mb-4">
-              다음 상품은 카테고리가 없거나 제외해야 할 카테고리({EXCLUDED_CATEGORIES.join(', ')})를 포함하고 있습니다.
-            </p>
-            <div className="rounded-md border">
-              <div className="max-h-[500px] overflow-y-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-white z-10">
-                    <TableRow>
-                      <TableHead className="w-[400px]">상품명</TableHead>
-                      <TableHead className="w-[200px]">현재 카테고리</TableHead>
-                      <TableHead>
-                        <span>새 카테고리</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {excludedItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="align-top font-medium">{item.title}</TableCell>
-                        <TableCell className="align-top text-sm text-muted-foreground">{item.category}</TableCell>
-                        <TableCell>
-                          <CategoryInputRow item={item} />
-                        </TableCell>
+          <div>
+            <div className="mb-6 p-4 border rounded-lg bg-muted/50">
+              <h4 className="font-medium mb-2">일괄 카테고리 선택</h4>
+              <div className="flex gap-2">
+                <Select 
+                  onValueChange={(value) => {
+                    // 모든 아이템에 대해 선택된 카테고리 적용
+                    const newSelectedCategories = { ...selectedCategories };
+                    excludedItems.forEach(item => {
+                      newSelectedCategories[item.id] = value;
+                    });
+                    setSelectedCategories(newSelectedCategories);
+                  }}
+                >
+                  <SelectTrigger className="w-[300px]">
+                    <SelectValue placeholder="카테고리 선택" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {categories
+                      .sort((a, b) => a.pathname.localeCompare(b.pathname))
+                      .map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.pathname}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // 선택된 카테고리 초기화
+                    setSelectedCategories({});
+                  }}
+                >
+                  초기화
+                </Button>
+              </div>
+            </div>
+
+            <div className="py-4">
+              <div className="rounded-md border">
+                <div className="max-h-[500px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-white z-10">
+                      <TableRow>
+                        <TableHead className="w-[400px]">상품명</TableHead>
+                        <TableHead className="w-[200px]">현재 카테고리</TableHead>
+                        <TableHead>
+                          <span>새 카테고리</span>
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {excludedItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="align-top font-medium">{item.title}</TableCell>
+                          <TableCell className="align-top text-sm text-muted-foreground">{item.category}</TableCell>
+                          <TableCell>
+                            <CategoryInputRow item={item} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </div>
           </div>
@@ -1994,6 +2044,53 @@ export default function ProductRegistration() {
               선택한 카테고리로 바인딩
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium">제외된 카테고리 항목</h3>
+        <Button
+          variant="outline"
+          onClick={() => setShowCategoryManageModal(true)}
+        >
+          카테고리 관리
+        </Button>
+      </div>
+
+      <Dialog open={showCategoryManageModal} onOpenChange={setShowCategoryManageModal}>
+        <DialogContent className="max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>카테고리 관리</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="새 카테고리명 입력"
+              />
+              <Button
+                onClick={handleAddCategory}
+                disabled={!newCategoryName.trim()}
+              >
+                추가
+              </Button>
+            </div>
+            <div className="h-[400px] overflow-y-auto">
+              {categories.map(category => (
+                <div key={category.id} className="flex justify-between items-center p-2 hover:bg-muted">
+                  <span>{category.pathname}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteCategory(category.id)}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
